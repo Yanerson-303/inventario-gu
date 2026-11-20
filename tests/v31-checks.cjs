@@ -11,7 +11,7 @@ assert(sw.includes('ui.js')&&sw.includes('ux.css'));
 for(const name of ['PC','Movil_iPhone_Android']){
  const content=file('descargas/Inventarios_GU_'+name+'.html');
  assert(content.includes('window.GUIHelp={'),'Ayuda ausente');
- assert(content.includes('INVENTARIOS GU 3.1 — CONTROL'),'Versión antigua');
+ assert(content.includes('INVENTARIOS GU 3.2 — CONTROL'),'Versión antigua');
  assert(!/<script[^>]+src=/.test(content),'Dependencias JS externas');
  assert(!/<link[^>]+rel="stylesheet"/.test(content),'CSS externo');
 }

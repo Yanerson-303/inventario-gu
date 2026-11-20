@@ -1,0 +1,26 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const dir=path.resolve(__dirname,'..'),win={},ctx={window:win,Math,Number,String,Intl,Array,Object};
+vm.runInNewContext(fs.readFileSync(path.join(dir,'metric-visuals.js'),'utf8'),ctx);
+const M=win.GUMetricVisuals;
+const products=[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'}];
+const rows=[{product:products[0],N:9,H:12,P:90},{product:products[1],N:0,H:0,P:0},{product:products[2],N:-3,H:1,P:-30}];
+assert.match(M.spark([{label:'S1',value:3},{label:'S2',value:-2}]),/<polyline/);
+assert.match(M.spark([], 'x'),/Sin períodos/);
+assert.match(M.balances(rows),/Faltante calculado/);
+assert.match(M.balances(rows),/>3</);
+assert.match(M.catalogue(rows),/Con movimientos/);
+assert.match(M.references(rows),/Negativas/);
+assert.match(M.stockTop(rows),/A/);
+assert.match(M.valueMix(rows),/negativa/);
+assert.match(M.valueMix(rows),/Composición del valor positivo/);
+assert.match(M.issueBars({categories:[{id:'zero',name:'Saldo en cero'}],counts:{zero:1}}),/Saldo en cero/);
+// No permitir inyección HTML desde nombres almacenados en el inventario.
+const polluted=M.valueMix([{product:{name:'<img onerror=alert(1)>'},N:3,P:20}]);
+assert(!polluted.includes('<img'));
+assert(polluted.includes('&lt;img'));
+assert(/aria-label="[^"]+"/.test(M.donut([{label:'A',value:1}])));
+const app=fs.readFileSync(path.join(dir,'app.js'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+for(const v of ['M.spark','M.balances','M.valueMix','M.catalogue','M.stockTop','M.references','M.issueBars','Graph.line'])assert(app.includes(v),v+' no integrado');
+assert(/\$\{collapsed\?'\+':'−'\}/.test(app),'Botón sin símbolo');
+assert(index.includes('metric-visuals.js'));
+console.log('✓ Visualizaciones, casos vacíos, iconos y escape de datos: 15 controles.');

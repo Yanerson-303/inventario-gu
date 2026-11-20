@@ -1,6 +1,6 @@
 /* Cache-first para archivos versionados; navegación con respaldo offline. */
-const VERSION='inventarios-gu-v3.1.0';
-const CORE=['./','./index.html','./styles.css','./ux.css','./ui.js','./db.js','./calc.js','./charts.js','./warehouse.js','./app.js','./insights.js','./icons.js','./install.js','./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./descargas/Inventarios_GU_PC.html','./descargas/Inventarios_GU_Movil_iPhone_Android.html'];
+const VERSION='inventarios-gu-v3.2.0';
+const CORE=['./','./index.html','./styles.css','./ux.css','./ui.js','./db.js','./calc.js','./charts.js','./metric-visuals.js','./warehouse.js','./app.js','./insights.js','./icons.js','./install.js','./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./descargas/Inventarios_GU_PC.html','./descargas/Inventarios_GU_Movil_iPhone_Android.html'];
 async function prepare(){const cache=await caches.open(VERSION);await cache.addAll(CORE);}
 self.addEventListener('install',event=>event.waitUntil(prepare().then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('inventarios-gu-')&&k!==VERSION).map(k=>caches.delete(k)));await self.clients.claim();})()));

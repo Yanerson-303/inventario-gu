@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#e8dbc6">
-  <meta name="description" content="Inventarios GU 3.1: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
-  <title>Inventarios GU 3.1 · Control de inventario</title>
+  <meta name="description" content="Inventarios GU 3.2: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
+  <title>Inventarios GU 3.2 · Control de inventario</title>
   
   
   
@@ -170,8 +170,56 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .metric-collapsed-name{display:none}.metric-collapsed .metric-collapsed-name{display:block;margin:0 12px 0 108px;line-height:47px;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.metric-collapsed .metric-toggle{z-index:2}
 @media(max-width:700px){.metric-collapsed .metric-collapsed-name{line-height:43px}}
 
+/* Inventarios GU 3.2 · Gráficos por indicador y controles de solo icono. */
+.metric-toggle,.metric-collapsed .metric-toggle{display:grid!important;place-items:center!important;width:30px!important;height:30px!important;min-height:30px!important;padding:0!important;font-size:20px!important;font-weight:600!important;line-height:1!important;border-radius:9px}
+.metric-toggle::before,.metric-collapsed .metric-toggle::before{content:none!important}
+.metric-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.metric-collapsed .metric-collapsed-name{margin-left:52px;line-height:47px}
+.stat-card.visual-stat{min-height:256px;display:flex;flex-direction:column;padding:19px 17px 15px}
+.stat-card.visual-stat .stat-label{margin:0;max-width:calc(100% - 40px);font-size:11px;min-height:25px}
+.stat-card.visual-stat .stat-value{margin:8px 0 8px;font-size:clamp(22px,2.6vw,31px);white-space:normal}
+.stat-card.visual-stat .stat-visual{margin-top:auto;min-height:92px;display:flex;align-items:center}
+.stat-card.visual-stat .stat-visual>*{width:100%}
+.metric-mini-chart{width:100%;min-width:0}
+.metric-spark{display:block;width:100%;height:73px;overflow:visible}
+.metric-mini-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:10px;line-height:1.2;margin-top:3px}
+.metric-mini-foot span{min-width:0;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.metric-mini-bars{display:grid;gap:7px;width:100%;min-width:0}
+.metric-bar-row{min-width:0}.metric-bar-top{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:3px;font-size:10px;color:var(--muted)}
+.metric-bar-top span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.metric-bar-top b{flex:none;color:var(--text);font-size:10px}
+.metric-bar-track{height:6px;background:var(--surface2);border-radius:99px;overflow:hidden}
+.metric-bar-track i{display:block;height:100%;border-radius:99px;transition:width .3s ease}
+.metric-donut-wrap{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
+.metric-donut{width:96px;height:96px;max-width:45%;flex-shrink:0;overflow:visible}
+.metric-legend{flex:1;min-width:0;display:grid;gap:5px}
+.metric-legend-row{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;min-width:0}
+.metric-legend-row i{width:7px;height:7px;flex:none;border-radius:50%}.metric-legend-row span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.metric-legend-row b{color:var(--text);flex-shrink:0;font-size:10px}
+.metric-vis-empty{font-size:11px;color:var(--muted);text-align:center;background:var(--surface2);padding:24px 8px;border-radius:10px}
+.metric-chart-note{display:block;margin-top:3px;color:var(--muted);font-size:9px;line-height:1.3}
+.forecast-chart{border-top:1px solid var(--line);padding-top:10px;margin-top:0}
+.forecast-chart .metric-mini-chart{max-width:100%}.forecast-chart .metric-spark{height:68px}
+.gu-review-chart{padding:10px 12px;border-radius:12px;background:var(--surface2)}
+.gu-review-chart .metric-mini-bars{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:13px;row-gap:8px}
+.gu-review-chart h4{font-size:11px;margin:0 0 9px;color:var(--muted)}
+.gu-trend-visual{padding:11px 13px;background:var(--surface2);border-radius:12px}
+.gu-trend-visual .metric-mini-bars{gap:9px}
+.chart-data-summary{border-top:1px solid var(--line);padding-top:9px;margin-top:10px;font-size:11px;color:var(--muted)}
+.chart-data-summary summary{cursor:pointer;font-weight:650;list-style:none}.chart-data-summary summary::before{content:'▸';margin-right:7px}.chart-data-summary[open] summary::before{content:'▾'}
+.chart-data-summary .table-scroll{margin-top:9px;max-height:205px}.chart-data-summary .data-table{font-size:11px;min-width:0}
+.dashboard-bottom .metric-panel[data-metric="actividad"] .activity-item{position:relative;margin-left:9px;padding-left:16px;border-top:0;border-left:1px solid var(--line)}
+.dashboard-bottom .metric-panel[data-metric="actividad"] .activity-item::before{content:'';position:absolute;left:-4px;top:22px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+@media(min-width:1200px){.stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1199px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.stat-card.visual-stat{min-height:235px;padding:14px 12px}.stat-card.visual-stat .stat-label{font-size:10px}.stat-card.visual-stat .stat-value{font-size:clamp(18px,5vw,24px);letter-spacing:-.6px}.metric-donut{width:69px;height:69px}.metric-donut-wrap{gap:4px}.metric-legend-row{font-size:9px}.metric-legend-row b{font-size:9px}.metric-spark{height:62px}.metric-bar-top{font-size:9px}.gu-review-chart .metric-mini-bars{grid-template-columns:1fr 1fr}.metric-toggle,.metric-collapsed .metric-toggle{width:30px!important;height:30px!important;font-size:20px!important}.metric-collapsed .metric-collapsed-name{line-height:43px;margin-left:51px}}
+@media(max-width:390px){.stat-card.visual-stat{min-height:218px;padding:12px 9px}.metric-donut-wrap{flex-direction:column;align-items:flex-start}.metric-donut{width:64px;height:64px;max-width:none}.metric-legend{width:100%}.metric-legend-row{line-height:1.15}.stat-card.visual-stat .stat-visual{min-height:112px}.gu-review-chart .metric-mini-bars{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.metric-bar-track i{transition:none}}
+
+.metric-visual-stack{width:100%;display:grid;gap:4px}
+
 </style>
 
+  
   
   
   
@@ -200,7 +248,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
         <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon" data-gu-icon="database-backup"></span><span>Copias y migración</span></button>
         <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon" data-gu-icon="settings"></span><span>Configuración</span></button>
       </nav>
-      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v3.1</span></div></div>
+      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v3.2</span></div></div>
     </aside>
     <div class="main-shell">
       <header class="topbar">
@@ -510,7 +558,95 @@ function prepare(canvas){if(!canvas)return null;const rect=canvas.getBoundingCli
 function rounded(ctx,x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,Math.max(0,w),Math.max(0,h),r);ctx.fill();}
 function bars(id,items){const c=prepare(document.getElementById(id));if(!c)return;const {ctx,w,h,accent,text,grid}=c;const left=45,right=14,top=22,bottom=41,uw=w-left-right,uh=h-top-bottom;const values=items.map(d=>Number(d.value)||0),max=Math.max(1,...values.map(Math.abs));const minV=Math.min(0,...values);const maxV=Math.max(0,...values);const range=Math.max(1,maxV-minV);const baseline=top+uh*(maxV/range);ctx.lineWidth=1;ctx.font='11px system-ui';ctx.fillStyle=text;ctx.textAlign='right';for(let i=0;i<=4;i++){const v=minV+range*i/4;const y=top+uh*(1-i/4);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(w-right,y);ctx.stroke();ctx.fillText(compact(v),left-9,y+4);}const slot=uw/Math.max(items.length,1);items.forEach((d,i)=>{const width=Math.min(48,slot*.56),x=left+slot*i+(slot-width)/2,y=top+uh*(maxV-(Number(d.value)||0))/range;ctx.fillStyle=accent;rounded(ctx,x,Math.min(y,baseline),width,Math.max(2,Math.abs(y-baseline)),6);ctx.fillStyle=text;ctx.textAlign='center';const label=String(d.label);ctx.fillText(label.length>11?label.slice(0,9)+'…':label,x+width/2,h-17);});}
 function horizontal(id,items){const c=prepare(document.getElementById(id));if(!c)return;const {ctx,w,h,accent,text,grid}=c;const left=Math.min(132,w*.34),right=55,top=14,room=Math.max(0,w-left-right),rowHeight=Math.min(52,(h-top-12)/Math.max(items.length,1));const max=Math.max(1,...items.map(x=>Math.abs(Number(x.value)||0)));ctx.font='12px system-ui';items.forEach((x,i)=>{const y=top+i*rowHeight+5;ctx.fillStyle=text;ctx.textAlign='right';const s=String(x.label);ctx.fillText(s.length>17?s.slice(0,15)+'…':s,left-10,y+15);ctx.fillStyle=grid;rounded(ctx,left,y,room,19,6);ctx.fillStyle=accent;rounded(ctx,left,y,Math.max(Math.abs(Number(x.value)||0)>0?3:0,Math.abs(Number(x.value)||0)/max*room),19,6);ctx.fillStyle=text;ctx.textAlign='left';ctx.fillText(compact(x.value),left+room+9,y+15);});}
-window.AlmendraCharts={bars,horizontal};
+function line(id,items){
+ const c=prepare(document.getElementById(id));if(!c)return;
+ const {ctx,w,h,text,grid,accent,positive}=c;
+ const data=(items||[]).filter(d=>Number.isFinite(Number(d.value)));
+ const L=w<420?39:51,R=16,T=22,B=43,CW=w-L-R,CH=h-T-B;
+ ctx.font='11px system-ui';ctx.lineWidth=1;
+ if(!data.length){ctx.textAlign='center';ctx.fillStyle=text;ctx.fillText('Sin períodos registrados',w/2,h/2);return;}
+ const vals=data.map(d=>Number(d.value)),min=Math.min(0,...vals),max=Math.max(0,...vals);
+ const delta=Math.max(1,max-min);
+ const y=v=>T+CH*(max-v)/delta;
+ const x=i=>L+CW*(data.length===1?.5:i/(data.length-1));
+ ctx.textAlign='right';ctx.fillStyle=text;
+ for(let i=0;i<=4;i++){const n=min+delta*i/4,yy=y(n);ctx.strokeStyle=grid;ctx.beginPath();ctx.moveTo(L,yy);ctx.lineTo(w-R,yy);ctx.stroke();ctx.fillText(compact(n),L-7,yy+4);}
+ const skip=Math.max(1,Math.ceil(data.length/5));
+ ctx.textAlign='center';ctx.fillStyle=text;
+ data.forEach((d,i)=>{if(i%skip!==0&&i!==data.length-1)return;const name=String(d.label??i+1);const label=name.length>11?name.slice(0,9)+'…':name;ctx.fillText(label,x(i),h-16);});
+ if(vals.every(v=>v===0)){ctx.textAlign='center';ctx.fillStyle=text;ctx.fillText('Sin movimientos registrados',w/2,Math.max(22,T+CH/2-14));}
+ ctx.strokeStyle=accent;ctx.lineJoin='round';ctx.lineCap='round';ctx.lineWidth=2.7;ctx.beginPath();data.forEach((d,i)=>i?ctx.lineTo(x(i),y(vals[i])):ctx.moveTo(x(i),y(vals[i])));ctx.stroke();
+ data.forEach((d,i)=>{ctx.beginPath();ctx.arc(x(i),y(vals[i]),data.length>18?2.1:3.3,0,Math.PI*2);ctx.fillStyle=positive;ctx.fill();ctx.strokeStyle=accent;ctx.lineWidth=1.3;ctx.stroke();});
+}
+window.AlmendraCharts={bars,horizontal,line};
+})();
+
+</script>
+<script>
+/* Inventarios GU 3.2 · Visualizaciones pequeñas con SVG, sin dependencias.
+   Son lecturas de datos; no modifican saldos ni movimientos. */
+(function () {
+'use strict';
+const esc = v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v=>Number.isFinite(Number(v))?Number(v):0;
+const fmt = v=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:1,notation:Math.abs(v)>=10000?'compact':'standard'}).format(num(v));
+const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
+function empty(label='Sin registros') {return `<div class="metric-vis-empty">${esc(label)}</div>`;}
+function spark(items, label='Evolución de los movimientos', opts={}) {
+ const data=(Array.isArray(items)?items:[]).filter(d=>d&&Number.isFinite(Number(d.value)));
+ if(!data.length)return empty('Sin períodos para graficar');
+ const vals=data.map(d=>num(d.value));
+ if(vals.every(v=>v===0)&&opts.emptyWhenZero)return empty('Sin movimientos registrados');
+ const w=240,h=76,pad=8,min=Math.min(0,...vals),max=Math.max(0,...vals),range=Math.max(1,max-min);
+ const pts=vals.map((v,i)=>[pad+(w-2*pad)*(data.length===1?.5:i/(data.length-1)),pad+(h-2*pad)*(max-v)/range]);
+ const zeroY=pad+(h-2*pad)*max/range;
+ const points=pts.map(([x,y])=>x.toFixed(2)+','+y.toFixed(2)).join(' ');
+ const dots=pts.map(([x,y])=>`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${data.length<9?2.6:1.8}" fill="var(--accent)"/>`).join('');
+ const last=fmt(vals.at(-1));
+ const values=data.map(d=>`${String(d.label??'Período')}: ${fmt(d.value)}`).join(' · ');
+ return `<div class="metric-mini-chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="metric-spark" role="img" aria-label="${esc(label)}. ${esc(values)}"><line x1="8" y1="${zeroY.toFixed(2)}" x2="232" y2="${zeroY.toFixed(2)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${dots}</svg><div class="metric-mini-foot"><span>${esc(opts.left||'Primer período')}</span><span>${esc(opts.right||`Último: ${last}`)}</span></div></div>`;
+}
+function barRows(items,label='Comparación de valores',opts={}){
+ const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value)));
+ if(!rows.length)return empty(opts.empty||'Sin datos para comparar');
+ const max=Math.max(1,...rows.map(i=>Math.abs(num(i.value))));
+ return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(rows.map(i=>`${i.label} ${fmt(i.value)}`).join(', '))}">${rows.slice(0,5).map(i=>{const amount=num(i.value),width=clamp(Math.abs(amount)/max*100,0,100);return `<div class="metric-bar-row"><div class="metric-bar-top"><span title="${esc(i.label)}">${esc(i.label)}</span><b class="mono">${esc(fmt(amount))}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(i.color||'var(--accent)')}"></i></div></div>`}).join('')}</div>`;
+}
+function donut(items,label='Distribución',opts={}){
+ const rows=(Array.isArray(items)?items:[]).map(x=>({label:String(x.label),value:Math.max(0,num(x.value)),color:x.color||'var(--accent)'}));
+ const total=rows.reduce((a,b)=>a+b.value,0);
+ if(!total)return empty(opts.empty||'Sin valores para distribuir');
+ const circumference=2*Math.PI*34;let offset=0;
+ const paths=rows.filter(r=>r.value>0).map(r=>{const len=r.value/total*circumference;const p=`<circle cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${Math.max(0,len-0.4).toFixed(2)} ${circumference.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 46 46)"/>`;offset+=len;return p;}).join('');
+ const aria=rows.map(r=>`${r.label}: ${fmt(r.value)} (${Math.round(r.value/total*100)}%)`).join('; ');
+ return `<div class="metric-donut-wrap"><svg class="metric-donut" viewBox="0 0 92 92" role="img" aria-label="${esc(label)}. ${esc(aria)}"><circle cx="46" cy="46" r="34" stroke="var(--line)" fill="none" stroke-width="12"/>${paths}<text x="46" y="45" fill="var(--text)" font-size="15" font-weight="800" text-anchor="middle">${esc(opts.center||fmt(total))}</text><text x="46" y="58" fill="var(--muted)" font-size="7" text-anchor="middle">${esc(opts.sub||'total')}</text></svg><div class="metric-legend">${rows.map(r=>`<div class="metric-legend-row"><i style="background:${esc(r.color)}"></i><span>${esc(r.label)}</span><b class="mono">${fmt(r.value)}</b></div>`).join('')}</div></div>`;
+}
+function valueMix(rows){
+ const positives=(rows||[]).filter(r=>num(r.P)>0).sort((a,b)=>b.P-a.P);
+ const first=positives.slice(0,3),others=positives.slice(3).reduce((s,r)=>s+num(r.P),0);
+ const parts=[...first.map(r=>({label:r.product.name,value:r.P})),...(others>0?[{label:'Otros',value:others,color:'var(--gold)'}]:[])];
+ const colors=['var(--accent)','var(--good)','var(--warn)'];parts.forEach((r,i)=>r.color=r.color||colors[i%colors.length]);
+ const negatives=(rows||[]).filter(r=>num(r.P)<0);
+ return `<div class="metric-visual-stack">${donut(parts,'Composición del valor positivo',{sub:'valor +',empty:'Sin valorizaciones positivas'})}${negatives.length?`<span class="metric-chart-note">${negatives.length} valorización(es) negativa(s), no incluidas en la torta.</span>`:''}</div>`;
+}
+function stockTop(rows){
+ const items=(rows||[]).filter(r=>num(r.N)>0).sort((a,b)=>b.N-a.N).slice(0,3).map(r=>({label:r.product.name,value:r.N}));
+ return barRows(items,'Unidades disponibles por producto',{empty:'No hay unidades positivas'});
+}
+function catalogue(rows){
+ const present=(rows||[]).filter(r=>num(r.H)!==0).length;
+ return donut([{label:'Con movimientos',value:present,color:'var(--accent)'},{label:'Sin movimientos',value:(rows||[]).length-present,color:'var(--line)'}],'Estado de registro del catálogo',{sub:'productos',empty:'Sin productos'});
+}
+function references(rows){
+ return donut([{label:'Con stock',value:(rows||[]).filter(r=>num(r.N)>0).length,color:'var(--good)'},{label:'En cero',value:(rows||[]).filter(r=>num(r.N)===0).length,color:'var(--warn)'},{label:'Negativas',value:(rows||[]).filter(r=>num(r.N)<0).length,color:'var(--danger)'}],'Estado de las referencias',{sub:'refs.',empty:'Sin referencias'});
+}
+function balances(rows){
+ const plus=(rows||[]).reduce((s,r)=>s+Math.max(0,num(r.N)),0);
+ const minus=(rows||[]).reduce((s,r)=>s+Math.max(0,-num(r.N)),0);
+ return `<div class="metric-visual-stack">${barRows([{label:'Saldo positivo',value:plus,color:'var(--good)'},{label:'Faltante calculado',value:minus,color:'var(--danger)'}],'Saldo positivo y faltantes')}<span class="metric-chart-note">Saldo neto = positivo − faltante.</span></div>`;
+}
+function issueBars(info){return barRows((info?.categories||[]).map(c=>({label:c.name,value:info.counts?.[c.id]||0,color:c.level==='danger'?'var(--danger)':c.level==='warn'?'var(--warn)':'var(--accent)'})),'Observaciones por tipo');}
+window.GUMetricVisuals={spark,barRows,donut,valueMix,stockTop,catalogue,references,balances,issueBars};
 })();
 
 </script>
@@ -585,13 +721,13 @@ function mount(){
 </script>
 <script>
 /*
-  INVENTARIOS GU 3.1 — CONTROL DE INVENTARIO LOCAL
+  INVENTARIOS GU 3.2 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
   Sin servicios externos, sin envío de datos y sin librerías de terceros.
 */
 (function(){
 'use strict';
-const DB=window.AlmendraDB, C=window.AlmendraCalc, Graph=window.AlmendraCharts, Insights=window.GUIInsights, Icons=window.GUIcons, Help=window.GUIHelp;
+const DB=window.AlmendraDB, C=window.AlmendraCalc, Graph=window.AlmendraCharts, Insights=window.GUIInsights, Icons=window.GUIcons, Help=window.GUIHelp, M=window.GUMetricVisuals;
 const $=(q,root=document)=>root.querySelector(q);
 const $$=(q,root=document)=>Array.from(root.querySelectorAll(q));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -683,31 +819,32 @@ function render(){
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
 const metricLabels={volumen:'Volumen semanal',saldo:'Saldo calculado',valor:'Valorización',productos:'Productos',stock:'Unidades en stock',referencias:'Referencias con stock',bodega:'Bodega 3D',proyecciones:'Proyecciones', 'grafico-semanal':'Gráfico semanal','grafico-productos':'Productos destacados',revision:'Revisión',tendencias:'Comparativa', 'vista-rapida':'Vista rápida',actividad:'Actividad'};
 function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
-function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} métrica" title="${collapsed?'Mostrar':'Minimizar'}">${collapsed?'＋ Mostrar':'− Minimizar'}</button><span class="metric-collapsed-name">${esc(metricLabels[id]||id)}</span><div class="metric-content">${html}</div></div>`}
+function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} ${esc(metricLabels[id]||'métrica')}" title="${collapsed?'Mostrar':'Minimizar'} ${esc(metricLabels[id]||'métrica')}">${collapsed?'+':'−'}</button><span class="metric-collapsed-name">${esc(metricLabels[id]||id)}</span><div class="metric-content">${html}</div></div>`}
 function renderDashboard(){
  const all=C.totals(state,state.products);
  const open=state.periods.filter(p=>!p.locked).length;
  const top=all.rows.slice().sort((a,b)=>Math.abs(b.H)-Math.abs(a.H)).slice(0,6);
  const recent=state.audit.slice(0,5),review=Insights.analyze(state,C,all.rows);
+ const weeklyValues=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
  <div class="dashboard-tools" role="group" aria-label="Personalizar indicadores"><div><strong>Panel personalizable</strong></div><div class="dashboard-tools-actions"><button type="button" class="btn btn-small" data-dashboard-panels="expand">Mostrar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="collapse">Minimizar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="reset">Restablecer vista</button><button type="button" class="btn btn-small" data-dashboard-export="csv">Exportar resumen CSV</button></div></div>
  ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Añade productos para comenzar.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
- ${metricBox('volumen',statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦'))}
- ${metricBox('saldo',statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎'))}
- ${metricBox('valor',statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈'))}
- ${metricBox('productos',statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇'))}
- ${metricBox('stock',statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣'))}
- ${metricBox('referencias',statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉'))}
+ ${metricBox('volumen',statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦',M.spark(weeklyValues.slice(-12),'Volumen por período',{left:'Por semanas',right:'Últimos registros',emptyWhenZero:true})))}
+ ${metricBox('saldo',statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎',M.balances(all.rows)))}
+ ${metricBox('valor',statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈',M.valueMix(all.rows)))}
+ ${metricBox('productos',statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇',M.catalogue(all.rows)))}
+ ${metricBox('stock',statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣',M.stockTop(all.rows)))}
+ ${metricBox('referencias',statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉',M.references(all.rows)))}
  </section>
  <div class="dashboard-visual-row">
  ${metricBox('bodega',window.AlmendraWarehouse?.render(state,C)||'')}
  ${metricBox('proyecciones',renderProjections())}
  </div>
- <div class="dashboard-grid">${metricBox('grafico-semanal',`<article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>`)}
- ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
+ <div class="dashboard-grid">${metricBox('grafico-semanal',`<article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Línea temporal de cantidades registradas por período"></canvas><details class="chart-data-summary"><summary>Ver cifras por semana</summary><div class="table-scroll"><table class="data-table"><thead><tr><th>Período</th><th class="num">Unidades</th></tr></thead><tbody>${weeklyValues.map(x=>`<tr><td>${esc(x.label)}</td><td class="num">${format(x.value)}</td></tr>`).join('')}</tbody></table></div></details></article>`)}
+ ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?`<canvas class="chart" id="top-chart" role="img" aria-label="Barras de productos con mayor registro"></canvas><details class="chart-data-summary"><summary>Ver cifras</summary><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Unidades</th></tr></thead><tbody>${top.map(r=>`<tr><td>${esc(r.product.name)}</td><td class="num">${format(r.H)}</td></tr>`).join('')}</tbody></table></div></details>`:empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
  <div class="dashboard-v3-row">${metricBox('revision',renderReviewCenter(review))}${metricBox('tendencias',renderPeriodComparison(review))}</div>
  <div class="dashboard-bottom">${metricBox('vista-rapida',`<article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>`)}
  ${metricBox('actividad',`<article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article>`)}</div>`;
@@ -718,13 +855,14 @@ function renderReviewCenter(info){
  const n=Math.min(filtered.length,reviewShowAll?500:6);
  return `<section class="card card-pad control-center" aria-label="Centro de revisión del inventario"><div class="card-title gu-control-head"><div><span class="eyebrow">CONTROL Y CALIDAD DE DATOS</span><h3>Centro de revisión</h3><p>Observaciones para verificar, sin modificar tus registros.</p></div><button class="btn btn-small" data-action="csv-review">Exportar revisión</button></div>
  <div class="health-strip"><div><span>Referencias con registros</span><strong>${info.referenced} / ${info.productCount}</strong><div class="health-meter"><i style="width:${info.productCount?Math.round(info.referenced/info.productCount*100):0}%"></i></div></div><div><span>Períodos con fechas válidas</span><strong>${info.dated} / ${info.periodCount}</strong><div class="health-meter"><i style="width:${info.periodCount?Math.round(info.dated/info.periodCount*100):0}%"></i></div></div><div><span>Saldos negativos</span><strong class="${info.critical?'text-danger':''}">${info.critical}</strong><small>Requieren revisión</small></div></div>
+ <div class="gu-review-chart"><h4>Observaciones por tipo</h4>${M.issueBars(info)}</div>
  <div class="review-filters" role="group" aria-label="Filtrar observaciones"><button type="button" data-review-filter="all" aria-pressed="${reviewFilter==='all'}" class="${reviewFilter==='all'?'active':''}">Todas <b>${info.issues.length}</b></button>${info.categories.map(c=>`<button type="button" data-review-filter="${c.id}" aria-pressed="${reviewFilter===c.id}" class="${reviewFilter===c.id?'active':''}">${esc(c.name)} <b>${info.counts[c.id]}</b></button>`).join('')}</div>
  <div class="review-list">${filtered.length?filtered.slice(0,n).map(i=>`<div class="review-row"><span class="review-state ${i.id==='negative'?'risk':i.id==='zero'?'caution':''}">${esc(info.categories.find(c=>c.id===i.id)?.name||i.id)}</span><div class="review-row-info"><b>${esc(i.name)}</b><small>${esc(i.detail)}</small></div><button type="button" class="btn btn-small" data-action="edit-product" data-id="${esc(i.productId)}">Revisar</button></div>`).join(''):`<div class="review-empty">No hay observaciones con este filtro.</div>`}</div>
  <div class="review-actions"><small class="muted">${filtered.length>n?`${n} / ${filtered.length}`:`${filtered.length} casos`}</small>${filtered.length>6?`<button type="button" class="btn btn-small" data-review-more="1" aria-expanded="${reviewShowAll}">${reviewShowAll?'Ver menos':'Ver más'}</button>`:''}</div></section>`;
 }
 function renderPeriodComparison(info){
  const comp=Insights.comparison(state,C);
- return `<section class="card card-pad trend-card" aria-label="Comparativa de períodos"><div class="card-title"><div><span class="eyebrow">EVOLUCIÓN DE LOS REGISTROS</span><h3>Comparativa de períodos</h3><p>Últimos dos períodos según el orden de registro.</p></div><span class="badge">DESCRIPTIVO</span></div>${comp?`<div class="trend-pair"><div><span>${esc(comp.previousLabel)}</span><strong>${format(comp.previous)}</strong></div><div><span>${esc(comp.currentLabel)}</span><strong>${format(comp.current)}</strong></div></div><div class="trend-change"><span class="${comp.difference<0?'text-danger':comp.difference>0?'text-good':''}">${comp.difference>0?'+':''}${format(comp.difference)} unidades</span><small>${comp.percent===null?'Sin base anterior para calcular porcentaje':(comp.percent>0?'+':'')+format(comp.percent)+'% frente al período anterior'}</small></div>`:'<div class="review-empty">Se necesitan al menos dos períodos para comparar sus movimientos.</div>'}<div class="trend-info"><div><span class="trend-dot"></span><b>${format(info.productCount,0)}</b><small>Productos en el catálogo</small></div><div><span class="trend-dot success"></span><b>${format(info.referenced,0)}</b><small>Con movimientos registrados</small></div></div><p class="review-foot">Una variación de registros no demuestra ventas, ganancias ni demanda futura. Usa las fechas y el contexto de tus operaciones.</p><button class="btn btn-small trend-open" data-nav="weekly">Consultar semanas</button></section>`;
+ return `<section class="card card-pad trend-card" aria-label="Comparativa de períodos"><div class="card-title"><div><span class="eyebrow">EVOLUCIÓN DE LOS REGISTROS</span><h3>Comparativa de períodos</h3><p>Últimos dos períodos según el orden de registro.</p></div><span class="badge">DESCRIPTIVO</span></div>${comp?`<div class="trend-pair"><div><span>${esc(comp.previousLabel)}</span><strong>${format(comp.previous)}</strong></div><div><span>${esc(comp.currentLabel)}</span><strong>${format(comp.current)}</strong></div></div><div class="trend-change"><span class="${comp.difference<0?'text-danger':comp.difference>0?'text-good':''}">${comp.difference>0?'+':''}${format(comp.difference)} unidades</span><small>${comp.percent===null?'Sin base anterior para calcular porcentaje':(comp.percent>0?'+':'')+format(comp.percent)+'% frente al período anterior'}</small></div>`:'<div class="review-empty">Se necesitan al menos dos períodos para comparar sus movimientos.</div>'}${comp?`<div class="gu-trend-visual">${M.barRows([{label:comp.previousLabel,value:comp.previous},{label:comp.currentLabel,value:comp.current}],'Comparativa entre los últimos dos períodos')}</div>`:''}<div class="trend-info"><div><span class="trend-dot"></span><b>${format(info.productCount,0)}</b><small>Productos en el catálogo</small></div><div><span class="trend-dot success"></span><b>${format(info.referenced,0)}</b><small>Con movimientos registrados</small></div></div><p class="review-foot">Una variación de registros no demuestra ventas, ganancias ni demanda futura. Usa las fechas y el contexto de tus operaciones.</p><button class="btn btn-small trend-open" data-nav="weekly">Consultar semanas</button></section>`;
 }
 function exportReviewCSV(){
  const info=Insights.analyze(state,C);
@@ -755,19 +893,19 @@ function renderProjections(){
   if(!start||!end||!Number.isFinite(+start)||!Number.isFinite(+end)||end<start)return null;
   const days=Math.floor((end-start)/86400000)+1;
   if(days<1||days>366)return null;
-  return {days,quantity:state.products.reduce((sum,pr)=>sum+C.qty(state,p.id,pr.id),0)};
+  return {label:p.label,start:p.start,days,quantity:state.products.reduce((sum,pr)=>sum+C.qty(state,p.id,pr.id),0)};
  }).filter(Boolean);
  const days=observations.reduce((sum,p)=>sum+p.days,0);
  const quantity=observations.reduce((sum,p)=>sum+p.quantity,0);
  const daily=days?quantity/days:null;
  const periods=[['Diaria',1],['Semanal',7],['Mensual',30],['Anual',365]];
  const ready=daily!==null&&observations.length>0;
- return `<section class="card forecast-card" aria-label="Proyección de movimiento"><div class="card-title"><div><h3>Proyección de movimiento</h3><p>Estimación según los registros y fechas de los períodos.</p></div><span class="badge">ESTIMACIÓN</span></div><div class="forecast-grid">${periods.map(([label,span])=>`<div class="forecast-item"><span>${label}</span><strong class="mono">${ready?format(daily*span):'—'}</strong><small>${ready?'unidades estimadas':'Sin datos fechados'}</small></div>`).join('')}</div><p class="forecast-note">${ready?`Base: ${format(days,0)} días con fechas válidas · ${observations.length} períodos · Mes 30 días · Año 365 · No equivale a ventas.`:'Para calcular proyecciones, registra las fechas de inicio y fin de al menos un período semanal. No se inventan datos.'}</p></section>`;
+ return `<section class="card forecast-card" aria-label="Proyección de movimiento"><div class="card-title"><div><h3>Proyección de movimiento</h3><p>Estimación según los registros y fechas de los períodos.</p></div><span class="badge">ESTIMACIÓN</span></div><div class="forecast-grid">${periods.map(([label,span])=>`<div class="forecast-item"><span>${label}</span><strong class="mono">${ready?format(daily*span):'—'}</strong><small>${ready?'unidades estimadas':'Sin datos fechados'}</small></div>`).join('')}</div><div class="forecast-chart">${ready?M.spark(observations.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(o=>({label:o.label,value:o.quantity/o.days})),'Ritmo diario registrado por período',{left:'Ritmo por período',right:'Unid./día'}):M.spark([],'Sin fechas')}</div><p class="forecast-note">${ready?`Base: ${format(days,0)} días con fechas válidas · ${observations.length} períodos · Mes 30 días · Año 365 · No equivale a ventas.`:'Para calcular proyecciones, registra las fechas de inicio y fin de al menos un período semanal. No se inventan datos.'}</p></section>`;
 }
-function statCard(label,value,foot,icon){return `<article class="card stat-card"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div><div class="stat-foot">${esc(foot)}</div></article>`;}
+function statCard(label,value,foot,icon,visual=''){return `<article class="card stat-card ${visual?'visual-stat':''}"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div>${visual?`<div class="stat-visual">${visual}</div>`:''}<div class="stat-foot">${esc(foot)}</div></article>`;}
 function drawDashboard(){
  const weekly=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
- Graph.bars('weekly-chart',weekly.slice(-14));
+ Graph.line('weekly-chart',weekly.slice(-14));
  const top=state.products.map(p=>({label:p.name,value:C.result(state,p).H})).sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)).slice(0,6);
  if(top.length)Graph.horizontal('top-chart',top);
 }
@@ -1100,7 +1238,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-review-more]'))
 document.addEventListener('click',e=>{const b=e.target.closest('[data-final-filter]');if(!b)return;finalFilter=b.dataset.finalFilter;page=0;render();});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-client-filter]');if(!b)return;clientFilter=b.dataset.clientFilter;render();});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-density-change]');if(!b||!state)return;const v=b.dataset.densityChange;if(!['comfortable','compact'].includes(v)||v===state.settings.density)return;mutation('Densidad de interfaz: '+v,()=>state.settings.density=v);});
-document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'＋ Mostrar':'− Minimizar';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=collapsed?'Mostrar':'Minimizar';if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
+document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'+':'−';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=(collapsed?'Mostrar ':'Minimizar ')+(metricLabels[btn.dataset.metricToggle]||'métrica');btn.setAttribute('aria-label',btn.title);if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}

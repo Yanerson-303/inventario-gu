@@ -1,4 +1,4 @@
-# Inventarios GU 3.1 — control de inventario web
+# Inventarios GU 3.2 — control de inventario web
 
 Aplicación **100 % estática** construida con HTML, CSS y JavaScript separados. Se diseñó a partir del PDF «Documentación técnica de funcionamiento y replicación — Software.xlsx» del 20 de noviembre de 2026. **Ese PDF no incluye los nombres, cantidades ni precios reales del Excel**, así que el catálogo empieza vacío.
 
@@ -72,3 +72,6 @@ Edición 3.1: detalles en `README_3_1.md`.
 
 
 Edición 3.1: detalles en `README_3_1.md`.
+
+
+Versión 3.2: ver `CAMBIOS_3_2.md`.
