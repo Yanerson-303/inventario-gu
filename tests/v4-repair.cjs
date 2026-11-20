@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const dir=path.resolve(__dirname,'..'),w={},c={window:w,Number,String,Math,Object,Array,Set,Map,Date,RegExp};
+vm.runInNewContext(fs.readFileSync(path.join(dir,'calc.js'),'utf8'),c);
+vm.runInNewContext(fs.readFileSync(path.join(dir,'gu4-core.js'),'utf8'),c);
+const G=w.GU4Core,C=w.AlmendraCalc;
+const s={products:[{id:'a',name:'Producto A',category:'Antigua',unit:'unidad',quantityN:1,quantityV:2,value:99,average:10,boxes:4}],periods:[{id:'w1',start:'2026-10-01',end:'2026-10-07'},{id:'w2',start:'2026-10-08',end:'2026-10-14'}],movements:{w1:{a:{c1:10}},w2:{a:{c1:15}}}};
+G.ensure(s);const rows=G.validateImport([{name:'Producto A',value:'130'}, {name:'Producto B',value:'45'}],s);
+const result=G.applyProducts(s,rows,'update',()=>'b','2026-11-20');
+assert.equal(result.updated,1);assert.equal(result.added,1);
+assert.equal(s.products[0].quantityN,1);assert.equal(s.products[0].quantityV,2);assert.equal(s.products[0].boxes,4);assert.equal(s.products[0].value,130);
+assert.equal(s.products[1].value,45);assert.equal(s.products[1].quantityV,0);
+const c1=G.makeCount(s,C,[{productId:'a',counted:20}],'2026-11-20','testcount');
+G.cancelCount(s,c1.id,'2026-11-20');assert.equal(c1.status,'cancelled');assert.throws(()=>G.applyCount(s,C,c1.id),/ya aplicado|no disponible/);assert.equal(s.products[0].quantityN,1);
+assert.equal(G.normalizeGu4(s.gu4,s).counts[0].status,'cancelled');
+const s2={...s,periods:[...s.periods.slice(0,1),{id:'w2',start:'2026-10-06',end:'2026-10-14'}]};
+assert.equal(G.forecasts(s2,C).available,false);assert.match(G.forecasts(s2,C).reason,/superpuestas/);
+console.log('✓ Importaciones parciales sin pérdida de campos; cancelación de conteos; fechas superpuestas.');

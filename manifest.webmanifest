@@ -1,8 +1,8 @@
 {
   "id": "./index.html",
-  "name": "Inventarios GU 4.0 · Gestión de inventario",
+  "name": "Inventarios GU 4.0.1 · Gestión de inventario",
   "short_name": "Inventarios GU",
-  "description": "Inventarios GU 4.0: bodega por posiciones reales, conteos, alertas, Excel, informes, analíticas y trabajo offline.",
+  "description": "Inventarios GU: bodega por posiciones, conteos físicos, alertas, Excel, panel adaptable y trabajo offline.",
   "lang": "es-CO",
   "dir": "ltr",
   "start_url": "./index.html",

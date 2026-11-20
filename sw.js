@@ -1,7 +1,7 @@
 /* Cache-first para archivos versionados; navegación con respaldo offline. */
-const VERSION='inventarios-gu-v4.0.0';
-const CORE=['./','./index.html','./styles.css','./ux.css','./gu4.css','./gu4.css','./gu4.css','./gu4.css','./gu4.css','./ui.js','./motion.js','./db.js','./calc.js','./charts.js','./chart-hover.js','./metric-visuals.js','./warehouse.js','./jszip.min.js','./gu4-core.js','./gu4-excel.js','./gu4-views.js','./app.js','./insights.js','./icons.js','./install.js','./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./descargas/Inventarios_GU_PC.html','./descargas/Inventarios_GU_Movil_iPhone_Android.html'];
-async function prepare(){const cache=await caches.open(VERSION);await cache.addAll(CORE);}
+const VERSION='inventarios-gu-v4.0.1';
+const CORE=['./','./index.html','./styles.css','./ux.css','./gu4.css','./ui.js','./motion.js','./db.js','./calc.js','./charts.js','./chart-hover.js','./metric-visuals.js','./warehouse.js','./jszip.min.js','./gu4-core.js','./gu4-excel.js','./gu4-views.js','./app.js','./insights.js','./icons.js','./install.js','./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./descargas/Inventarios_GU_PC.html','./descargas/Inventarios_GU_Movil_iPhone_Android.html'];
+async function prepare(){const cache=await caches.open(VERSION);await cache.addAll(CORE);const missing=await Promise.all(CORE.map(url=>cache.match(url).then(x=>!x)));if(missing.some(Boolean))throw new Error('Faltan archivos sin conexión.');return true;}
 self.addEventListener('install',event=>event.waitUntil(prepare().then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('inventarios-gu-')&&k!==VERSION).map(k=>caches.delete(k)));await self.clients.claim();})()));
 self.addEventListener('message',event=>{if(event.data?.type==='CACHE_OFFLINE'){event.waitUntil(prepare().then(()=>event.ports[0]?.postMessage({ok:true})).catch(error=>event.ports[0]?.postMessage({ok:false,error:String(error)})));}});

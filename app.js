@@ -549,9 +549,10 @@ document.addEventListener('click',async e=>{
   mutation('Se liberó ubicación física',()=>GU4.clearLocation(state,key));return;}
  const drop=e.target.closest('[data-gu4-remove-stage]');if(drop){gu4Stage=gu4Stage.filter(l=>l.productId!==drop.dataset.gu4RemoveStage);render();return;}
  if(e.target.closest('[data-gu4-create-count]')){if(!gu4Stage.length)return;
-  try{mutation('Conteo físico registrado',()=>GU4.makeCount(state,C,gu4Stage,new Date().toISOString(),id('count')));gu4Stage=[];render();toast('Conteo guardado para revisión.');}catch(err){toast(err.message);}return;}
+  if(mutation('Conteo físico registrado',()=>GU4.makeCount(state,C,gu4Stage,new Date().toISOString(),id('count')))){gu4Stage=[];render();toast('Conteo guardado para revisión.');}return;}
+ const cancelCountBtn=e.target.closest('[data-gu4-cancel-count]');if(cancelCountBtn){if(!confirm('¿Cancelar este conteo pendiente? No modificará el inventario.'))return;mutation('Conteo físico cancelado',()=>GU4.cancelCount(state,cancelCountBtn.dataset.gu4CancelCount));return;}
  const detail=e.target.closest('[data-gu4-show-count]');if(detail){const c=state.gu4.counts.find(x=>x.id===detail.dataset.gu4ShowCount);if(!c)return;
-  showModal('Detalle del conteo',`<div class="modal-body"><p>${esc(stamp(c.createdAt))} · ${c.status==='applied'?'Ajustado':'Pendiente'}</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead><tbody>${c.lines.map(l=>`<tr><td>${esc(l.productName)}</td><td>${format(l.expected)}</td><td>${format(l.counted)}</td><td>${format(l.difference)}</td></tr>`).join('')}</tbody></table></div></div>`,`<button class="btn" data-action="close-modal">Cerrar</button>`);return;}
+  showModal('Detalle del conteo',`<div class="modal-body"><p>${esc(stamp(c.createdAt))} · ${c.status==='applied'?'Ajustado':c.status==='cancelled'?'Cancelado':'Pendiente'}</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead><tbody>${c.lines.map(l=>`<tr><td>${esc(l.productName)}</td><td>${format(l.expected)}</td><td>${format(l.counted)}</td><td>${format(l.difference)}</td></tr>`).join('')}</tbody></table></div></div>`,`<button class="btn" data-action="close-modal">Cerrar</button>`);return;}
  const apply=e.target.closest('[data-gu4-apply-count]');if(apply){const count=state.gu4.counts.find(x=>x.id===apply.dataset.gu4ApplyCount);if(!count)return;
   const delta=count.lines.reduce((n,l)=>n+Math.abs(l.difference),0);
   if(!confirm(`¿Aplicar los ajustes de ${count.lines.length} producto(s)? Diferencia absoluta: ${format(delta)}. Se modificará Cantidad.N y se guardará una copia preventiva.`))return;
@@ -572,7 +573,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
  const form=e.target;
- if(form.id==='gu4-location-form'){e.preventDefault();const d=new FormData(form);try{mutation('Ubicación física guardada',()=>GU4.setLocation(state,C,Object.fromEntries(d)));toast('Posición actualizada.');}catch(err){toast(err.message);}return;}
+ if(form.id==='gu4-location-form'){e.preventDefault();const d=new FormData(form);if(mutation('Ubicación física guardada',()=>GU4.setLocation(state,C,Object.fromEntries(d))))toast('Posición actualizada.');return;}
  if(form.id==='gu4-count-form'){e.preventDefault();const d=new FormData(form),productId=String(d.get('productId')||''),counted=Number(d.get('counted'));
   if(!state.products.some(p=>p.id===productId)||!Number.isFinite(counted)||counted<0){toast('Selecciona un producto y una cantidad válida.');return;}
   gu4Stage=gu4Stage.filter(x=>x.productId!==productId).concat([{productId,counted}]);render();return;}

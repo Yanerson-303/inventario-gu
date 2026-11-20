@@ -7,7 +7,7 @@ const aliases={name:['producto','nombre','nombreproducto','name','referencia'],c
 function toRecords(rows){if(!rows.length)throw new Error('La hoja está vacía.');const keys=rows[0].map(v=>norm(v));let cols={};
  for(const field of fields){const idx=keys.findIndex(k=>aliases[field].some(alias=>norm(alias)===k));if(idx>=0)cols[field]=idx;}
  if(cols.name===undefined)throw new Error('Falta la columna «Producto» o «Nombre». Descarga la plantilla XLSX.');
- return rows.slice(1).filter(r=>String(r[cols.name]??'').trim()).slice(0,10000).map(row=>{const out={};for(const field of fields)out[field]=cols[field]===undefined?(field==='unit'?'unidad':field==='category'?'':'0'):String(row[cols[field]]??'');return out;});
+ return rows.slice(1).filter(r=>String(r[cols.name]??'').trim()).slice(0,10000).map(row=>{const out={};for(const field of fields){if(cols[field]===undefined)continue;const value=row[cols[field]];if(value===undefined||value===null||String(value).trim()==='')continue;out[field]=String(value);}return out;});
 }
 function csvParse(input){let rows=[],row=[],cell='',quote=false,delimiter=';';const first=(String(input).replace(/^\ufeff/,'').split(/\r?\n/,1)[0]||'');if((first.match(/\t/g)||[]).length>(first.match(/;/g)||[]).length)delimiter='\t';else if((first.match(/,/g)||[]).length>(first.match(/;/g)||[]).length)delimiter=',';
  const text=String(input).replace(/^\ufeff/,'');for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quote&&text[i+1]==='"'){cell+='"';i++;}else quote=!quote;}else if(c===delimiter&&!quote){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(s=>s!==''))rows.push(row);row=[];cell='';}else cell+=c;}

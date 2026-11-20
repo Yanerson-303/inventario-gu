@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#e8dbc6">
   <meta name="description" content="Inventarios GU 4.0: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
-  <title>Inventarios GU 4.0 · Control de inventario</title>
+  <title>Inventarios GU 4.0.1 · Control de inventario</title>
   
   
   
@@ -531,7 +531,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
         <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon" data-gu-icon="database-backup"></span><span>Copias y migración</span></button>
         <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon" data-gu-icon="settings"></span><span>Configuración</span></button>
       </nav>
-      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v4.0</span></div></div>
+      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v4.0.1</span></div></div>
     </aside>
     <div class="main-shell">
       <header class="topbar">
@@ -1145,7 +1145,7 @@ function mount(){
  text('ENTRADA',0,183,2,'#fff',12);
  if(!s.paused)s.frame++;raf=requestAnimationFrame(draw);
  }
- function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${esc(p.name)}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;}
+ function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${p.level?`N${p.level} · P${p.position} · `:''}${esc(p.name)}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;}
  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);canvas._drag={x:e.clientX,y:e.clientY,angle:s.angle,moved:false};});
  canvas.addEventListener('pointermove',e=>{if(!canvas._drag)return;const dx=e.clientX-canvas._drag.x;if(Math.abs(dx)>4)canvas._drag.moved=true;s.angle=canvas._drag.angle+dx*.007;});
  canvas.addEventListener('pointerup',e=>{const d=canvas._drag;canvas._drag=null;if(!d||d.moved)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let best=null,dist=Infinity;for(const h of hit){const dd=Math.hypot(x-h.p[0],y-h.p[1]);if(dd<dist){dist=dd;best=h.k;}}if(dist<85*scale&&best!==null)detail(best);});
@@ -1185,6 +1185,7 @@ function ensure(s){if(!s.gu4||typeof s.gu4!=='object')s.gu4=defaultV4();const d=
  if(!Array.isArray(d.locations))d.locations=[];if(!Array.isArray(d.counts))d.counts=[];
  if(!Array.isArray(d.panelOrder))d.panelOrder=[];if(!d.panelSizes||typeof d.panelSizes!=='object')d.panelSizes={};
  if(!d.preferences||typeof d.preferences!=='object')d.preferences={warningThreshold:3};
+ if(!Number.isFinite(Number(d.preferences.warningThreshold))||Number(d.preferences.warningThreshold)<0)d.preferences.warningThreshold=3;
  d.version=1;return d;
 }
 function stock(s,C,pid){const p=s.products.find(p=>p.id===pid);return p?qty(C.result(s,p).N):0;}
@@ -1212,6 +1213,10 @@ function makeCount(s,C,lines,now=new Date().toISOString(),ident='count-'+Date.no
  if(!accepted.length)throw new Error('Añade un producto al conteo.');
  const entry={id:ident,createdAt:now,status:'pending',lines:accepted,appliedAt:null};ensure(s).counts.unshift(entry);ensure(s).counts=ensure(s).counts.slice(0,300);return entry;
 }
+function cancelCount(s,ident,now=new Date().toISOString()){
+ const item=ensure(s).counts.find(c=>c.id===ident);if(!item||item.status!=='pending')throw new Error('El conteo no está pendiente.');
+ item.status='cancelled';item.cancelledAt=now;return item;
+}
 function applyCount(s,C,ident,now=new Date().toISOString()){
  const entry=ensure(s).counts.find(x=>x.id===ident);if(!entry||entry.status!=='pending')throw new Error('Conteo no disponible o ya aplicado.');
  for(const line of entry.lines){const p=s.products.find(p=>p.id===line.productId);if(!p||Math.abs(stock(s,C,p.id)-qty(line.expected))>1e-7)throw new Error('El stock cambió desde el conteo. Crea un conteo nuevo antes de ajustar.');}
@@ -1225,8 +1230,15 @@ function validateImport(raw,s){const existing=new Set(s.products.map(p=>p.name.t
  for(const row of raw.slice(0,LIMIT)){
   const name=String(row.name??'').trim().slice(0,110);if(!name)continue;
   const key=name.toLocaleLowerCase('es');const numeric=['quantityN','quantityV','value','average','boxes'];
-  const product={name,category:String(row.category||'').slice(0,70),unit:String(row.unit||'unidad').slice(0,30)||'unidad'};
-  for(const field of numeric){const source=String(row[field]??'0').trim().replace(',','.');const v=Number(source);if(!Number.isFinite(v)||Math.abs(v)>1e12)throw new Error(`Valor inválido en ${field} para ${name}.`);product[field]=v;}
+  const product={name};
+  if(Object.hasOwn(row,'category'))product.category=String(row.category||'').slice(0,70);
+  if(Object.hasOwn(row,'unit'))product.unit=String(row.unit||'unidad').slice(0,30)||'unidad';
+  for(const field of numeric){
+   if(!Object.hasOwn(row,field)||String(row[field]).trim()==='')continue;
+   const source=String(row[field]).trim().replace(',','.');const v=Number(source);
+   if(!Number.isFinite(v)||Math.abs(v)>1e12)throw new Error(`Valor inválido en ${field} para ${name}.`);
+   product[field]=v;
+  }
   if(dupe.has(key))throw new Error(`Producto repetido dentro del archivo: ${name}.`);dupe.add(key);
   result.push({...product,exists:existing.has(key)});
  }
@@ -1234,9 +1246,10 @@ function validateImport(raw,s){const existing=new Set(s.products.map(p=>p.name.t
 }
 function applyProducts(s,imported,mode,idGen,now){if(!['only-new','update'].includes(mode))throw new Error('Modo de importación inválido.');let added=0,updated=0,skipped=0;
  for(const item of imported){const p=s.products.find(p=>p.name.trim().toLocaleLowerCase('es')===item.name.toLocaleLowerCase('es'));
- const fields={name:item.name,category:item.category,unit:item.unit,quantityN:item.quantityN,quantityV:item.quantityV,value:item.value,average:item.average,boxes:item.boxes};
+ const defaults={category:'',unit:'unidad',quantityN:0,quantityV:0,value:0,average:0,boxes:0};
+ const fields=Object.fromEntries(['name','category','unit','quantityN','quantityV','value','average','boxes'].filter(k=>Object.hasOwn(item,k)).map(k=>[k,item[k]]));
  if(p){if(mode==='only-new'){skipped++;continue;}Object.assign(p,fields);updated++;}
- else{s.products.push({id:idGen(),createdAt:now,...fields});added++;}}
+ else{s.products.push({id:idGen(),createdAt:now,...defaults,...fields});added++;}}
  return {added,updated,skipped};
 }
 function normalizeGu4(source,s){const out=defaultV4(),input=source&&typeof source==='object'?source:{};
@@ -1245,7 +1258,7 @@ function normalizeGu4(source,s){const out=defaultV4(),input=source&&typeof sourc
   if(!l||!validProducts.has(l.productId)||![1,2,3].includes(Number(l.rack))||![1,2].includes(Number(l.level))||!Number.isInteger(Number(l.position))||Number(l.position)<1||Number(l.position)>8||!Number.isFinite(Number(l.qty))||Number(l.qty)<=0)continue;
   const item={productId:l.productId,rack:Number(l.rack),level:Number(l.level),position:Number(l.position),qty:Number(l.qty)},key=slot(item);if(!occupied.has(key)){occupied.add(key);out.locations.push(item);}
  }
- if(Array.isArray(input.counts))out.counts=input.counts.slice(0,300).filter(c=>c&&validId(c.id)&&['pending','applied'].includes(c.status)&&Array.isArray(c.lines)).map(c=>({id:c.id,createdAt:String(c.createdAt||'').slice(0,40),status:c.status,appliedAt:c.appliedAt?String(c.appliedAt).slice(0,40):null,lines:c.lines.slice(0,1000).filter(l=>l&&validId(l.productId)).map(l=>({productId:l.productId,productName:String(l.productName||'').slice(0,110),expected:qty(l.expected),counted:qty(l.counted),difference:qty(l.difference)})),adjustments:Array.isArray(c.adjustments)?c.adjustments.slice(0,1000).filter(x=>x&&validId(x.productId)).map(x=>({productId:x.productId,before:qty(x.before),after:qty(x.after)})):[]}));
+ if(Array.isArray(input.counts))out.counts=input.counts.slice(0,300).filter(c=>c&&validId(c.id)&&['pending','applied','cancelled'].includes(c.status)&&Array.isArray(c.lines)).map(c=>({id:c.id,createdAt:String(c.createdAt||'').slice(0,40),status:c.status,appliedAt:c.appliedAt?String(c.appliedAt).slice(0,40):null,cancelledAt:c.cancelledAt?String(c.cancelledAt).slice(0,40):null,lines:c.lines.slice(0,1000).filter(l=>l&&validId(l.productId)).map(l=>({productId:l.productId,productName:String(l.productName||'').slice(0,110),expected:qty(l.expected),counted:qty(l.counted),difference:qty(l.difference)})),adjustments:Array.isArray(c.adjustments)?c.adjustments.slice(0,1000).filter(x=>x&&validId(x.productId)).map(x=>({productId:x.productId,before:qty(x.before),after:qty(x.after)})):[]}));
  out.panelOrder=Array.isArray(input.panelOrder)?input.panelOrder.filter(x=>typeof x==='string'&&/^[a-z0-9-]+$/.test(x)).slice(0,50):[];
  if(input.panelSizes&&typeof input.panelSizes==='object')for(const [k,v]of Object.entries(input.panelSizes)){if(/^[a-z0-9-]+$/.test(k)&&['wide','normal'].includes(v))out.panelSizes[k]=v;}
  out.preferences.warningThreshold=Math.min(100000,Math.max(0,qty(input.preferences?.warningThreshold??3)));
@@ -1253,6 +1266,8 @@ function normalizeGu4(source,s){const out=defaultV4(),input=source&&typeof sourc
 }
 function forecasts(s,C){const periods=s.periods.filter(p=>/^\d{4}-\d{2}-\d{2}$/.test(p.start)&&/^\d{4}-\d{2}-\d{2}$/.test(p.end)&&Date.parse(p.end)>=Date.parse(p.start)).sort((a,b)=>b.end.localeCompare(a.end)).slice(0,8);
  const nDays=p=>Math.max(1,Math.round((Date.parse(p.end)-Date.parse(p.start))/86400000)+1);
+ const ordered=periods.slice().sort((a,b)=>a.start.localeCompare(b.start));
+ if(ordered.some((p,i)=>i>0&&p.start<=ordered[i-1].end))return {available:false,periods:periods.length,days:0,reason:'Hay períodos con fechas superpuestas. Corrige el registro antes de proyectar movimientos.'};
  let sum=0,days=0;for(const p of periods){days+=nDays(p);sum+=s.products.reduce((a,prod)=>a+qty(C.qty(s,p.id,prod.id)),0);}
  if(periods.length<2||days<7)return {available:false,periods:periods.length,days,reason:'Se necesitan al menos 2 períodos fechados y 7 días de historial.'};
  const perDay=sum/days;const avg=sum/periods.length;
@@ -1268,7 +1283,7 @@ function alerts(s,C,daysSince=Date.now()){
  if(s.products.length&&!recent)issues.push({type:'info',name:'Historial',message:'Sin períodos fechados en los últimos 30 días',id:''});
  return issues.slice(0,1000);
 }
-window.GU4Core={ensure,allocations,stock,slot,setLocation,clearLocation,makeCount,applyCount,validateImport,applyProducts,normalizeGu4,forecasts,alerts};
+window.GU4Core={ensure,allocations,stock,slot,setLocation,clearLocation,makeCount,applyCount,cancelCount,validateImport,applyProducts,normalizeGu4,forecasts,alerts};
 })();
 
 </script>
@@ -1282,7 +1297,7 @@ const aliases={name:['producto','nombre','nombreproducto','name','referencia'],c
 function toRecords(rows){if(!rows.length)throw new Error('La hoja está vacía.');const keys=rows[0].map(v=>norm(v));let cols={};
  for(const field of fields){const idx=keys.findIndex(k=>aliases[field].some(alias=>norm(alias)===k));if(idx>=0)cols[field]=idx;}
  if(cols.name===undefined)throw new Error('Falta la columna «Producto» o «Nombre». Descarga la plantilla XLSX.');
- return rows.slice(1).filter(r=>String(r[cols.name]??'').trim()).slice(0,10000).map(row=>{const out={};for(const field of fields)out[field]=cols[field]===undefined?(field==='unit'?'unidad':field==='category'?'':'0'):String(row[cols[field]]??'');return out;});
+ return rows.slice(1).filter(r=>String(r[cols.name]??'').trim()).slice(0,10000).map(row=>{const out={};for(const field of fields){if(cols[field]===undefined)continue;const value=row[cols[field]];if(value===undefined||value===null||String(value).trim()==='')continue;out[field]=String(value);}return out;});
 }
 function csvParse(input){let rows=[],row=[],cell='',quote=false,delimiter=';';const first=(String(input).replace(/^\ufeff/,'').split(/\r?\n/,1)[0]||'');if((first.match(/\t/g)||[]).length>(first.match(/;/g)||[]).length)delimiter='\t';else if((first.match(/,/g)||[]).length>(first.match(/;/g)||[]).length)delimiter=',';
  const text=String(input).replace(/^\ufeff/,'');for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quote&&text[i+1]==='"'){cell+='"';i++;}else quote=!quote;}else if(c===delimiter&&!quote){row.push(cell);cell='';}else if((c==='\n'||c==='\r')&&!quote){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(s=>s!==''))rows.push(row);row=[];cell='';}else cell+=c;}
@@ -1351,7 +1366,7 @@ function counts(s,C,stage){const entries=s.gu4.counts;
  ${subnav()}
  <div class="gu4-two-col">${card('Preparar conteo',`<form id="gu4-count-form" class="gu4-form"><div class="field"><label>Producto</label><select required class="form-control" name="productId">${productOption(s)}</select></div><div class="field"><label>Cantidad física</label><input required type="number" name="counted" min="0" step="any" class="form-control"></div><button class="btn" type="submit">Añadir al conteo</button></form><div class="gu4-staged">${stage.length?stage.map(l=>`<div class="gu4-stage-row"><span>${esc(s.products.find(p=>p.id===l.productId)?.name||'Producto')} · <b>${fmt(l.counted)}</b></span><button class="icon-btn" type="button" data-gu4-remove-stage="${esc(l.productId)}" aria-label="Quitar del conteo">×</button></div>`).join(''):'<span class="muted">Sin productos añadidos.</span>'}</div><button class="btn btn-primary" data-gu4-create-count="1" ${!stage.length?'disabled':''}>Guardar conteo (${stage.length})</button>`,'clipboard-check')}
  ${card('Proceso seguro',`<ol class="gu4-process"><li>Registrar cantidades físicas.</li><li>Comparar con el saldo calculado N.</li><li>Confirmar discrepancias.</li><li>Aplicar el ajuste solo si se autoriza.</li></ol><p class="gu4-help-text">El ajuste modifica <b>Cantidad.N</b> para conservar la fórmula original H − (Cantidad.N + Cantidad.V). Antes de aplicarlo se crea un respaldo interno.</p>`,'shield-check')}</div>
- ${card('Conteos registrados',`<div class="gu4-count-list">${entries.length?entries.map(c=>`<div class="gu4-count-item"><div><b>Conteo ${esc(c.id.slice(-8))}</b><small>${esc(date(c.createdAt))} · ${c.lines.length} producto(s) · ${c.status==='applied'?'Ajustado':'Pendiente de confirmación'}</small></div><div class="gu4-count-actions"><button class="btn btn-small" data-gu4-show-count="${esc(c.id)}">Detalles</button>${c.status==='pending'?`<button class="btn btn-primary btn-small" data-gu4-apply-count="${esc(c.id)}">Revisar ajuste</button>`:''}</div></div>`).join(''):'<div class="muted">Todavía no hay conteos.</div>'}</div>`,'history')}`;
+ ${card('Conteos registrados',`<div class="gu4-count-list">${entries.length?entries.map(c=>`<div class="gu4-count-item"><div><b>Conteo ${esc(c.id.slice(-8))}</b><small>${esc(date(c.createdAt))} · ${c.lines.length} producto(s) · ${c.status==='applied'?'Ajustado':c.status==='cancelled'?'Cancelado':'Pendiente de confirmación'}</small></div><div class="gu4-count-actions"><button class="btn btn-small" data-gu4-show-count="${esc(c.id)}">Detalles</button>${c.status==='pending'?`<button class="btn btn-primary btn-small" data-gu4-apply-count="${esc(c.id)}">Revisar ajuste</button><button class="btn btn-small" data-gu4-cancel-count="${esc(c.id)}">Cancelar</button>`:''}</div></div>`).join(''):'<div class="muted">Todavía no hay conteos.</div>'}</div>`,'history')}`;
 }
 function intelligence(s,C){const core=window.GU4Core,f=core.forecasts(s,C),alerts=core.alerts(s,C),totals=C.totals(s,s.products),threshold=s.gu4.preferences.warningThreshold;
  const byType={danger:alerts.filter(a=>a.type==='danger').length,warn:alerts.filter(a=>a.type==='warn').length,info:alerts.filter(a=>a.type==='info').length};
@@ -1368,9 +1383,9 @@ function intelligence(s,C){const core=window.GU4Core,f=core.forecasts(s,C),alert
 function imports(s,C,pending){const view=pending||[];
  return `${header('HERRAMIENTAS EMPRESARIALES','Excel e informes','Importa un catálogo con vista previa o exporta un informe verificable.')}
  ${subnav()}
- <div class="gu4-two-col">${card('Importar productos',`<p class="muted gu4-tight">Archivos Excel .xlsx, CSV y TSV. La primera hoja debe tener columna «Producto».</p><div class="gu4-form-actions"><button type="button" class="btn btn-primary" data-gu4-choose-sheet="1">Elegir archivo</button><button type="button" class="btn" data-gu4-template="1">Descargar plantilla</button></div><p class="gu4-help-text">Los cambios se muestran antes de guardarse. No importa movimientos históricos ni reemplaza el respaldo JSON.</p>`,'file-up')}
+ <div class="gu4-two-col">${card('Importar productos',`<p class="muted gu4-tight">Archivos Excel .xlsx, CSV y TSV. La primera hoja debe tener columna «Producto».</p><div class="gu4-form-actions"><button type="button" class="btn btn-primary" data-gu4-choose-sheet="1">Elegir archivo</button><button type="button" class="btn" data-gu4-template="1">Descargar plantilla</button></div><p class="gu4-help-text">Solo se importan las columnas presentes. Las columnas ausentes no borrarán cantidades existentes.</p>`,'file-up')}
  ${card('Exportar y presentar',`<div class="gu4-form gu4-report-buttons"><button class="btn btn-primary" data-gu4-xlsx="1">Informe Excel completo</button><button class="btn" data-gu4-print="1">Imprimir / Guardar como PDF</button><button class="btn" data-action="csv-final">Consolidado CSV</button><button class="btn" data-action="export-json">Copia íntegra JSON</button></div><p class="gu4-help-text">El PDF se genera mediante la función Imprimir del navegador; el respaldo JSON es el único formato recomendado para migración completa.</p>`,'file-chart-column-increasing')}</div>
- ${view.length?card('Vista previa · '+view.length+' productos',`<div class="gu4-import-summary"><b>${view.filter(x=>x.exists).length} coincidencias</b><span>·</span><b>${view.filter(x=>!x.exists).length} nuevos</b></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Categoría</th><th class="num">Precio</th><th>Estado</th></tr></thead><tbody>${view.slice(0,35).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td class="num">${money(p.value,s)}</td><td>${p.exists?'Coincide':'Nuevo'}</td></tr>`).join('')}</tbody></table></div><form id="gu4-import-form" class="gu4-import-options"><label><input type="radio" name="importMode" value="only-new" checked> Solo productos nuevos</label><label><input type="radio" name="importMode" value="update"> Actualizar por nombre y agregar nuevos</label><button class="btn btn-primary" type="submit">Confirmar importación</button><button class="btn" type="button" data-gu4-cancel-sheet="1">Cancelar</button></form><p class="gu4-help-text">Antes de importar se crea una copia preventiva del inventario actual.</p>`,'table-2'):''}
+ ${view.length?card('Vista previa · '+view.length+' productos',`<div class="gu4-import-summary"><b>${view.filter(x=>x.exists).length} coincidencias</b><span>·</span><b>${view.filter(x=>!x.exists).length} nuevos</b></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Categoría</th><th class="num">Precio</th><th>Estado</th></tr></thead><tbody>${view.slice(0,35).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td class="num">${Object.hasOwn(p,'value')?money(p.value,s):'<span class="muted">Sin cambios</span>'}</td><td>${p.exists?'Coincide':'Nuevo'}</td></tr>`).join('')}</tbody></table></div><form id="gu4-import-form" class="gu4-import-options"><label><input type="radio" name="importMode" value="only-new" checked> Solo productos nuevos</label><label><input type="radio" name="importMode" value="update"> Actualizar por nombre y agregar nuevos</label><button class="btn btn-primary" type="submit">Confirmar importación</button><button class="btn" type="button" data-gu4-cancel-sheet="1">Cancelar</button></form><p class="gu4-help-text">Los datos de productos existentes que no figuren en el archivo se mantienen. Se crea un respaldo antes de importar.</p>`,'table-2'):''}
  ${card('Respaldo y almacenamiento',`<div class="gu4-info-grid"><span>Motor</span><b>${esc(window.AlmendraDB.mode()||'Comprobando')}</b><span>Productos</span><b>${s.products.length}</b><span>Períodos</span><b>${s.periods.length}</b><span>Ubicaciones físicas</span><b>${s.gu4.locations.length}</b><span>Conteos archivados</span><b>${s.gu4.counts.length}</b></div><div class="gu4-form-actions"><button class="btn" data-nav="backup">Ver respaldos</button><button class="btn" data-gu4-offline-help="1">Uso offline</button></div>`,'database-backup')}`;
 }
 function dashboardOverview(s,C){const core=window.GU4Core,a=core.allocations(s,C),alerts=core.alerts(s,C),f=core.forecasts(s,C);
@@ -1943,9 +1958,10 @@ document.addEventListener('click',async e=>{
   mutation('Se liberó ubicación física',()=>GU4.clearLocation(state,key));return;}
  const drop=e.target.closest('[data-gu4-remove-stage]');if(drop){gu4Stage=gu4Stage.filter(l=>l.productId!==drop.dataset.gu4RemoveStage);render();return;}
  if(e.target.closest('[data-gu4-create-count]')){if(!gu4Stage.length)return;
-  try{mutation('Conteo físico registrado',()=>GU4.makeCount(state,C,gu4Stage,new Date().toISOString(),id('count')));gu4Stage=[];render();toast('Conteo guardado para revisión.');}catch(err){toast(err.message);}return;}
+  if(mutation('Conteo físico registrado',()=>GU4.makeCount(state,C,gu4Stage,new Date().toISOString(),id('count')))){gu4Stage=[];render();toast('Conteo guardado para revisión.');}return;}
+ const cancelCountBtn=e.target.closest('[data-gu4-cancel-count]');if(cancelCountBtn){if(!confirm('¿Cancelar este conteo pendiente? No modificará el inventario.'))return;mutation('Conteo físico cancelado',()=>GU4.cancelCount(state,cancelCountBtn.dataset.gu4CancelCount));return;}
  const detail=e.target.closest('[data-gu4-show-count]');if(detail){const c=state.gu4.counts.find(x=>x.id===detail.dataset.gu4ShowCount);if(!c)return;
-  showModal('Detalle del conteo',`<div class="modal-body"><p>${esc(stamp(c.createdAt))} · ${c.status==='applied'?'Ajustado':'Pendiente'}</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead><tbody>${c.lines.map(l=>`<tr><td>${esc(l.productName)}</td><td>${format(l.expected)}</td><td>${format(l.counted)}</td><td>${format(l.difference)}</td></tr>`).join('')}</tbody></table></div></div>`,`<button class="btn" data-action="close-modal">Cerrar</button>`);return;}
+  showModal('Detalle del conteo',`<div class="modal-body"><p>${esc(stamp(c.createdAt))} · ${c.status==='applied'?'Ajustado':c.status==='cancelled'?'Cancelado':'Pendiente'}</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead><tbody>${c.lines.map(l=>`<tr><td>${esc(l.productName)}</td><td>${format(l.expected)}</td><td>${format(l.counted)}</td><td>${format(l.difference)}</td></tr>`).join('')}</tbody></table></div></div>`,`<button class="btn" data-action="close-modal">Cerrar</button>`);return;}
  const apply=e.target.closest('[data-gu4-apply-count]');if(apply){const count=state.gu4.counts.find(x=>x.id===apply.dataset.gu4ApplyCount);if(!count)return;
   const delta=count.lines.reduce((n,l)=>n+Math.abs(l.difference),0);
   if(!confirm(`¿Aplicar los ajustes de ${count.lines.length} producto(s)? Diferencia absoluta: ${format(delta)}. Se modificará Cantidad.N y se guardará una copia preventiva.`))return;
@@ -1966,7 +1982,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
  const form=e.target;
- if(form.id==='gu4-location-form'){e.preventDefault();const d=new FormData(form);try{mutation('Ubicación física guardada',()=>GU4.setLocation(state,C,Object.fromEntries(d)));toast('Posición actualizada.');}catch(err){toast(err.message);}return;}
+ if(form.id==='gu4-location-form'){e.preventDefault();const d=new FormData(form);if(mutation('Ubicación física guardada',()=>GU4.setLocation(state,C,Object.fromEntries(d))))toast('Posición actualizada.');return;}
  if(form.id==='gu4-count-form'){e.preventDefault();const d=new FormData(form),productId=String(d.get('productId')||''),counted=Number(d.get('counted'));
   if(!state.products.some(p=>p.id===productId)||!Number.isFinite(counted)||counted<0){toast('Selecciona un producto y una cantidad válida.');return;}
   gu4Stage=gu4Stage.filter(x=>x.productId!==productId).concat([{productId,counted}]);render();return;}
