@@ -2,7 +2,7 @@
 (function(){'use strict';
 const fmt=n=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(n);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let scene=null,raf=0;
+let scene=null,raf=0;let lastFrame=0;
 function render(state,C){
  const products=(state.products||[]).map(p=>({name:p.name,qty:Math.max(0,Number(C.result(state,p).N)||0)}));
  const racks=[[],[],[]];products.forEach((p,i)=>racks[i%3].push(p));
@@ -20,7 +20,7 @@ function mount(){
  function cube(x,y,z,w,d,h,colors){const p=(xx,yy,zz)=>[xx,yy,zz];polygon([p(x,y,z),p(x+w,y,z),p(x+w,y+d,z),p(x,y+d,z)],'#66717a');polygon([p(x,y,z),p(x,y+d,z),p(x,y+d,z+h),p(x,y,z+h)],colors[1]);polygon([p(x+w,y,z),p(x+w,y+d,z),p(x+w,y+d,z+h),p(x+w,y,z+h)],colors[2]);polygon([p(x,y,z+h),p(x+w,y,z+h),p(x+w,y+d,z+h),p(x,y+d,z+h)],colors[0]);}
  function line(a,b,color,width=2){const p=project(...a),q=project(...b);ctx.beginPath();ctx.moveTo(...p);ctx.lineTo(...q);ctx.strokeStyle=color;ctx.lineWidth=width*scale;ctx.stroke();}
  function text(t,x,y,z,color='#fff',size=12){const p=project(x,y,z);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`700 ${Math.max(9,size*scale)}px system-ui,sans-serif`;ctx.lineWidth=3;ctx.strokeStyle='rgba(13,25,35,.75)';ctx.strokeText(t,...p);ctx.fillStyle=color;ctx.fillText(t,...p);}
- function draw(){if(!canvas.isConnected){cancelAnimationFrame(raf);return;}const r=canvas.getBoundingClientRect();if(Math.abs(r.width-W)>1||Math.abs(r.height-H)>1)resize();ctx.clearRect(0,0,W,H);const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#172535');bg.addColorStop(1,'#263d4e');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ function draw(now=0){if(!canvas.isConnected){cancelAnimationFrame(raf);return;}if(document.hidden){raf=requestAnimationFrame(draw);return;}if(now-lastFrame<42){raf=requestAnimationFrame(draw);return;}lastFrame=now;const r=canvas.getBoundingClientRect();if(Math.abs(r.width-W)>1||Math.abs(r.height-H)>1)resize();ctx.clearRect(0,0,W,H);const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#172535');bg.addColorStop(1,'#263d4e');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
  // Suelo industrial, cuadrícula, muros abiertos, carriles y entrada.
  polygon([[-350,-190,0],[350,-190,0],[350,190,0],[-350,190,0]],'#8c989f','#a9b7c0');
  for(let x=-350;x<=350;x+=50)line([x,-190,.3],[x,190,.3],'#a5b1b8',.6);
@@ -60,7 +60,7 @@ function mount(){
  canvas.addEventListener('wheel',e=>{e.preventDefault();s.zoom=Math.max(.65,Math.min(1.7,s.zoom*(e.deltaY>0?.92:1.08)));resize();},{passive:false});
  canvas.addEventListener('pointercancel',()=>canvas._drag=null);
  document.querySelectorAll('[data-warehouse]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.warehouse;if(v==='left')s.angle-=.22;else if(v==='right')s.angle+=.22;else if(v==='in')s.zoom=Math.min(1.7,s.zoom*1.13);else if(v==='out')s.zoom=Math.max(.65,s.zoom/1.13);else if(v==='reset'){s.angle=-.72;s.zoom=1;s.selected=-1;}else if(v.startsWith('rack'))detail(Number(v.slice(4)));resize();}));
- resize();draw();
+ resize();raf=requestAnimationFrame(draw);
  }
  window.AlmendraWarehouse={render,mount};
 })();
