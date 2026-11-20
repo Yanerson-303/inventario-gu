@@ -89,7 +89,7 @@ function render(){
  if(!state)return;updateHeader();syncTheme();
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
- if(view==='dashboard')requestAnimationFrame(drawDashboard);
+ if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
 }
 function renderDashboard(){
  const all=C.totals(state,state.products);
@@ -469,7 +469,7 @@ $('#quick-theme').addEventListener('click',()=>{if(!state)return;mutation('Cambi
 $('#quick-backup').addEventListener('click',()=>{if(state)exportJSON().catch(e=>toast(e.message));});
 $('#backup-file').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';await handleFile(file);});
 window.addEventListener('storage',e=>{if(e.key!=='almendra-last-revision'||!state)return;try{const note=JSON.parse(e.newValue);if(note.tabId!==tabId){storageConflict=true;indicator('Otra pestaña modificó los datos','error');render();}}catch{}});
-window.addEventListener('resize',()=>{if(view==='dashboard')requestAnimationFrame(drawDashboard);});
+window.addEventListener('resize',()=>{if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});});
 async function init(){
  try{
   const loaded=await DB.load();
