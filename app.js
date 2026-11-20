@@ -99,6 +99,7 @@ function renderDashboard(){
  return `${heading('VISTA GENERAL','Tu negocio, en perspectiva','Todos los períodos y productos, actualizados con cada registro.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
  ${!state.products.length?`<div class="banner"><div><h3>Tu espacio está listo para comenzar</h3><p>El PDF no incluía productos originales. Añade productos o activa datos de demostración para explorar la interfaz.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
+ ${window.AlmendraWarehouse?.render(state,C)||''}
  <section class="stats-grid" aria-label="Indicadores generales">
  ${statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦')}
  ${statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎')}
