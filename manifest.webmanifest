@@ -1,8 +1,8 @@
 {
   "id": "./index.html",
-  "name": "Inventarios GU 3.4 · Gestión de inventario",
+  "name": "Inventarios GU 4.0 · Gestión de inventario",
   "short_name": "Inventarios GU",
-  "description": "Gestión de inventarios local con bodega 3D, diagnóstico, analíticas, copias y funcionamiento sin conexión.",
+  "description": "Inventarios GU 4.0: bodega por posiciones reales, conteos, alertas, Excel, informes, analíticas y trabajo offline.",
   "lang": "es-CO",
   "dir": "ltr",
   "start_url": "./index.html",

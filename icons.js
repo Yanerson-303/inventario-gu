@@ -23,6 +23,15 @@ const paths={
  'alert-triangle':'<path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>',
  'check-circle':'<circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/>',
  'panel-right-open':'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18m-6-12 3 3-3 3"/>',
+ 'clipboard-check':'<path d="M9 4h6M9 3h6v3H9zM8 5H5v16h14V5h-3M8 13l2 2 5-5"/>',
+ 'file-up':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 19V11m-3 3 3-3 3 3"/>',
+ 'map-pin':'<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
+ 'clipboard-list':'<rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 4h6M9 8h6M8 13h.01M11 13h6M8 17h.01M11 17h6"/>',
+ 'shield-alert':'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v5m0 3h.01"/>',
+ 'file-chart-column-increasing':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 18v-4m4 4v-8m4 8v-6"/>',
+ 'table-2':'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 10h18M10 10v11"/>',
+ 'list':'<path d="M8 5h13M8 12h13M8 19h13M3 5h.01M3 12h.01M3 19h.01"/>',
+ 'bell':'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
  'filter':'<path d="M3 4h18l-7 8v7l-4 2v-9L3 4Z"/>'
 };
 const aliases={'◫':'layout-dashboard','▦':'calendar-days','▤':'layers','◇':'package','◎':'users','◴':'history','⇅':'database-backup','⚙':'settings','▣':'boxes','◉':'activity','◈':'trending-up'};

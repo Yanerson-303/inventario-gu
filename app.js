@@ -1,11 +1,11 @@
 /*
-  INVENTARIOS GU 3.4 — CONTROL DE INVENTARIO LOCAL
+  INVENTARIOS GU 4.0 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
   Sin servicios externos, sin envío de datos y sin librerías de terceros.
 */
 (function(){
 'use strict';
-const DB=window.AlmendraDB, C=window.AlmendraCalc, Graph=window.AlmendraCharts, Insights=window.GUIInsights, Icons=window.GUIcons, Help=window.GUIHelp, M=window.GUMetricVisuals;
+const DB=window.AlmendraDB, C=window.AlmendraCalc, Graph=window.AlmendraCharts, Insights=window.GUIInsights, Icons=window.GUIcons, Help=window.GUIHelp, M=window.GUMetricVisuals, GU4=window.GU4Core, G4Views=window.GU4Views, G4Excel=window.GU4Excel;
 const $=(q,root=document)=>root.querySelector(q);
 const $$=(q,root=document)=>Array.from(root.querySelectorAll(q));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,10 +21,11 @@ const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
 let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',reviewFilter='all',reviewShowAll=false,finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false,weeklyFocusNext=null;
+let gu4Stage=[],gu4Sheet=null,gu4LayoutEditing=false;
 const tabId=id('tab');
-const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración'};
+const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',warehouse4:'Bodega física 4.0',counts4:'Conteos físicos',intelligence4:'Predicciones y alertas',imports4:'Excel e informes'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},audit:[]};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -88,10 +89,12 @@ function productButton(p){return `<button class="product-link" title="Editar ${e
 function statusBalance(n){return `<span class="${n<0?'text-danger':n>0?'text-good':''} mono">${format(n)}</span>`;}
 function render(){
  if(!state)return;updateHeader();syncTheme();
- const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings};
+ const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,warehouse4:()=>G4Views.warehouse(state,C),counts4:()=>G4Views.counts(state,C,gu4Stage),intelligence4:()=>G4Views.intelligence(state,C),imports4:()=>G4Views.imports(state,C,gu4Sheet)};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
+ if(view==='dashboard')G4Views?.layoutDashboard($('#main-content'),state,gu4LayoutEditing);
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
  if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
+ if(view==='warehouse4')requestAnimationFrame(()=>window.AlmendraWarehouse?.mount());
  if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
@@ -320,7 +323,7 @@ async function removeProduct(productId){
  const p=state.products.find(x=>x.id===productId);if(!p)return;
  if(!confirm(`¿Eliminar «${p.name}»? Se borrarán sus cantidades, precios y totales semanales. Se creará una copia interna preventiva.`))return;
  await removalCheckpoint('antes de eliminar producto');
- mutation(`Producto eliminado: ${p.name}`,()=>{state.products=state.products.filter(x=>x.id!==productId);for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];});
+ mutation(`Producto eliminado: ${p.name}`,()=>{state.products=state.products.filter(x=>x.id!==productId);if(state.gu4?.locations)state.gu4.locations=state.gu4.locations.filter(x=>x.productId!==productId);for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];});
 }
 async function removePeriod(pId){
  const p=state.periods.find(x=>x.id===pId);if(!p||state.periods.length<=1)return;
@@ -433,7 +436,8 @@ function normalizeImported(raw){
  const currency=['COP','USD','EUR','MXN','CNY'].includes(settings.currency)?settings.currency:'COP';
  const pageSize=[10,20,40,80].includes(settings.pageSize)?settings.pageSize:20;
  const audit=Array.isArray(raw.audit)?raw.audit.slice(0,350).map(e=>({id:safeid(e.id)?e.id:id('evt'),label:string(e.label,240),actor:'Este dispositivo',at:string(e.at,50)})):[];
- return {version:1,createdAt:string(raw.createdAt,40)||new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette,mode,currency,pageSize,lastAutoBackup:0},products,clients,periods,movements:normalizeMatrix(raw.movements,true),prices:normalizeMatrix(raw.prices,false),weekTotals:normalizeMatrix(raw.weekTotals,false),audit};
+ const clean={version:1,createdAt:string(raw.createdAt,40)||new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette,mode,currency,pageSize,density:['compact','comfortable'].includes(settings.density)?settings.density:'comfortable',lastAutoBackup:0},products,clients,periods,movements:normalizeMatrix(raw.movements,true),prices:normalizeMatrix(raw.prices,false),weekTotals:normalizeMatrix(raw.weekTotals,false),audit};
+ clean.gu4=GU4?.normalizeGu4(raw.gu4,clean)||newState().gu4;return clean;
 }
 function mergeStates(local,remote){
  const mergeList=(a,b)=>{const byId=new Map(a.map(v=>[v.id,v]));for(const value of b)byId.set(value.id,value);return [...byId.values()];};
@@ -449,6 +453,7 @@ function mergeStates(local,remote){
   }
  }
  const byAudit=new Map([...remote.audit,...local.audit].map(e=>[e.id,e]));out.audit=[...byAudit.values()].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,350);
+ if(GU4){const l=local.gu4||newState().gu4,r=remote.gu4||newState().gu4;out.gu4=GU4.normalizeGu4({...l,locations:[...(r.locations||[]),...(l.locations||[])],counts:[...(r.counts||[]),...(l.counts||[])]},out);}
  return out;
 }
 let pendingImport=null;
@@ -495,7 +500,7 @@ function csvMovements(){
  csvDownload(rows,'Registros');
 }
 // Buscador global: navegación y acceso a productos con Ctrl/Cmd+K.
-const searchTargets=[['dashboard','Panel general'],['weekly','Registro semanal'],['final','Consolidado'],['products','Productos'],['clients','Clientes / espacios'],['audit','Historial'],['backup','Copias y migración'],['settings','Configuración']];
+const searchTargets=[['dashboard','Panel general'],['weekly','Registro semanal'],['final','Consolidado'],['products','Productos'],['clients','Clientes / espacios'],['audit','Historial'],['backup','Copias y migración'],['settings','Configuración'],['warehouse4','Bodega física 4.0'],['counts4','Conteo físico'],['intelligence4','Predicciones y alertas'],['imports4','Excel e informes']];
 function closePalette(){const dialog=$('#command-palette');if(dialog)dialog.hidden=true;}
 function paletteOptions(){
  const input=$('#palette-input');if(!input||!state)return;
@@ -530,6 +535,64 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-final-filt
 document.addEventListener('click',e=>{const b=e.target.closest('[data-client-filter]');if(!b)return;clientFilter=b.dataset.clientFilter;render();});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-density-change]');if(!b||!state)return;const v=b.dataset.densityChange;if(!['comfortable','compact'].includes(v)||v===state.settings.density)return;mutation('Densidad de interfaz: '+v,()=>state.settings.density=v);});
 document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=!panel.classList.contains('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}window.GUFeedback?.play(collapsed?'close':'tap');render();});
+// GU 4.0: acciones delegadas; el inventario original continúa como fuente única de stock.
+document.addEventListener('click',async e=>{
+ const node=e.target.closest('[data-gu4-select-position]');if(node){const [rack,level,position]=node.dataset.gu4SelectPosition.split('-').map(Number),form=$('#gu4-location-form');if(!form)return;
+  form.elements.rack.value=rack;form.elements.level.value=level;form.elements.position.value=position;
+  const existing=state.gu4.locations.find(l=>l.rack===rack&&l.level===level&&l.position===position);
+  if(existing){form.elements.productId.value=existing.productId;form.elements.qty.value=existing.qty;}else{form.elements.qty.value='';}
+  form.scrollIntoView?.({behavior:'smooth',block:'nearest'});return;}
+ const clear=e.target.closest('[data-gu4-clear-position]');if(clear){const form=$('#gu4-location-form');if(!form)return;
+  const key={rack:Number(form.elements.rack.value),level:Number(form.elements.level.value),position:Number(form.elements.position.value)};
+  if(!state.gu4.locations.some(l=>GU4.slot(l)===GU4.slot(key))){toast('La posición ya está libre.');return;}
+  if(!confirm(`¿Liberar la posición R${key.rack}-N${key.level}-P${key.position}? No se modifica el stock.`))return;
+  mutation('Se liberó ubicación física',()=>GU4.clearLocation(state,key));return;}
+ const drop=e.target.closest('[data-gu4-remove-stage]');if(drop){gu4Stage=gu4Stage.filter(l=>l.productId!==drop.dataset.gu4RemoveStage);render();return;}
+ if(e.target.closest('[data-gu4-create-count]')){if(!gu4Stage.length)return;
+  try{mutation('Conteo físico registrado',()=>GU4.makeCount(state,C,gu4Stage,new Date().toISOString(),id('count')));gu4Stage=[];render();toast('Conteo guardado para revisión.');}catch(err){toast(err.message);}return;}
+ const detail=e.target.closest('[data-gu4-show-count]');if(detail){const c=state.gu4.counts.find(x=>x.id===detail.dataset.gu4ShowCount);if(!c)return;
+  showModal('Detalle del conteo',`<div class="modal-body"><p>${esc(stamp(c.createdAt))} · ${c.status==='applied'?'Ajustado':'Pendiente'}</p><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Esperado</th><th>Contado</th><th>Diferencia</th></tr></thead><tbody>${c.lines.map(l=>`<tr><td>${esc(l.productName)}</td><td>${format(l.expected)}</td><td>${format(l.counted)}</td><td>${format(l.difference)}</td></tr>`).join('')}</tbody></table></div></div>`,`<button class="btn" data-action="close-modal">Cerrar</button>`);return;}
+ const apply=e.target.closest('[data-gu4-apply-count]');if(apply){const count=state.gu4.counts.find(x=>x.id===apply.dataset.gu4ApplyCount);if(!count)return;
+  const delta=count.lines.reduce((n,l)=>n+Math.abs(l.difference),0);
+  if(!confirm(`¿Aplicar los ajustes de ${count.lines.length} producto(s)? Diferencia absoluta: ${format(delta)}. Se modificará Cantidad.N y se guardará una copia preventiva.`))return;
+  try{await DB.backup({id:id('before-count'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de aplicar conteo físico',data:clone(state)});
+   const ok=mutation('Conteo físico aplicado: '+count.id,()=>GU4.applyCount(state,C,count.id));if(ok)toast('Ajuste aplicado; copia preventiva disponible.');
+  }catch(err){toast('No se aplicó el conteo: '+err.message);}return;}
+ if(e.target.closest('[data-gu4-choose-sheet]')){$('#gu4-sheet-file')?.click();return;}
+ if(e.target.closest('[data-gu4-cancel-sheet]')){gu4Sheet=null;render();return;}
+ if(e.target.closest('[data-gu4-template]')){try{downloadBlob(await G4Excel.template(),'Inventarios_GU_4_Plantilla.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');}catch(err){toast(err.message);}return;}
+ if(e.target.closest('[data-gu4-xlsx]')){try{downloadBlob(await G4Excel.report(state,C,GU4),filename('Inventarios_GU_4_Informe','xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');}catch(err){toast(err.message);}return;}
+ if(e.target.closest('[data-gu4-print]')){printGu4Report();return;}
+ if(e.target.closest('[data-gu4-offline-help]')){$('#install-open')?.click();return;}
+ const edit=e.target.closest('[data-gu4-edit-product]');if(edit){productModal(edit.dataset.gu4EditProduct);return;}
+ const layout=e.target.closest('[data-gu4-layout]');if(layout){gu4LayoutEditing=!gu4LayoutEditing;render();return;}
+ const move=e.target.closest('[data-gu4-move]');if(move){const ids=$$('.metric-panel[data-metric]').map(x=>x.dataset.metric),ix=ids.indexOf(move.dataset.gu4Move),dest=ix+Number(move.dataset.gu4Direction);
+  if(ix<0||dest<0||dest>=ids.length)return;[ids[ix],ids[dest]]=[ids[dest],ids[ix]];mutation('Distribución del panel reorganizada',()=>{state.gu4.panelOrder=ids;});return;}
+ const resize=e.target.closest('[data-gu4-resize]');if(resize){const name=resize.dataset.gu4Resize,element=$(`.metric-panel[data-metric="${name}"]`);const currentlyWide=!!element?.classList.contains('gu4-wide-card');mutation('Tamaño de tarjeta actualizado',()=>state.gu4.panelSizes[name]=currentlyWide?'normal':'wide');return;}
+});
+document.addEventListener('submit',e=>{
+ const form=e.target;
+ if(form.id==='gu4-location-form'){e.preventDefault();const d=new FormData(form);try{mutation('Ubicación física guardada',()=>GU4.setLocation(state,C,Object.fromEntries(d)));toast('Posición actualizada.');}catch(err){toast(err.message);}return;}
+ if(form.id==='gu4-count-form'){e.preventDefault();const d=new FormData(form),productId=String(d.get('productId')||''),counted=Number(d.get('counted'));
+  if(!state.products.some(p=>p.id===productId)||!Number.isFinite(counted)||counted<0){toast('Selecciona un producto y una cantidad válida.');return;}
+  gu4Stage=gu4Stage.filter(x=>x.productId!==productId).concat([{productId,counted}]);render();return;}
+ if(form.id==='gu4-threshold-form'){e.preventDefault();const threshold=Number(new FormData(form).get('threshold'));if(!Number.isFinite(threshold)||threshold<0||threshold>100000){toast('Umbral inválido.');return;}
+  mutation('Umbral de alertas actualizado',()=>{state.gu4.preferences.warningThreshold=threshold;});return;}
+ if(form.id==='gu4-import-form'){e.preventDefault();if(!gu4Sheet?.length)return;
+  const mode=String(new FormData(form).get('importMode')||'only-new'),existing=gu4Sheet.filter(p=>p.exists).length;
+  if(!confirm(`¿Importar ${gu4Sheet.length} productos? ${existing} coinciden. Modo: ${mode==='update'?'actualizar coincidencias':'solo nuevos'}. Se creará copia preventiva.`))return;
+  (async()=>{try{await DB.backup({id:id('before-sheet'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de importar Excel o CSV',data:clone(state)});
+   let summary;const ok=mutation('Productos importados desde Excel/CSV',()=>{summary=GU4.applyProducts(state,gu4Sheet,mode,()=>id('prod'),new Date().toISOString());});
+   if(ok){gu4Sheet=null;toast(`Importación: ${summary.added} nuevos, ${summary.updated} actualizados, ${summary.skipped} omitidos.`);await refreshBackups();}
+  }catch(err){toast('Importación cancelada: '+err.message);}})();return;}
+});
+$('#gu4-sheet-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ try{gu4Sheet=GU4.validateImport(await G4Excel.parseFile(file),state);navigate('imports4');toast(`Archivo revisado: ${gu4Sheet.length} productos.`);}catch(err){toast('No se importó: '+err.message);}
+});
+function printGu4Report(){const totals=C.totals(state,state.products),alertas=GU4.alerts(state,C),r=GU4.allocations(state,C);
+ const container=document.createElement('section');container.id='gu4-print-report';container.innerHTML=`<h1>Inventarios GU 4.0 · Informe</h1><p>Emitido ${esc(stamp(new Date().toISOString()))}. Datos almacenados localmente.</p><div class="gu4-print-stat">Productos: ${state.products.length} · Saldo N: ${format(totals.balance)} · Valor P: ${money(totals.value)} · Sin ubicar: ${format(r.unassigned)} · Alertas: ${alertas.length}</div><table><thead><tr><th>Producto</th><th>Saldo N</th><th>Valor P</th></tr></thead><tbody>${totals.rows.map(x=>`<tr><td>${esc(x.product.name)}</td><td>${format(x.N)}</td><td>${money(x.P)}</td></tr>`).join('')}</tbody></table><p>Saldo original: H − (Cantidad.N + Cantidad.V). La información no representa ventas automáticamente.</p>`;
+ document.body.append(container);const finish=()=>{container.remove();window.removeEventListener('afterprint',finish);};window.addEventListener('afterprint',finish,{once:true});setTimeout(()=>{try{window.print();}catch(err){finish();toast('El navegador no permite imprimir: '+err.message);}},80);
+}
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}
@@ -634,7 +697,9 @@ async function init(){
   if(!Array.isArray(state.products)||!Array.isArray(state.clients)||!Array.isArray(state.periods)||!state.periods.length)throw new Error('Los datos locales parecen dañados. Restaura una copia de seguridad.');
   if(!state.weekTotals)state.weekTotals={};if(!state.prices)state.prices={};if(!state.movements)state.movements={};if(!state.audit)state.audit=[];
   if(!state.settings)state.settings=newState().settings;
-  if(!loaded)await DB.save(state);
+  if(loaded&&!loaded.gu4){await DB.backup({id:id('before4'),createdAt:new Date().toISOString(),type:'manual',label:'Copia antes de migrar a 4.0',data:clone(loaded)});}
+ GU4?.ensure(state);
+ if(!loaded||!loaded.gu4)await DB.save(state);
   periodId=state.periods[0].id;
   await refreshBackups();render();savedStatus();
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});

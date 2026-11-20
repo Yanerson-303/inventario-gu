@@ -75,3 +75,7 @@ Edición 3.1: detalles en `README_3_1.md`.
 
 
 Versión 3.2: ver `CAMBIOS_3_2.md`.
+
+## Novedades 4.0
+
+Consulta [`CAMBIOS_4_0.md`](CAMBIOS_4_0.md). Los módulos nuevos son Bodega física, Conteos físicos, Predicciones y alertas, Excel e informes y organización del Panel. El código continúa en archivos independientes, las versiones descargables están en `descargas/` y los datos siguen siendo locales.
