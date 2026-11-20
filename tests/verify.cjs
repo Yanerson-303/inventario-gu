@@ -36,7 +36,7 @@ vm.runInNewContext(fs.readFileSync(path.join(folder,'app.js'),'utf8'),ctx);
 function click(kind,data){const e={target:{closest(query){if(query==='[data-action]'&&kind==='action')return {dataset:data};if(query==='[data-nav]'&&kind==='nav')return {dataset:data};if(query==='[data-period-tab]'&&kind==='period')return {dataset:data};return null;}}};return handlers.click(e);}
 (async()=>{
  await new Promise(r=>setTimeout(r,40));
- assert.match(element('#main-content').innerHTML,/Tu negocio, en perspectiva/);
+ assert.match(element('#main-content').innerHTML,/Panel de control/);
  await click('action',{action:'demo'});
  assert.match(element('#main-content').innerHTML,/>6<\/div>/); // conteo del catálogo
  await click('nav',{nav:'weekly'});

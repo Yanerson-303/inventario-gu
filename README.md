@@ -1,4 +1,4 @@
-# Inventarios GU 3.0 — control de inventario web
+# Inventarios GU 3.1 — control de inventario web
 
 Aplicación **100 % estática** construida con HTML, CSS y JavaScript separados. Se diseñó a partir del PDF «Documentación técnica de funcionamiento y replicación — Software.xlsx» del 20 de noviembre de 2026. **Ese PDF no incluye los nombres, cantidades ni precios reales del Excel**, así que el catálogo empieza vacío.
 
@@ -61,8 +61,14 @@ Aplicación **100 % estática** construida con HTML, CSS y JavaScript separados.
 
 Usar 3 y 2 en dos espacios para verificar CX=5; sumar períodos para H; ingresar Cantidad.N=4 y Cantidad.V=6 para J=10; comprobar N=H−10, P=N×Valor y el signo de R. Establecer Promedio=0 y Cajas=0 para comprobar avisos. Cambiar nombre de producto, exportar/importar un JSON y verificar que las cifras permanezcan idénticas.
 
-## Cambios de Inventarios GU 3.0
+## Cambios de Inventarios GU 3.1
 
 Ver `CAMBIOS_3_0.md`. El formato JSON `almendra-inventario-backup` se conserva intencionalmente para mantener compatibilidad con copias de versiones anteriores.
 
 Uso recomendado: **index.html** servido desde HTTPS; abrir el HTML descargable es una alternativa, pero no una instalación nativa y no ofrece persistencia garantizada en todos los navegadores.
+
+
+Edición 3.1: detalles en `README_3_1.md`.
+
+
+Edición 3.1: detalles en `README_3_1.md`.
