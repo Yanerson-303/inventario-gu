@@ -1,4 +1,4 @@
-# Almendra 2.0 — instalación y modo sin conexión
+# Inventarios GU 2.0 — instalación y modo sin conexión
 
 ## Publicar una sola vez
 
@@ -6,7 +6,7 @@ Sube **todos** los archivos de esta carpeta a un alojamiento HTTPS (por ejemplo,
 
 ## Instalar en PC
 
-En Chrome o Edge abre la URL HTTPS, pulsa **Instalar** en Almendra o el icono de instalación del navegador. Funciona como ventana independiente en Windows, macOS y Linux. No se entrega un ejecutable `.exe`/`.dmg`: es una PWA instalable.
+En Chrome o Edge abre la URL HTTPS, pulsa **Instalar** en Inventarios GU o el icono de instalación del navegador. Funciona como ventana independiente en Windows, macOS y Linux. No se entrega un ejecutable `.exe`/`.dmg`: es una PWA instalable.
 
 ## Android
 
@@ -18,7 +18,7 @@ Abre la URL HTTPS **en Safari**, toca Compartir → Añadir a pantalla de inicio
 
 ## Sin internet
 
-1. Con conexión abre Almendra por HTTPS, espera que cargue y pulsa **Instalar** → **Preparar uso sin internet**.
+1. Con conexión abre Inventarios GU por HTTPS, espera que cargue y pulsa **Instalar** → **Preparar uso sin internet**.
 2. Espera el mensaje «Archivos guardados».
 3. Desconecta internet y abre la app desde su icono o la misma dirección previamente visitada. La navegación y las funciones locales siguen disponibles.
 4. Los datos se guardan por navegador y dispositivo (IndexedDB con alternativa localStorage). No hay sincronización automática. **Exporta JSON** en Copias y migración y guárdalo fuera del dispositivo para evitar pérdidas.

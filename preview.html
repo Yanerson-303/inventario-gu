@@ -1,11 +1,16 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-edicion="pc">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#e8dbc6">
-  <meta name="description" content="Inventario y control semanal local: cinco semanas, 100 clientes, consolidado, gráficos y copias de seguridad.">
-  <title>Almendra · Control de inventario</title>
+  <meta name="description" content="Inventarios GU 3.0: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
+  <title>Inventarios GU 3.0 · Control de inventario</title>
+  
+  
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <style>
 /* Almendra Inventory · Diseño responsive / skins y modos de luz */
 :root{font-family:Inter,"Segoe UI",Arial,sans-serif;font-synthesis:none;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -35,38 +40,239 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 .final-mobile{display:none}.mini-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0 15px}.mini-summary-grid>div{border-radius:9px;background:var(--surface2);padding:11px;min-width:0}.mini-summary-grid small{color:var(--muted);display:block;font-size:10px}.mini-summary-grid b{display:block;font-size:15px;font-weight:800;margin-top:3px;overflow-wrap:anywhere}
 @media(max-width:700px){.final-desktop{display:none}.final-mobile{display:grid;gap:12px}.final-mobile .week-product-head{margin-bottom:0}.final-mobile .field{margin:0}.final-mobile .form-control{height:38px}.final-mobile .product-link{max-width:185px}.final-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.mini-kpi{padding:10px}.mini-kpi strong{font-size:16px}}
 
-  </style>
+/* Bodega compacta e interactiva */
+.warehouse-card{padding:17px;margin:0 0 16px;overflow:hidden}.warehouse-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.warehouse-heading h2{font-size:18px;margin:3px 0 0}.warehouse-total{text-align:right;display:flex;flex-direction:column}.warehouse-total strong{font-size:23px;line-height:1.1}.warehouse-total span{font-size:10px;color:var(--muted)}.warehouse-viewport{height:310px;position:relative;border-radius:12px;overflow:hidden;background:#1c2c3b}.warehouse-viewport canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:pan-y}.warehouse-viewport canvas:active{cursor:grabbing}.warehouse-overlay{position:absolute;left:10px;right:10px;top:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}.warehouse-live{background:#122535dc;color:#e3f4f4;border:1px solid #6b879577;border-radius:7px;font-size:9px;font-weight:750;padding:8px;letter-spacing:.06em}.warehouse-live i{display:inline-block;width:7px;height:7px;background:#68d7a4;border-radius:50%;margin-right:4px}.warehouse-controls{display:flex;gap:3px;pointer-events:auto}.warehouse-controls button{border:1px solid #a1b2c344;background:#152a3de8;color:#fff;border-radius:7px;min-width:29px;height:30px;cursor:pointer;font-size:16px}.warehouse-controls button:hover{background:#315c77}.warehouse-hint{position:absolute;bottom:8px;left:9px;font-size:10px;color:#e5eef3;background:#152a3dcc;padding:6px 9px;border-radius:6px;pointer-events:none}.warehouse-mini-racks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.warehouse-mini-rack{display:flex;gap:6px;align-items:center;text-align:left;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px;cursor:pointer;color:inherit;font-size:11px;min-width:0}.warehouse-mini-rack strong{margin-left:auto;font-size:15px}.warehouse-mini-rack.active{outline:2px solid var(--accent)}.warehouse-mini-dot{width:8px;height:8px;flex-shrink:0;border-radius:2px;background:#e7a046}.warehouse-detail{margin-top:9px;color:var(--muted);font-size:11px;line-height:1.5;display:flex;gap:8px;flex-wrap:wrap}.warehouse-detail strong{color:var(--text)}@media(min-width:1100px){.warehouse-card{max-width:760px}.warehouse-viewport{height:330px}}@media(max-width:600px){.warehouse-card{padding:12px}.warehouse-viewport{height:255px}.warehouse-hint{font-size:9px}.warehouse-live{font-size:8px;padding:6px}.warehouse-controls button{min-width:25px;height:27px}.warehouse-mini-rack{padding:7px;font-size:10px}.warehouse-mini-rack strong{font-size:13px}}
+
+/* Panel de analíticas v1.1: conserva las secciones y distribuye mejor los espacios. */
+.dashboard-visual-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;margin:0 0 19px;align-items:stretch}
+.dashboard-visual-row>*{min-width:0;margin:0!important}
+.dashboard-visual-row .warehouse-card{max-width:none!important;display:flex;flex-direction:column}
+.dashboard-visual-row .warehouse-viewport{height:clamp(235px,23vw,315px)}
+.dashboard-visual-row .forecast-card{padding:20px;display:flex;flex-direction:column;gap:15px}
+.forecast-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;flex:1}
+.forecast-item{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:15px 12px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.forecast-item span{font-size:12px;color:var(--muted);font-weight:700}
+.forecast-item strong{font-size:clamp(19px,2.1vw,27px);letter-spacing:-.6px;overflow-wrap:anywhere;margin:6px 0}
+.forecast-item small{font-size:10px;color:var(--muted)}
+.forecast-note{font-size:11px;line-height:1.6;color:var(--muted);margin:0}
+.stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.dashboard-visual-row .warehouse-mini-racks{gap:6px}
+@media(max-width:1150px){.dashboard-visual-row{grid-template-columns:1fr}.dashboard-visual-row .warehouse-viewport{height:290px}.dashboard-visual-row .forecast-card{gap:12px}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.dashboard-visual-row{gap:12px;margin-bottom:12px}.dashboard-visual-row .warehouse-viewport{height:clamp(215px,62vw,280px)}.dashboard-visual-row .warehouse-heading h2{font-size:16px}.dashboard-visual-row .warehouse-total strong{font-size:20px}.dashboard-visual-row .warehouse-mini-rack{padding:8px 5px;gap:4px;flex-wrap:wrap;justify-content:center}.dashboard-visual-row .warehouse-mini-rack strong{width:100%;text-align:center}.dashboard-visual-row .warehouse-hint{max-width:65%;line-height:1.3}.dashboard-visual-row .forecast-card{padding:15px}.forecast-item{padding:12px 10px;min-height:94px}.forecast-item strong{font-size:22px}.stats-grid{gap:9px}.stat-card{min-height:116px;padding:13px}.stat-label{margin-bottom:12px}.stat-value{font-size:clamp(17px,5vw,23px)}.stat-foot{line-height:1.4}}
+@media(max-width:380px){.dashboard-visual-row .warehouse-live{font-size:0}.dashboard-visual-row .warehouse-live i{margin-right:0}.dashboard-visual-row .warehouse-controls{gap:2px}.dashboard-visual-row .warehouse-controls button{min-width:27px}.forecast-grid{gap:7px}.forecast-item strong{font-size:19px}}
+@media(prefers-reduced-motion:reduce){.warehouse-viewport canvas{scroll-behavior:auto}}
+
+/* v2 · Instalación, accesibilidad y rendimiento responsive */
+.network-state{font-size:11px;font-weight:750;white-space:nowrap;color:#267753;background:#e6f6ee;padding:7px 10px;border-radius:999px}.network-state.offline{color:#9a531d;background:#fff0dc}.install-trigger{white-space:nowrap}.install-dialog[hidden]{display:none!important}.install-dialog{position:fixed;inset:0;z-index:110;background:#101820a6;display:grid;place-items:center;padding:15px}.install-sheet{width:min(640px,100%);max-height:90dvh;overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:19px;padding:clamp(17px,3vw,28px);box-shadow:0 20px 80px #0005;position:relative}.install-sheet h2{font-size:clamp(20px,3vw,26px);margin:9px 30px 10px 0}.install-sheet>p{color:var(--muted);line-height:1.6}.install-close{position:absolute;top:13px;right:13px;border:1px solid var(--line);background:var(--surface2);color:var(--text);font-size:23px;border-radius:9px;width:36px;height:36px;cursor:pointer}.install-options{display:grid;gap:9px;margin:16px 0}.install-options>div{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px 15px}.install-options p{font-size:12px;color:var(--muted);margin:4px 0 0}.install-actions{display:flex;gap:8px;flex-wrap:wrap}.install-note{font-size:11px}.install-sheet button:focus-visible,.warehouse-controls button:focus-visible,.warehouse-mini-rack:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media(min-width:1100px){.dashboard-visual-row{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}.dashboard-visual-row .warehouse-viewport{height:clamp(235px,22vw,310px)}}
+@media(max-width:700px){.network-state{font-size:0;width:10px;height:10px;padding:0;border-radius:50%;background:#27966c}.network-state.offline{background:#d18428}.install-trigger{font-size:11px;padding:8px!important}.dashboard-visual-row .warehouse-viewport{height:clamp(205px,62vw,270px)}.install-actions{display:grid;grid-template-columns:1fr}.install-actions button{width:100%}}
+@media(max-width:360px){.top-actions{gap:4px}.install-trigger{font-size:10px;padding:7px!important}.dashboard-visual-row .warehouse-hint{display:none}}
+
+/* Opciones de descarga, compatibles con panel y teléfono */
+.platform-downloads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.platform-download{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:12px;padding:16px;border:1px solid var(--border,#dce5dd);border-radius:14px;background:var(--surface,#fff)}
+.platform-download p{font-size:13px;line-height:1.5;margin:7px 0 0;color:var(--text-muted,#64736a)}
+.platform-download .btn{width:100%;text-align:center;justify-content:center;text-decoration:none;white-space:normal}
+.install-section-heading{font-size:14px;margin:18px 0 10px}
+@media(max-width:620px){.platform-downloads{grid-template-columns:1fr}.platform-download{padding:13px;gap:10px}.install-sheet{max-height:90dvh;overflow-y:auto}}
+
+/* Inventarios GU 2.2: métricas configurables y tabla bidireccional */
+.metric-panel{position:relative;min-width:0;max-width:100%}.metric-panel>.metric-content{min-width:0;height:100%}.metric-panel>.metric-content>.card,.metric-panel>.metric-content>.stat-card{height:100%}.metric-toggle{position:absolute;right:10px;top:9px;z-index:8;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;padding:5px 8px;font-size:10px;font-weight:750;cursor:pointer;box-shadow:0 2px 8px #0000000b}.metric-toggle:hover,.metric-toggle:focus-visible{color:var(--accent);border-color:var(--accent);outline-offset:2px}.metric-collapsed{min-height:49px!important;height:49px!important;border:1px dashed var(--line);border-radius:13px;background:var(--surface2);}.metric-collapsed>.metric-content{display:none}.metric-collapsed>.metric-toggle{left:10px;right:auto;top:10px}.stats-grid>.metric-panel{min-width:0}.stats-grid>.metric-panel>.metric-content>.stat-card{min-height:100%}.dashboard-visual-row>.metric-panel,.dashboard-grid>.metric-panel,.dashboard-bottom>.metric-panel{min-width:0}.week-scroll-2d{overflow:auto!important;overscroll-behavior:contain;max-height:min(68vh,650px);scrollbar-width:thin}.week-scroll-2d .data-table th{position:sticky;top:0;z-index:5}.week-scroll-2d .data-table th.sticky-first{z-index:7}.week-scroll-2d .data-table td.sticky-first{z-index:4}.brand-mark{font-size:14px!important;letter-spacing:-.6px!important}.brand strong{font-size:16px!important;letter-spacing:-.5px}.stat-icon{opacity:.82}.card,.stat-card{transition:border-color .2s,box-shadow .2s}.card:hover{box-shadow:0 7px 25px #0000000a}@media(max-width:700px){.metric-toggle{top:6px;right:6px;padding:4px 6px;font-size:9px}.metric-collapsed{height:45px!important;min-height:45px!important}.week-scroll-2d{max-height:62vh}}
+
+/* v2.3: controles compactos y alertas sin modificar métricas previas */
+.dashboard-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 16px;margin:0 0 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.dashboard-tools>div:first-child{display:flex;flex-direction:column;gap:3px}.dashboard-tools strong{font-size:13px}.dashboard-tools span{font-size:11px;color:var(--muted)}
+.dashboard-tools-actions{display:flex;flex-wrap:wrap;gap:7px}.dashboard-tools-actions .btn{white-space:normal;min-height:35px}
+.stock-alert-summary{display:flex;align-items:center;gap:12px;padding:13px 16px;margin:0 0 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface2)}
+.stock-alert-summary>div{flex:1;min-width:0}.stock-alert-summary strong{font-size:12px}.stock-alert-summary p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.stock-alert-dot{flex:0 0 9px;width:9px;height:9px;border-radius:50%;background:#d98d3c}
+@media(max-width:700px){.dashboard-tools{align-items:stretch}.dashboard-tools-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.dashboard-tools-actions .btn{font-size:11px}.stock-alert-summary{align-items:flex-start;flex-wrap:wrap}.stock-alert-summary .btn{margin-left:auto}}
+
+/* ==== Inventarios GU 3.0: refinamiento visual y accesibilidad ==== */
+:root{--gu-radius:15px;--gu-focus:2px solid var(--accent)}
+button,input,select,textarea{font:inherit}
+button{touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:var(--gu-focus);outline-offset:3px}
+.skip-link{position:fixed;top:-80px;left:12px;z-index:200;padding:12px 18px;background:var(--accent);color:var(--accent-text);border-radius:10px}
+.skip-link:focus{top:10px}
+.gu-icon{width:19px;height:19px;display:inline-block;vertical-align:middle;flex-shrink:0}
+.nav-icon .gu-icon{width:18px;height:18px}.bottom-nav .gu-icon{width:19px;height:19px}
+.stat-icon .gu-icon{width:20px;height:20px}
+.brand-mark{border-radius:13px!important;background:linear-gradient(145deg,var(--accent),var(--accent-hover))!important;box-shadow:0 6px 18px rgba(20,20,20,.09);border:1px solid #ffffff22}
+.brand-dot{color:var(--good)}
+.search-global{display:inline-flex;align-items:center;gap:7px;min-height:36px;background:var(--surface2);color:var(--text);border:1px solid var(--line)}
+.search-global .gu-icon{width:16px;height:16px}
+.search-global kbd{font:600 10px ui-monospace,monospace;color:var(--muted);border:1px solid var(--line);background:var(--surface);padding:2px 6px;border-radius:5px}
+.stats-grid>.metric-panel>.metric-content>.card{border-radius:var(--gu-radius)}
+.stat-card{border-color:var(--line);overflow:hidden}
+.stat-card::after{content:'';position:absolute;inset:auto 0 0 0;height:3px;background:linear-gradient(90deg,var(--accent),transparent);opacity:.45}
+.stat-label{letter-spacing:.015em}.card-title h3{letter-spacing:-.01em}
+.metric-toggle{font-size:11px;min-height:27px}.metric-toggle:hover{box-shadow:0 2px 10px #00000010}
+.dashboard-v3-row{display:grid;grid-template-columns:minmax(0,1.38fr) minmax(0,.92fr);gap:16px;margin:0 0 19px;align-items:stretch}
+.dashboard-v3-row>.metric-panel{min-width:0}.dashboard-v3-row .metric-content>.card{height:100%}
+.control-center,.trend-card{min-width:0;display:flex;flex-direction:column;gap:13px;padding:19px}
+.control-center .card-title,.trend-card .card-title{padding-right:55px}.gu-control-head{align-items:flex-start}.gu-control-head .btn{margin-top:24px}
+.health-strip{display:grid;grid-template-columns:1fr 1fr .78fr;gap:10px}
+.health-strip>div{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.health-strip span{font-size:11px;color:var(--muted);display:block;line-height:1.4}.health-strip strong{font-size:clamp(17px,2vw,23px);display:block;margin:5px 0 6px;font-weight:800}
+.health-strip small{font-size:10px;color:var(--muted)}
+.health-meter{height:5px;background:var(--line);border-radius:99px;overflow:hidden}.health-meter i{display:block;background:var(--accent);height:100%;border-radius:99px;max-width:100%}
+.review-filters{display:flex;flex-wrap:wrap;gap:6px}.review-filters button{display:flex;align-items:center;gap:5px;font-size:11px;min-height:30px;padding:5px 9px;color:var(--muted);border:1px solid var(--line);background:var(--surface);border-radius:999px;cursor:pointer}.review-filters button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}.review-filters b{font-size:10px;padding:2px 6px;background:var(--surface2);color:var(--text);border-radius:99px}
+.review-list{display:grid;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;max-height:305px;overflow-y:auto}
+.review-row{display:grid;grid-template-columns:minmax(104px,.8fr) minmax(80px,1.5fr) auto;align-items:center;gap:9px;padding:9px 11px;border-bottom:1px solid var(--line)}
+.review-row:last-child{border-bottom:0}.review-state{display:inline-flex;justify-self:start;font-size:9px;font-weight:750;text-transform:uppercase;letter-spacing:.02em;color:var(--accent);background:var(--accent-soft);padding:5px 6px;border-radius:6px}.review-state.risk{background:var(--danger-soft);color:var(--danger)}.review-state.caution{background:var(--warn-soft);color:var(--warn)}
+.review-row-info{display:flex;flex-direction:column;min-width:0;gap:2px}.review-row-info b{font-size:11px;overflow-wrap:anywhere}.review-row-info small{font-size:10px;color:var(--muted)}.review-row .btn{padding:5px 9px;font-size:10px;min-height:30px}
+.review-empty{padding:18px;font-size:12px;color:var(--muted);text-align:center;background:var(--surface2);border-radius:9px}
+.review-foot{font-size:10px;color:var(--muted);margin:0;line-height:1.5}
+.trend-pair{display:grid;grid-template-columns:1fr 1fr;gap:9px}.trend-pair>div{background:var(--surface2);border:1px solid var(--line);border-radius:13px;padding:15px;min-width:0}
+.trend-pair span{font-size:11px;color:var(--muted);display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.trend-pair strong{display:block;font-size:clamp(23px,3vw,32px);font-weight:800;letter-spacing:-1px;margin-top:8px}
+.trend-change{border-bottom:1px solid var(--line);padding-bottom:12px;display:flex;flex-direction:column;gap:4px}.trend-change span{font-size:19px;font-weight:800}.trend-change small{font-size:11px;color:var(--muted)}
+.trend-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:auto}.trend-info>div{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0}.trend-info b{font-size:16px}.trend-info small{width:100%;color:var(--muted);font-size:11px}
+.trend-dot{display:block;width:8px;height:8px;background:var(--accent);border-radius:50%}.trend-dot.success{background:var(--good)}.trend-open{align-self:start}
+/* Atajos, búsqueda y accesibilidad de teclado */
+.command-palette[hidden]{display:none!important}.command-palette{position:fixed;inset:0;z-index:180;background:rgba(9,17,23,.65);display:flex;align-items:flex-start;justify-content:center;padding:clamp(42px,9vh,100px) 16px 16px;backdrop-filter:blur(3px)}
+.command-sheet{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:17px;width:min(580px,100%);max-height:min(78vh,650px);display:flex;flex-direction:column;box-shadow:0 20px 85px #0005;overflow:hidden}
+.command-top{display:flex;gap:10px;align-items:center;padding:14px 17px;border-bottom:1px solid var(--line)}
+.command-top .gu-icon{color:var(--accent)}.command-top input{flex:1;min-width:0;border:0;background:transparent;color:var(--text);outline:none;font-size:15px}.command-top input:focus{outline:0}.command-top button{padding:6px 9px;background:var(--surface2);color:var(--muted);border:1px solid var(--line);border-radius:7px;cursor:pointer;font-size:11px}
+.command-list{padding:9px;overflow:auto;min-height:85px}.command-result{display:grid;grid-template-columns:72px minmax(0,1fr) 25px;gap:8px;align-items:center;text-align:left;width:100%;border:0;border-radius:9px;background:transparent;color:var(--text);padding:10px 12px;cursor:pointer;font-size:13px}
+.command-result:hover,.command-result:focus-visible{background:var(--accent-soft);outline:0}.command-kind{font-size:9px;color:var(--accent);font-weight:850;letter-spacing:.05em}.command-result small{display:block;color:var(--muted)}.command-arrow{text-align:right;color:var(--muted)}.command-empty{padding:22px;text-align:center;color:var(--muted);font-size:12px}.command-bottom{padding:11px 17px;background:var(--surface2);border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+/* Touch/mobile layout */
+@media(max-width:1180px){.dashboard-v3-row{grid-template-columns:1fr}}
+@media(max-width:830px){.search-global kbd{display:none}.search-global-label{display:none}.search-global{min-width:36px;justify-content:center}}
+@media(max-width:700px){.dashboard-v3-row{gap:12px;margin-bottom:12px}.control-center,.trend-card{padding:14px;gap:11px}.health-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.health-strip>div:nth-child(3){grid-column:1 / -1;display:flex;align-items:center;gap:10px}.health-strip>div:nth-child(3) strong{margin:0}.health-strip>div:nth-child(3) small{margin-left:auto}.review-row{grid-template-columns:minmax(0,1fr) auto;gap:5px}.review-row .review-state{grid-column:1 / -1}.review-row .btn{grid-column:2;grid-row:2}.review-row-info{grid-column:1;grid-row:2}.gu-control-head{display:block}.gu-control-head .btn{margin:9px 0 0}.search-global{padding:7px!important}.command-palette{padding:30px 9px}.command-sheet{max-height:83dvh}.trend-pair strong{font-size:25px}}
+@media(max-width:980px){.top-actions .save-indicator{display:none}.search-global kbd{display:none}.search-global-label{display:none}}
+@media(max-width:700px){.top-actions .search-global [data-gu-icon]{display:inline-flex!important;align-items:center;justify-content:center}}
+@media(max-width:390px){.top-actions{gap:3px!important}.search-global{min-width:31px}.search-global .gu-icon{width:14px;height:14px}.review-filters button{font-size:10px;padding:5px 7px}.health-strip span{font-size:10px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+</style>
+  
+  
+  
+  
+  
+  
+  
+  
 </head>
 <body data-palette="almond" data-mode="light">
+  <a class="skip-link" href="#main-content">Saltar al contenido</a>
   <div id="app" class="app">
     <aside class="sidebar" aria-label="Navegación principal">
-      <div class="brand"><div class="brand-mark">A</div><div><strong>almendra<span class="brand-dot">.</span></strong><small>GESTIÓN DE INVENTARIO</small></div></div>
+      <div class="brand"><div class="brand-mark">GU</div><div><strong>Inventarios GU<span class="brand-dot">.</span></strong><small>GESTIÓN DE INVENTARIO</small></div></div>
       <div class="workspace-pill"><span class="status-pulse"></span><span>Espacio privado<br><b>Este dispositivo</b></span></div>
       <nav class="navigation" id="side-nav">
-        <button type="button" data-nav="dashboard" class="nav-item active"><span class="nav-icon">◫</span><span>Panel general</span></button>
-        <button type="button" data-nav="weekly" class="nav-item"><span class="nav-icon">▦</span><span>Registro semanal</span></button>
-        <button type="button" data-nav="final" class="nav-item"><span class="nav-icon">▤</span><span>Consolidado</span></button>
+        <button type="button" data-nav="dashboard" class="nav-item active"><span class="nav-icon" data-gu-icon="layout-dashboard"></span><span>Panel general</span></button>
+        <button type="button" data-nav="weekly" class="nav-item"><span class="nav-icon" data-gu-icon="calendar-days"></span><span>Registro semanal</span></button>
+        <button type="button" data-nav="final" class="nav-item"><span class="nav-icon" data-gu-icon="layers"></span><span>Consolidado</span></button>
         <div class="nav-caption">ADMINISTRACIÓN</div>
-        <button type="button" data-nav="products" class="nav-item"><span class="nav-icon">◇</span><span>Productos</span></button>
-        <button type="button" data-nav="clients" class="nav-item"><span class="nav-icon">◎</span><span>Clientes / espacios</span></button>
-        <button type="button" data-nav="audit" class="nav-item"><span class="nav-icon">◴</span><span>Historial</span></button>
+        <button type="button" data-nav="products" class="nav-item"><span class="nav-icon" data-gu-icon="package"></span><span>Productos</span></button>
+        <button type="button" data-nav="clients" class="nav-item"><span class="nav-icon" data-gu-icon="users"></span><span>Clientes / espacios</span></button>
+        <button type="button" data-nav="audit" class="nav-item"><span class="nav-icon" data-gu-icon="history"></span><span>Historial</span></button>
         <div class="nav-caption">HERRAMIENTAS</div>
-        <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon">⇅</span><span>Copias y migración</span></button>
-        <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon">⚙</span><span>Configuración</span></button>
+        <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon" data-gu-icon="database-backup"></span><span>Copias y migración</span></button>
+        <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon" data-gu-icon="settings"></span><span>Configuración</span></button>
       </nav>
-      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control a tu manera</b><p>Todos tus registros están disponibles incluso sin conexión, después de la primera carga.</p></div><div class="side-foot">ALMENDRA / EDICIÓN LOCAL <span id="app-version">v1.0</span></div></div>
+      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control a tu manera</b><p>Todos tus registros están disponibles incluso sin conexión, después de la primera carga.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v3.0</span></div></div>
     </aside>
     <div class="main-shell">
       <header class="topbar">
         <div class="breadcrumbs"><span class="breadcrumb-muted">Mi espacio</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-title">Panel general</strong></div>
-        <div class="top-actions"><span id="save-indicator" class="save-indicator"><span class="save-dot"></span> Guardado local</span><button id="undo-btn" type="button" class="icon-btn" title="Deshacer último cambio" aria-label="Deshacer último cambio">↶</button><button id="quick-theme" type="button" class="icon-btn" title="Cambiar modo día/noche" aria-label="Cambiar modo día/noche">☾</button><button type="button" id="quick-backup" class="btn btn-primary btn-small">↧ <span>Guardar copia</span></button></div>
+        <div class="top-actions"><button id="global-search" type="button" class="btn btn-small search-global" data-action="global-search" title="Buscar secciones y productos (Ctrl+K)" aria-label="Buscar secciones y productos"><span data-gu-icon="search"></span><span class="search-global-label">Buscar</span><kbd>Ctrl K</kbd></button><span id="network-state" class="network-state" aria-live="polite">Comprobando red</span><button type="button" id="install-open" hidden class="btn btn-small install-trigger" aria-label="Descargar o instalar aplicación">Descargar app</button><span id="save-indicator" class="save-indicator"><span class="save-dot"></span> Guardado local</span><button id="undo-btn" type="button" class="icon-btn" title="Deshacer último cambio" aria-label="Deshacer último cambio">↶</button><button id="quick-theme" type="button" class="icon-btn" title="Cambiar modo día/noche" aria-label="Cambiar modo día/noche">☾</button><button type="button" id="quick-backup" class="btn btn-primary btn-small">↧ <span>Guardar copia</span></button></div>
       </header>
       <main id="main-content" class="main-content" tabindex="-1" aria-live="polite"><section class="loading-view"><div class="spinner"></div><h2>Preparando tu espacio…</h2></section></main>
     </div>
-    <nav class="bottom-nav" aria-label="Navegación móvil"><button data-nav="dashboard" class="active"><span>◫</span><small>Inicio</small></button><button data-nav="weekly"><span>▦</span><small>Semanas</small></button><button data-nav="final"><span>▤</span><small>Final</small></button><button data-nav="products"><span>◇</span><small>Productos</small></button><button data-nav="backup"><span>⇅</span><small>Copias</small></button><button data-nav="settings"><span>☷</span><small>Más</small></button></nav>
+    <nav class="bottom-nav" aria-label="Navegación móvil"><button data-nav="dashboard" class="active"><span data-gu-icon="layout-dashboard"></span><small>Inicio</small></button><button data-nav="weekly"><span data-gu-icon="calendar-days"></span><small>Semanas</small></button><button data-nav="final"><span data-gu-icon="layers"></span><small>Final</small></button><button data-nav="products"><span data-gu-icon="package"></span><small>Productos</small></button><button data-nav="backup"><span data-gu-icon="database-backup"></span><small>Copias</small></button><button data-nav="settings"><span data-gu-icon="settings"></span><small>Más</small></button></nav>
   </div>
+  <div id="command-palette" class="command-palette" hidden><section class="command-sheet" role="dialog" aria-modal="true" aria-label="Buscar en Inventarios GU"><div class="command-top"><span data-gu-icon="search"></span><input id="palette-input" type="search" autocomplete="off" placeholder="Buscar pantalla o producto…" aria-label="Buscar pantalla o producto"><button type="button" data-command-close="1" aria-label="Cerrar buscador">Esc</button></div><div id="palette-results" class="command-list" role="listbox" aria-label="Resultados de búsqueda"></div><div class="command-bottom">Ctrl / ⌘ + K · Ir a una sección o editar un producto</div></section></div>
   <div id="modal-root"></div><div id="toast-area" role="status" aria-live="polite"></div>
   <input id="backup-file" type="file" accept=".json,.almendra,application/json" hidden>
+<script>
+/* Iconografía vectorial local, sin solicitudes externas. */
+(function(){'use strict';
+const paths={
+ 'layout-dashboard':'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+ 'calendar-days':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+ 'layers':'<path d="m12 2 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 17l9 5 9-5"/>',
+ 'package':'<path d="m12 2 9 5-9 5-9-5 9-5Zm-9 5v10l9 5 9-5V7M12 12v10M7.5 4.5l9 5"/>',
+ 'users':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3.2a4 4 0 0 1 0 7.6M22 21v-2a4 4 0 0 0-3-3.9"/><circle cx="9" cy="7" r="4"/>',
+ 'history':'<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8M3 3v5h5M12 7v5l3 2"/>',
+ 'database-backup':'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3 3.1 0 5.8-.52 7.42-1.32M21 5v5M3 12c0 1.66 4.03 3 9 3 1.1 0 2.2-.07 3.1-.2M16 18h6m-3-3-3 3 3 3"/>',
+ 'settings':'<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2.2 2.2-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1.01 1.52V21h-3.4v-.79A1.65 1.65 0 0 0 10.29 18.7a1.65 1.65 0 0 0-1.82.33l-.06.06-2.2-2.2.06-.06A1.65 1.65 0 0 0 6.6 15 1.65 1.65 0 0 0 5.08 14H4.3v-3.4h.78A1.65 1.65 0 0 0 6.6 9.59a1.65 1.65 0 0 0-.33-1.82l-.06-.06 2.2-2.2.06.06a1.65 1.65 0 0 0 1.82.33A1.65 1.65 0 0 0 11.3 4.4V3.6h3.4v.8a1.65 1.65 0 0 0 1.01 1.52 1.65 1.65 0 0 0 1.82-.33l.06-.06 2.2 2.2-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.52 1.01h.78V14h-.78A1.65 1.65 0 0 0 19.4 15Z"/>',
+ 'search':'<circle cx="10.8" cy="10.8" r="7.3"/><path d="m16.2 16.2 4.7 4.7"/>',
+ 'activity':'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+ 'bar-chart-3':'<path d="M3 3v18h18M8 16v-5M13 16V7M18 16V4"/>',
+ 'boxes':'<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>',
+ 'shield-check':'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+ 'trending-up':'<path d="m3 17 6-6 4 4 8-8M15 7h6v6"/>',
+ 'archive':'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M10 12h4"/>',
+ 'download':'<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/>',
+ 'wifi-off':'<path d="m2 2 20 20M8.5 8.5a11 11 0 0 1 13 1M2.5 9.5a16 16 0 0 1 2.5-1.7m1.2 6a8 8 0 0 1 6-1.8m5 1a8 8 0 0 1 2.5 1.8M12 20h.01"/>',
+ 'chevron-right':'<path d="m9 18 6-6-6-6"/>',
+ 'command':'<path d="M9 7V5a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v14a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V7Z"/>',
+ 'alert-triangle':'<path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>',
+ 'check-circle':'<circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/>',
+ 'panel-right-open':'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18m-6-12 3 3-3 3"/>',
+ 'filter':'<path d="M3 4h18l-7 8v7l-4 2v-9L3 4Z"/>'
+};
+const aliases={'◫':'layout-dashboard','▦':'calendar-days','▤':'layers','◇':'package','◎':'users','◴':'history','⇅':'database-backup','⚙':'settings','▣':'boxes','◉':'activity','◈':'trending-up'};
+function svg(name){const content=paths[aliases[name]||name]||paths.package;return `<svg class="gu-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">${content}</svg>`;}
+function enhance(root=document){root.querySelectorAll('[data-gu-icon]').forEach(el=>{if(el.querySelector('svg'))return;el.innerHTML=svg(el.dataset.guIcon);});}
+window.GUIcons={svg,enhance};
+document.addEventListener('DOMContentLoaded',()=>enhance());
+})();
+
+</script>
+<script>
+/* Inventarios GU 3.0: diagnósticos no destructivos. Nunca modifica datos ni fórmulas. */
+(function(){'use strict';
+const finite=value=>Number.isFinite(Number(value))?Number(value):0;
+const label=name=>String(name||'Producto sin nombre');
+const strictDate=s=>{if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const [y,m,d]=s.split('-').map(Number),dt=new Date(Date.UTC(y,m-1,d));return dt.getUTCFullYear()===y&&dt.getUTCMonth()===m-1&&dt.getUTCDate()===d;};
+function analyze(state,Calc,rows){
+ const products=Array.isArray(state.products)?state.products:[];
+ const periods=Array.isArray(state.periods)?state.periods:[];
+ const categories=[
+ {id:'negative',name:'Saldo negativo',level:'danger',description:'Requiere verificar el origen de las cantidades.'},
+ {id:'zero',name:'Saldo en cero',level:'warn',description:'Productos sin saldo calculado.'},
+ {id:'boxes',name:'Cajas sin definir',level:'warn',description:'No se puede desglosar el saldo por cajas.'},
+ {id:'average',name:'Promedio sin definir',level:'info',description:'No se puede calcular la relación R / S.'},
+ {id:'unregistered',name:'Sin movimientos',level:'info',description:'Referencias sin cantidades en los períodos.'}
+ ];
+ const issues=[];
+ let referenced=0;
+ const byId=Array.isArray(rows)?new Map(rows.map(r=>[r.product?.id,r])):null;
+ const push=(id,p,detail)=>issues.push({id,productId:p.id,name:label(p.name),detail});
+ for(const p of products){
+   const r=byId?.get(p.id)||Calc.result(state,p),N=finite(r.N),H=finite(r.H);
+   if(H!==0)referenced++;
+   if(N<0)push('negative',p,`Saldo ${N}`);
+   if(N===0)push('zero',p,'Saldo calculado: 0');
+   if(N!==0&&finite(p.boxes)<=0)push('boxes',p,'Unidades por caja sin valor positivo');
+   if(N!==0&&finite(p.average)===0)push('average',p,'Promedio S sin configurar');
+   if(H===0)push('unregistered',p,'Ningún movimiento registrado');
+ }
+ const dates=periods.map(p=>{
+   if(!strictDate(p.start)||!strictDate(p.end))return false;
+   const start=new Date(p.start+'T12:00:00'),end=new Date(p.end+'T12:00:00');
+   const days=Math.round((end-start)/86400000)+1;
+   return days>0&&days<=366;
+ });
+ const counts=Object.fromEntries(categories.map(c=>[c.id,issues.filter(i=>i.id===c.id).length]));
+ return {categories,issues,counts,productCount:products.length,referenced,dated:dates.filter(Boolean).length,periodCount:periods.length,
+ critical:counts.negative,unconfigured:counts.boxes+counts.average};
+}
+function comparison(state,Calc){
+ const periods=state.periods||[];
+ if(periods.length<2)return null;
+ const total=p=>(state.products||[]).reduce((sum,product)=>sum+finite(Calc.qty(state,p.id,product.id)),0);
+ const previous=periods.at(-2),current=periods.at(-1);
+ const a=total(previous),b=total(current),diff=b-a,pct=a!==0?diff/Math.abs(a)*100:null;
+ return {previousLabel:previous.label,currentLabel:current.label,previous:a,current:b,difference:diff,percent:pct};
+}
+window.GUIInsights={analyze,comparison};
+})();
+
+</script>
 <script>
 /*
   Almacenamiento en cascada:
@@ -235,14 +441,83 @@ window.AlmendraCharts={bars,horizontal};
 
 </script>
 <script>
+/* Bodega isométrica interactiva, sin dependencias externas ni datos duplicados. */
+(function(){'use strict';
+const fmt=n=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(n);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let scene=null,raf=0;let lastFrame=0;
+function render(state,C){
+ const products=(state.products||[]).map(p=>({name:p.name,qty:Math.max(0,Number(C.result(state,p).N)||0)}));
+ const racks=[[],[],[]];products.forEach((p,i)=>racks[i%3].push(p));
+ const totals=racks.map(a=>a.reduce((s,p)=>s+p.qty,0));
+ scene={racks,totals,angle:-.72,zoom:1,selected:-1,paused:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false,frame:0};
+ return `<section class="card warehouse-card" aria-label="Bodega virtual interactiva"><div class="warehouse-heading"><div><span class="eyebrow">ALMACÉN DIGITAL · VISTA 3D</span><h2>Bodega virtual</h2></div><div class="warehouse-total"><strong>${fmt(totals.reduce((a,b)=>a+b,0))}</strong><span>unidades disponibles</span></div></div><div class="warehouse-viewport"><canvas id="warehouse-canvas" role="img" aria-label="Bodega isométrica interactiva con tres racks, oficina, trabajador y zona de preparación"></canvas><div class="warehouse-overlay"><span class="warehouse-live"><i></i> INVENTARIO SINCRONIZADO</span><div class="warehouse-controls"><button type="button" data-warehouse="left" title="Girar a la izquierda" aria-label="Girar a la izquierda">↶</button><button type="button" data-warehouse="right" title="Girar a la derecha" aria-label="Girar a la derecha">↷</button><button type="button" data-warehouse="in" title="Acercar" aria-label="Acercar">+</button><button type="button" data-warehouse="out" title="Alejar" aria-label="Alejar">−</button><button type="button" data-warehouse="reset" title="Restablecer vista" aria-label="Restablecer vista">⌂</button></div></div><span class="warehouse-hint">Arrastra para girar · rueda para zoom · selecciona un rack</span></div><div class="warehouse-mini-racks">${totals.map((n,i)=>`<button type="button" class="warehouse-mini-rack" data-warehouse="rack${i}" aria-label="Ver rack ${i+1}"><span class="warehouse-mini-dot"></span><span>Rack ${i+1}</span><strong>${fmt(n)}</strong></button>`).join('')}</div><div id="warehouse-detail" class="warehouse-detail" aria-live="polite">Selecciona un rack para consultar sus productos. Las cajas se dibujan hasta un límite de 16 por rack; el contador muestra el saldo completo.</div></section>`;
+}
+function mount(){
+ cancelAnimationFrame(raf);const canvas=document.getElementById('warehouse-canvas');if(!canvas||!scene)return;
+ const ctx=canvas.getContext('2d');if(!ctx)return;
+ const s=scene;let W=0,H=0,scale=1,cx=0,cy=0,hit=[];
+ function resize(){const rect=canvas.getBoundingClientRect();W=Math.max(180,rect.width);H=Math.max(180,rect.height);const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);scale=Math.min(W/820,H/500)*s.zoom;cx=W*.5;cy=H*.57;}
+ function project(x,y,z){const a=s.angle;const X=x*Math.cos(a)-y*Math.sin(a),Y=x*Math.sin(a)+y*Math.cos(a);return [cx+X*scale,cy+(Y*.51-z*.9)*scale];}
+ function polygon(pts,fill,stroke=null,line=1){ctx.beginPath();pts.forEach((p,i)=>{const v=project(...p);i?ctx.lineTo(...v):ctx.moveTo(...v)});ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=line*scale;ctx.stroke();}}
+ function cube(x,y,z,w,d,h,colors){const p=(xx,yy,zz)=>[xx,yy,zz];polygon([p(x,y,z),p(x+w,y,z),p(x+w,y+d,z),p(x,y+d,z)],'#66717a');polygon([p(x,y,z),p(x,y+d,z),p(x,y+d,z+h),p(x,y,z+h)],colors[1]);polygon([p(x+w,y,z),p(x+w,y+d,z),p(x+w,y+d,z+h),p(x+w,y,z+h)],colors[2]);polygon([p(x,y,z+h),p(x+w,y,z+h),p(x+w,y+d,z+h),p(x,y+d,z+h)],colors[0]);}
+ function line(a,b,color,width=2){const p=project(...a),q=project(...b);ctx.beginPath();ctx.moveTo(...p);ctx.lineTo(...q);ctx.strokeStyle=color;ctx.lineWidth=width*scale;ctx.stroke();}
+ function text(t,x,y,z,color='#fff',size=12){const p=project(x,y,z);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`700 ${Math.max(9,size*scale)}px system-ui,sans-serif`;ctx.lineWidth=3;ctx.strokeStyle='rgba(13,25,35,.75)';ctx.strokeText(t,...p);ctx.fillStyle=color;ctx.fillText(t,...p);}
+ function draw(now=0){if(!canvas.isConnected){cancelAnimationFrame(raf);return;}if(document.hidden||canvas.closest('.metric-collapsed')){idleTimer=setTimeout(()=>{raf=requestAnimationFrame(draw)},450);return;}if(now-lastFrame<42){raf=requestAnimationFrame(draw);return;}lastFrame=now;const r=canvas.getBoundingClientRect();if(Math.abs(r.width-W)>1||Math.abs(r.height-H)>1)resize();ctx.clearRect(0,0,W,H);const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#172535');bg.addColorStop(1,'#263d4e');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+ // Suelo industrial, cuadrícula, muros abiertos, carriles y entrada.
+ polygon([[-350,-190,0],[350,-190,0],[350,190,0],[-350,190,0]],'#8c989f','#a9b7c0');
+ for(let x=-350;x<=350;x+=50)line([x,-190,.3],[x,190,.3],'#a5b1b8',.6);
+ for(let y=-190;y<=190;y+=50)line([-350,y,.3],[350,y,.3],'#a5b1b8',.6);
+ cube(-350,-190,0,700,9,106,['#647580','#465864','#3d4f5c']);cube(-350,-190,0,9,380,106,['#647580','#43535e','#3b4d59']);
+ for(let x=-300;x<=300;x+=110){line([x,-179,105],[x,-179,115],'#f1f6f8',4);}
+ // Líneas de circulación, pasillo trasero y zona de preparación.
+ for(const x of [-260,-30,200]){line([x-55,-142,1],[x-55,143,1],'#f5c43d',3);line([x+55,-142,1],[x+55,143,1],'#f5c43d',3);}
+ line([-330,155,1],[330,155,1],'#f5c43d',4);line([-330,-150,1],[330,-150,1],'#f5c43d',4);
+ polygon([[170,95,1],[335,95,1],[335,175,1],[170,175,1]],'#697985','#f5c43d',2);
+ // Oficina de inventario, en el fondo.
+ cube(190,-184,0,140,55,68,['#e1e7e8','#a9bbc6','#899fac']);cube(205,-127,19,110,3,38,['#91c7dc','#5c9cb7','#5b98b0']);cube(235,-123,19,45,12,24,['#263d56','#182c41','#1d344a']);text('INVENTARIO',261,-128,81,'#ffffff',11);
+ // Persona en oficina.
+ cube(276,-128,20,9,8,17,['#f2b982','#d49b6f','#bc8b64']);
+ // Zona de acomodo, mesa, paquetes y carretilla.
+ cube(195,105,0,65,28,17,['#d4b28a','#9a7453','#b28a60']);cube(200,108,17,20,15,17,['#eac18b','#b57e4e','#d49b61']);cube(227,112,17,19,13,13,['#eac18b','#b57e4e','#d49b61']);cube(281,117,0,35,24,9,['#d4b28a','#9a7453','#b28a60']);line([318,115,2],[318,115,34],'#f5b12b',4);text('PREPARACIÓN',247,167,3,'#fff',10);
+ hit=[];
+ // Estanterías: 3 filas de dos niveles, cajas reales limitadas por rack.
+ for(let k=0;k<3;k++){const x=-290+k*230,y=-100,w=100,d=190,n=s.totals[k],count=Math.min(16,Math.floor(n));
+ polygon([[x-9,y-10,1],[x+w+9,y-10,1],[x+w+9,y+d+10,1],[x-9,y+d+10,1]],s.selected===k?'#b3aa79':'#788991',s.selected===k?'#ffe082':'#d1ad40',2);
+ for(const z of [4,48]){cube(x,y,z,w,d,5,['#f0a13b','#c47827','#d98c2f']);}
+ for(const xx of [x,x+w])for(const yy of [y,y+d])cube(xx-3,yy-3,0,6,6,101,['#3983b5','#225b88','#276da0']);
+ for(let j=0;j<count;j++){const level=j>=8?1:0,slot=j%8,col=slot%2,row=Math.floor(slot/2);cube(x+9+col*43,y+9+row*43,level?54:10,34,32,29,['#edc08a','#bb8151','#d79d65']);}
+ for(const z of [4,48]){line([x,y,z],[x+w,y,z],'#ffc36a',2);line([x,y+d,z],[x+w,y+d,z],'#ffc36a',2);}
+ text(fmt(n),x+w/2,y+d/2,119,'#ffffff',19);text(`RACK ${k+1}`,x+w/2,y+d/2,137,'#ffdb83',11);
+ hit.push({k,p:project(x+w/2,y+d/2,75)});
+ }
+ // Trabajador recorriendo pasillo, con casco, chaleco y tableta.
+ const wy=45+Math.sin(s.frame*.012)*31;cube(-145,wy,0,12,12,27,['#ef9a31','#d97920','#f3ad46']);cube(-146,wy,27,14,13,12,['#f3c486','#dca36f','#c28d5e']);cube(-148,wy-2,39,18,17,4,['#f6d43d','#e4b72a','#d6a522']);line([-141,wy,0],[-146,wy+12,-10],'#27394c',5);line([-133,wy,0],[-126,wy+12,-10],'#27394c',5);cube(-123,wy,18,12,9,2,['#9ed5ec','#3e789c','#3e789c']);
+ text('ENTRADA',0,183,2,'#fff',12);
+ if(!s.paused)s.frame++;raf=requestAnimationFrame(draw);
+ }
+ function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${esc(p.name)}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;}
+ canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);canvas._drag={x:e.clientX,y:e.clientY,angle:s.angle,moved:false};});
+ canvas.addEventListener('pointermove',e=>{if(!canvas._drag)return;const dx=e.clientX-canvas._drag.x;if(Math.abs(dx)>4)canvas._drag.moved=true;s.angle=canvas._drag.angle+dx*.007;});
+ canvas.addEventListener('pointerup',e=>{const d=canvas._drag;canvas._drag=null;if(!d||d.moved)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let best=null,dist=Infinity;for(const h of hit){const dd=Math.hypot(x-h.p[0],y-h.p[1]);if(dd<dist){dist=dd;best=h.k;}}if(dist<85*scale&&best!==null)detail(best);});
+ canvas.addEventListener('wheel',e=>{e.preventDefault();s.zoom=Math.max(.65,Math.min(1.7,s.zoom*(e.deltaY>0?.92:1.08)));resize();},{passive:false});
+ canvas.addEventListener('pointercancel',()=>canvas._drag=null);
+ document.querySelectorAll('[data-warehouse]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.warehouse;if(v==='left')s.angle-=.22;else if(v==='right')s.angle+=.22;else if(v==='in')s.zoom=Math.min(1.7,s.zoom*1.13);else if(v==='out')s.zoom=Math.max(.65,s.zoom/1.13);else if(v==='reset'){s.angle=-.72;s.zoom=1;s.selected=-1;}else if(v.startsWith('rack'))detail(Number(v.slice(4)));resize();}));
+ resize();raf=requestAnimationFrame(draw);
+ }
+ window.AlmendraWarehouse={render,mount};
+})();
+
+</script>
+<script>
 /*
-  ALMENDRA — CONTROL DE INVENTARIO LOCAL
+  INVENTARIOS GU 3.0 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
   Sin servicios externos, sin envío de datos y sin librerías de terceros.
 */
 (function(){
 'use strict';
-const DB=window.AlmendraDB, C=window.AlmendraCalc, Graph=window.AlmendraCharts;
+const DB=window.AlmendraDB, C=window.AlmendraCalc, Graph=window.AlmendraCharts, Insights=window.GUIInsights, Icons=window.GUIcons;
 const $=(q,root=document)=>root.querySelector(q);
 const $$=(q,root=document)=>Array.from(root.querySelectorAll(q));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -256,7 +531,7 @@ const getCookie=k=>document.cookie.split('; ').find(x=>x.startsWith(k+'='))?.spl
 const cookie=(k,v)=>{try{document.cookie=`${k}=${encodeURIComponent(v)}; max-age=31536000; path=/; SameSite=Lax`;}catch{}};
 const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null;};
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
-let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='';
+let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',reviewFilter='all';
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false;
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración'};
@@ -286,6 +561,7 @@ function scheduleSave(){
   const snapshot=clone(state);
   const createAutoBackup=autoBackupDue;autoBackupDue=false;
   saveQueue=saveQueue.catch(()=>{}).then(async()=>{
+    if(storageConflict)throw new Error('Se detectaron cambios de otra pestaña. No se sobrescribió el almacenamiento.');
     await DB.save(snapshot);
     if(createAutoBackup){
       await DB.backup({id:id('auto'),createdAt:snapshot.updatedAt,type:'auto',label:'Respaldo automático',data:snapshot});
@@ -326,28 +602,93 @@ function render(){
  if(!state)return;updateHeader();syncTheme();
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
- if(view==='dashboard')requestAnimationFrame(drawDashboard);
+ Icons?.enhance($('#main-content'));
+ if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
 }
+const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
+function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
+function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} métrica" title="${collapsed?'Mostrar':'Minimizar'}">${collapsed?'＋ Mostrar':'− Minimizar'}</button><div class="metric-content">${html}</div></div>`}
 function renderDashboard(){
  const all=C.totals(state,state.products);
  const open=state.periods.filter(p=>!p.locked).length;
  const top=all.rows.slice().sort((a,b)=>Math.abs(b.H)-Math.abs(a.H)).slice(0,6);
- const recent=state.audit.slice(0,5);
+ const recent=state.audit.slice(0,5),review=Insights.analyze(state,C,all.rows);
  return `${heading('VISTA GENERAL','Tu negocio, en perspectiva','Todos los períodos y productos, actualizados con cada registro.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
+ <div class="dashboard-tools" role="group" aria-label="Personalizar indicadores"><div><strong>Tu panel, a tu manera</strong><span>Organiza las tarjetas sin modificar los datos.</span></div><div class="dashboard-tools-actions"><button type="button" class="btn btn-small" data-dashboard-panels="expand">Mostrar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="collapse">Minimizar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="reset">Restablecer vista</button><button type="button" class="btn btn-small" data-dashboard-export="csv">Exportar resumen CSV</button></div></div>
+ ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Tu espacio está listo para comenzar</h3><p>El PDF no incluía productos originales. Añade productos o activa datos de demostración para explorar la interfaz.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
- ${statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦')}
- ${statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎')}
- ${statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈')}
- ${statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇')}
+ ${metricBox('volumen',statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦'))}
+ ${metricBox('saldo',statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎'))}
+ ${metricBox('valor',statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈'))}
+ ${metricBox('productos',statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇'))}
+ ${metricBox('stock',statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣'))}
+ ${metricBox('referencias',statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉'))}
  </section>
- <div class="dashboard-grid"><article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>
- <article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article></div>
- <div class="dashboard-bottom"><article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>
- <article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article></div>`;
+ <div class="dashboard-visual-row">
+ ${metricBox('bodega',window.AlmendraWarehouse?.render(state,C)||'')}
+ ${metricBox('proyecciones',renderProjections())}
+ </div>
+ <div class="dashboard-grid">${metricBox('grafico-semanal',`<article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>`)}
+ ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
+ <div class="dashboard-v3-row">${metricBox('revision',renderReviewCenter(review))}${metricBox('tendencias',renderPeriodComparison(review))}</div>
+ <div class="dashboard-bottom">${metricBox('vista-rapida',`<article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>`)}
+ ${metricBox('actividad',`<article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article>`)}</div>`;
 }
-function statCard(label,value,foot,icon){return `<article class="card stat-card"><div class="stat-icon">${icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div><div class="stat-foot">${esc(foot)}</div></article>`;}
+function renderReviewCenter(info){
+ const active=info.categories.find(c=>c.id===reviewFilter);
+ const filtered=active?info.issues.filter(x=>x.id===active.id):info.issues;
+ const n=Math.min(filtered.length,6);
+ return `<section class="card card-pad control-center" aria-label="Centro de revisión del inventario"><div class="card-title gu-control-head"><div><span class="eyebrow">CONTROL Y CALIDAD DE DATOS</span><h3>Centro de revisión</h3><p>Observaciones para verificar, sin modificar tus registros.</p></div><button class="btn btn-small" data-action="csv-review">Exportar revisión</button></div>
+ <div class="health-strip"><div><span>Referencias con registros</span><strong>${info.referenced} / ${info.productCount}</strong><div class="health-meter"><i style="width:${info.productCount?Math.round(info.referenced/info.productCount*100):0}%"></i></div></div><div><span>Períodos con fechas válidas</span><strong>${info.dated} / ${info.periodCount}</strong><div class="health-meter"><i style="width:${info.periodCount?Math.round(info.dated/info.periodCount*100):0}%"></i></div></div><div><span>Saldos negativos</span><strong class="${info.critical?'text-danger':''}">${info.critical}</strong><small>Requieren revisión</small></div></div>
+ <div class="review-filters" role="group" aria-label="Filtrar observaciones"><button type="button" data-review-filter="all" aria-pressed="${reviewFilter==='all'}" class="${reviewFilter==='all'?'active':''}">Todas <b>${info.issues.length}</b></button>${info.categories.map(c=>`<button type="button" data-review-filter="${c.id}" aria-pressed="${reviewFilter===c.id}" class="${reviewFilter===c.id?'active':''}">${esc(c.name)} <b>${info.counts[c.id]}</b></button>`).join('')}</div>
+ <div class="review-list">${filtered.length?filtered.slice(0,6).map(i=>`<div class="review-row"><span class="review-state ${i.id==='negative'?'risk':i.id==='zero'?'caution':''}">${esc(info.categories.find(c=>c.id===i.id)?.name||i.id)}</span><div class="review-row-info"><b>${esc(i.name)}</b><small>${esc(i.detail)}</small></div><button type="button" class="btn btn-small" data-action="edit-product" data-id="${esc(i.productId)}">Revisar</button></div>`).join(''):`<div class="review-empty">No hay observaciones con este filtro.</div>`}</div>
+ <p class="review-foot">${filtered.length>n?`Mostrando ${n} de ${filtered.length}. Exporta CSV para revisar todos los casos.`:'Los avisos son orientativos; las cantidades y las fórmulas originales no se alteran.'}</p></section>`;
+}
+function renderPeriodComparison(info){
+ const comp=Insights.comparison(state,C);
+ return `<section class="card card-pad trend-card" aria-label="Comparativa de períodos"><div class="card-title"><div><span class="eyebrow">EVOLUCIÓN DE LOS REGISTROS</span><h3>Comparativa de períodos</h3><p>Últimos dos períodos según el orden de registro.</p></div><span class="badge">DESCRIPTIVO</span></div>${comp?`<div class="trend-pair"><div><span>${esc(comp.previousLabel)}</span><strong>${format(comp.previous)}</strong></div><div><span>${esc(comp.currentLabel)}</span><strong>${format(comp.current)}</strong></div></div><div class="trend-change"><span class="${comp.difference<0?'text-danger':comp.difference>0?'text-good':''}">${comp.difference>0?'+':''}${format(comp.difference)} unidades</span><small>${comp.percent===null?'Sin base anterior para calcular porcentaje':(comp.percent>0?'+':'')+format(comp.percent)+'% frente al período anterior'}</small></div>`:'<div class="review-empty">Se necesitan al menos dos períodos para comparar sus movimientos.</div>'}<div class="trend-info"><div><span class="trend-dot"></span><b>${format(info.productCount,0)}</b><small>Productos en el catálogo</small></div><div><span class="trend-dot success"></span><b>${format(info.referenced,0)}</b><small>Con movimientos registrados</small></div></div><p class="review-foot">Una variación de registros no demuestra ventas, ganancias ni demanda futura. Usa las fechas y el contexto de tus operaciones.</p><button class="btn btn-small trend-open" data-nav="weekly">Consultar semanas</button></section>`;
+}
+function exportReviewCSV(){
+ const info=Insights.analyze(state,C);
+ csvDownload([['Tipo','Producto','Producto_ID','Detalle'],...info.issues.map(i=>[info.categories.find(c=>c.id===i.id)?.name||i.id,i.name,i.productId,i.detail])],'Revision_3_0');
+}
+function renderStockAlerts(all){
+ const zero=all.rows.filter(r=>Number(r.N)===0);
+ const negative=all.rows.filter(r=>Number(r.N)<0);
+ if(!zero.length&&!negative.length)return '';
+ const examples=[...negative,...zero].slice(0,4).map(r=>esc(r.product.name)).join(', ');
+ return `<div class="stock-alert-summary" role="status"><span class="stock-alert-dot" aria-hidden="true"></span><div><strong>Revisión de existencias: ${negative.length} negativas · ${zero.length} en cero</strong><p>${examples}${negative.length+zero.length>4?' y otros productos':''}. Consulta el consolidado para verificar cantidades.</p></div><button class="btn btn-small" data-nav="final">Revisar</button></div>`;
+}
+function exportDashboardCSV(){
+ const totals=C.totals(state,state.products);
+ const rows=[['Producto','Saldo disponible','Cantidad registrada','Valor total'],...totals.rows.map(r=>[r.product.name,r.N,r.H,r.P])];
+ // Evita que hojas de cálculo interpreten nombres de productos como fórmulas.
+ const cell=v=>{let t=String(v??'');if(/^[\s]*[=+@-]/.test(t)&&typeof v==='string')t="'"+t;return '"'+t.replace(/"/g,'""')+'"'};
+ const csv='\uFEFF'+rows.map(r=>r.map(cell).join(';')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='Inventarios_GU_resumen_3_0.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+function renderProjections(){
+ // Proyección lineal de movimiento registrado: solo semanas con fechas válidas.
+ // No se asume que los movimientos equivalgan a ventas ni se pronostica stock futuro.
+ const observations=state.periods.map(p=>{
+  const start=p.start?new Date(p.start+'T12:00:00'):null;
+  const end=p.end?new Date(p.end+'T12:00:00'):null;
+  if(!start||!end||!Number.isFinite(+start)||!Number.isFinite(+end)||end<start)return null;
+  const days=Math.floor((end-start)/86400000)+1;
+  if(days<1||days>366)return null;
+  return {days,quantity:state.products.reduce((sum,pr)=>sum+C.qty(state,p.id,pr.id),0)};
+ }).filter(Boolean);
+ const days=observations.reduce((sum,p)=>sum+p.days,0);
+ const quantity=observations.reduce((sum,p)=>sum+p.quantity,0);
+ const daily=days?quantity/days:null;
+ const periods=[['Diaria',1],['Semanal',7],['Mensual',30],['Anual',365]];
+ const ready=daily!==null&&observations.length>0;
+ return `<section class="card forecast-card" aria-label="Proyección de movimiento"><div class="card-title"><div><h3>Proyección de movimiento</h3><p>Estimación según los registros y fechas de los períodos.</p></div><span class="badge">ESTIMACIÓN</span></div><div class="forecast-grid">${periods.map(([label,span])=>`<div class="forecast-item"><span>${label}</span><strong class="mono">${ready?format(daily*span):'—'}</strong><small>${ready?'unidades estimadas':'Sin datos fechados'}</small></div>`).join('')}</div><p class="forecast-note">${ready?`Promedio de ${format(quantity)} unidades registradas durante ${format(days,0)} días de ${observations.length} período(s) con fechas. Mes = 30 días; año = 365 días. No representa ventas ni stock futuro.`:'Para calcular proyecciones, registra las fechas de inicio y fin de al menos un período semanal. No se inventan datos.'}</p></section>`;
+}
+function statCard(label,value,foot,icon){return `<article class="card stat-card"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div><div class="stat-foot">${esc(foot)}</div></article>`;}
 function drawDashboard(){
  const weekly=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
  Graph.bars('weekly-chart',weekly.slice(-14));
@@ -361,7 +702,7 @@ function slotSelect(){const total=state.clients.length;const block=Math.min(slot
 function renderWeekly(){
  const period=activePeriod(),slots=currentSlots(),all=productsFiltered(),sel=selection(all),locked=period.locked,weekQty=state.products.reduce((s,p)=>s+C.qty(state,period.id,p.id),0);
  const cols=slots.map(cl=>`<th class="slot-col" title="${esc(cl.name||cl.code)}">${esc(cl.name||cl.code)}</th>`).join('');
- const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
+ const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal con desplazamiento horizontal y vertical"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
   return `<tr><td class="sticky-first">${productButton(pr)}</td>${slots.map(cl=>`<td class="week-cell">${numInput('movement',state.movements[period.id]?.[pr.id]?.[cl.id]??'',`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" aria-label="${esc(pr.name)} / ${esc(cl.name||cl.code)}" ${locked?'disabled':''}`)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="week-cell">${numInput('price',prc,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Precio ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="week-cell">${numInput('week-total',total,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Total manual ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
  }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',state.products.length?'No hay coincidencias para tu búsqueda.':'Crea un producto para comenzar a registrar cantidades.','new-product','Añadir producto');
@@ -371,7 +712,7 @@ function renderWeekly(){
  <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos: <strong>${state.products.length}</strong></span></div></div>
  <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button class="btn btn-small" data-action="new-product">+ Producto</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
- ${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
+ <p class="table-hint">Desplaza la tabla hacia los lados y hacia abajo para ver más espacios y productos. En móvil se mantiene la vista por tarjetas.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
 }
 function renderFinal(){
  const all=productsFiltered(),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
@@ -408,7 +749,7 @@ async function refreshBackups(){try{backupsCache=await DB.backups();}catch{backu
 function renderBackup(){
  return `${heading('DATOS EN TUS MANOS','Copias de seguridad','Guarda versiones internas, descarga un archivo portátil y restaura los mismos datos en otro teléfono o computador.',`<button class="btn btn-primary" data-action="export-json">↧ Descargar respaldo</button>`)}
  <div class="backups-grid"><article class="card backup-action"><div class="backup-icon">⇩</div><h3>Exportar todos los datos</h3><p>Archivo JSON con productos, espacios, semanas, cantidades, precios, configuración e historial. También puedes cifrarlo con contraseña.</p><div class="page-tools"><button class="btn btn-primary" data-action="export-json">Descargar JSON</button><button class="btn" data-action="export-encrypted">Cifrar y descargar</button></div></article>
- <article class="card backup-action"><div class="backup-icon">⇧</div><h3>Importar o migrar datos</h3><p>Selecciona un archivo de respaldo de Almendra. Puedes reemplazar todos los datos o fusionarlos por identificador para evitar duplicados.</p><div class="page-tools"><button class="btn btn-primary" data-action="import-file">Seleccionar archivo</button></div></article></div>
+ <article class="card backup-action"><div class="backup-icon">⇧</div><h3>Importar o migrar datos</h3><p>Selecciona un archivo de respaldo de Inventarios GU o versiones anteriores. Puedes reemplazar todos los datos o fusionarlos por identificador para evitar duplicados.</p><div class="page-tools"><button class="btn btn-primary" data-action="import-file">Seleccionar archivo</button></div></article></div>
  <div class="card card-pad" style="margin-bottom:19px"><div class="card-title"><div><h3>${DB.mode?.()==='memory'?'Copias temporales de esta sesión':'Copias guardadas en este equipo'}</h3><p>Las copias internas están en el mismo navegador, no en la nube.</p></div><button class="btn btn-small" data-action="manual-snapshot">+ Crear copia interna</button></div>
  ${backupsCache.length?backupsCache.map(b=>`<div class="backup-item"><div class="backup-icon" style="width:35px;height:35px;font-size:17px;flex-shrink:0;margin:0">${b.type==='auto'?'◷':'▣'}</div><div class="backup-item-main"><b>${esc(b.label)}</b><small>${esc(stamp(b.createdAt))} · ${b.type==='auto'?'Automática':'Manual'}</small></div><div class="backup-item-actions"><button class="btn btn-small" data-action="restore-snapshot" data-id="${esc(b.id)}">Restaurar</button><button class="icon-btn" data-action="download-snapshot" data-id="${esc(b.id)}" title="Descargar">↓</button><button class="icon-btn" data-action="delete-snapshot" data-id="${esc(b.id)}" title="Eliminar">×</button></div></div>`).join(''):empty('Sin copias internas','Crea una copia de seguridad para conservar una versión recuperable en este navegador.')}</div>
  <div class="card card-pad"><div class="card-title"><div><h3>Exportaciones para Excel</h3><p>Archivos CSV separados por punto y coma; Excel puede abrirlos.</p></div></div><div class="page-tools"><button class="btn" data-action="csv-final">Descargar consolidado CSV</button><button class="btn" data-action="csv-movements">Descargar registros CSV</button></div><div class="help-note">Para migrar o restaurar la aplicación completa usa el <b>JSON</b>, no los CSV. El PDF recibido no trae los valores del Excel original; para importarlos directamente desde XLSX hace falta disponer del archivo XLSX.</div></div>
@@ -419,6 +760,7 @@ function renderSettings(){return `${heading('PERSONALIZACIÓN','El espacio a tu 
  <div class="settings-grid"><article class="card card-pad"><div class="card-title"><div><h3>Paletas de color</h3><p>Tres estilos que cambian toda la interfaz.</p></div></div><div class="theme-grid">${paletteSwatch('Almendra','almond','Crema y marrón','#78583e','#f3eee7','#d6b993')}${paletteSwatch('Rojo y oro','redgold','Inspiración oriental','#9b292b','#f9ead9','#dbb15e')}${paletteSwatch('Gris y plata','silver','Diseño metálico','#576878','#edf0f4','#bbc6d0')}</div><div class="section-label">Luminosidad</div><div class="mode-switch"><button class="btn ${state.settings.mode==='light'?'active':''}" data-mode-change="light">☀ Modo diurno</button><button class="btn ${state.settings.mode==='dark'?'active':''}" data-mode-change="dark">☾ Modo oscuro</button></div></article>
  <article class="card card-pad"><div class="card-title"><div><h3>Preferencias de trabajo</h3><p>Se guardan localmente con el resto de tu configuración.</p></div></div><div class="field" style="margin-bottom:16px"><label>Moneda para valorización</label><select id="setting-currency" class="form-control"><option value="COP" ${state.settings.currency==='COP'?'selected':''}>COP · Peso colombiano</option><option value="USD" ${state.settings.currency==='USD'?'selected':''}>USD · Dólar</option><option value="EUR" ${state.settings.currency==='EUR'?'selected':''}>EUR · Euro</option><option value="MXN" ${state.settings.currency==='MXN'?'selected':''}>MXN · Peso mexicano</option><option value="CNY" ${state.settings.currency==='CNY'?'selected':''}>CNY · Yuan chino</option></select></div><div class="field"><label>Productos mostrados por página</label><select id="setting-pagesize" class="form-control"><option value="10" ${state.settings.pageSize===10?'selected':''}>10</option><option value="20" ${state.settings.pageSize===20?'selected':''}>20</option><option value="40" ${state.settings.pageSize===40?'selected':''}>40</option><option value="80" ${state.settings.pageSize===80?'selected':''}>80</option></select></div><div class="section-label">Información de almacenamiento</div><div class="info-list"><div class="info-row"><span>Productos</span><b>${state.products.length}</b></div><div class="info-row"><span>Espacios</span><b>${state.clients.length}</b></div><div class="info-row"><span>Semanas / períodos</span><b>${state.periods.length}</b></div><div class="info-row"><span>Última modificación</span><b>${esc(stamp(state.updatedAt))}</b></div><div class="info-row"><span>Almacenamiento</span><b>IndexedDB + cookies visuales</b></div></div></article></div>
  <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Administración rápida</h3><p>Acceso a las herramientas adicionales desde el teléfono.</p></div></div><div class="page-tools"><button class="btn" data-nav="clients">Clientes y espacios</button><button class="btn" data-nav="audit">Historial de cambios</button><button class="btn" data-nav="weekly">Semanas</button></div></div>
+ <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Aplicación para PC, Android y iPhone</h3><p>Instalable desde el navegador, con modo sin conexión y datos locales.</p></div></div><p class="muted" style="margin-top:10px">Para usar en otro dispositivo, instala allí y transfiere los datos mediante Copias y migración.</p></div>
  <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">La demostración crea productos ficticios con cantidades de ejemplo. No debe confundirse con el Excel original.</p><button class="btn" data-action="demo">Añadir datos de demostración</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
 // Formularios de edición.
 function showModal(title,body,foot=''){const root=$('#modal-root');root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;setTimeout(()=>root.querySelector('input:not([type="hidden"]),select')?.focus(),10);}
@@ -455,14 +797,20 @@ function submitPeriod(form){
    if(!editId){state.periods.push(p);periodId=p.id;}
  });closeModal();
 }
-function removeProduct(productId){
+async function removalCheckpoint(label){
+ const snapshot={id:id('safety'),createdAt:new Date().toISOString(),type:'manual',label:'Copia preventiva · '+label,data:clone(state)};
+ await DB.backup(snapshot);await refreshBackups();
+}
+async function removeProduct(productId){
  const p=state.products.find(x=>x.id===productId);if(!p)return;
- if(!confirm(`¿Eliminar «${p.name}»? Se borrarán sus cantidades, precios y totales semanales. Haz una copia JSON primero.`))return;
+ if(!confirm(`¿Eliminar «${p.name}»? Se borrarán sus cantidades, precios y totales semanales. Se creará una copia interna preventiva.`))return;
+ await removalCheckpoint('antes de eliminar producto');
  mutation(`Producto eliminado: ${p.name}`,()=>{state.products=state.products.filter(x=>x.id!==productId);for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];});
 }
-function removePeriod(pId){
+async function removePeriod(pId){
  const p=state.periods.find(x=>x.id===pId);if(!p||state.periods.length<=1)return;
- if(!confirm(`¿Eliminar «${p.label}» y todos sus registros, precios y totales? Crea antes un respaldo.`))return;
+ if(!confirm(`¿Eliminar «${p.label}» y todos sus registros, precios y totales? Se creará una copia interna preventiva.`))return;
+ await removalCheckpoint('antes de eliminar período');
  mutation(`Período eliminado: ${p.label}`,()=>{state.periods=state.periods.filter(x=>x.id!==pId);delete state.movements[pId];delete state.prices[pId];delete state.weekTotals[pId];if(periodId===pId)periodId=state.periods[0].id;});closeModal();
 }
 function editValue(el){
@@ -518,7 +866,7 @@ function downloadBlob(content,filename,type='application/json;charset=utf-8'){co
 function filename(prefix,extension){return `${prefix}_${new Date().toISOString().slice(0,10)}.${extension}`;}
 async function sha256(text){if(!crypto?.subtle)return null;const bytes=new TextEncoder().encode(text),hash=await crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('');}
 async function backupPackage(data){const body=clone(data);return {format:'almendra-inventario-backup',version:1,exportedAt:new Date().toISOString(),sha256:await sha256(JSON.stringify(body)),data:body};}
-async function exportJSON(snapshot=state){const payload=await backupPackage(snapshot);downloadBlob(JSON.stringify(payload,null,2),filename('Almendra_Respaldo','json'));toast('Copia JSON descargada. Consérvala fuera del navegador.');}
+async function exportJSON(snapshot=state){const payload=await backupPackage(snapshot);downloadBlob(JSON.stringify(payload,null,2),filename('Inventarios_GU_Respaldo','json'));toast('Copia JSON descargada. Consérvala fuera del navegador.');}
 function b64(bytes){let str='';for(let i=0;i<bytes.length;i+=8192)str+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(str);}
 function fromB64(str){const binary=atob(str),array=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)array[i]=binary.charCodeAt(i);return array;}
 async function encryptionKey(secret,salt,iterations,usage){const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,[usage]);}
@@ -531,7 +879,7 @@ async function encryptedExport(){
  if(!crypto?.subtle){toast('El cifrado necesita HTTPS o localhost y un navegador con Web Crypto.');return;}
  const secret=await askPassword('Cifrar copia de seguridad',10);if(!secret)return;
  try{const payload=await backupPackage(state),salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),iterations=250000,key=await encryptionKey(secret,salt,iterations,'encrypt');const bytes=new TextEncoder().encode(JSON.stringify(payload)),cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,bytes);
- const wrapper={format:'almendra-inventario-encrypted',version:1,algorithm:'AES-256-GCM',kdf:'PBKDF2-SHA256',iterations,salt:b64(salt),iv:b64(iv),payload:b64(new Uint8Array(cipher))};downloadBlob(JSON.stringify(wrapper),filename('Almendra_Cifrado','json'));toast('Copia cifrada descargada. Conserva la contraseña.');
+ const wrapper={format:'almendra-inventario-encrypted',version:1,algorithm:'AES-256-GCM',kdf:'PBKDF2-SHA256',iterations,salt:b64(salt),iv:b64(iv),payload:b64(new Uint8Array(cipher))};downloadBlob(JSON.stringify(wrapper),filename('Inventarios_GU_Cifrado','json'));toast('Copia cifrada descargada. Conserva la contraseña.');
  }catch(e){toast('No fue posible cifrar el respaldo: '+e.message);}
 }
 async function decryptPackage(wrapped){
@@ -543,7 +891,7 @@ async function decryptPackage(wrapped){
  }catch{throw new Error('Contraseña incorrecta o archivo cifrado dañado.');}
 }
 function normalizeImported(raw){
- if(!raw||typeof raw!=='object'||!Array.isArray(raw.products)||!Array.isArray(raw.clients)||!Array.isArray(raw.periods))throw new Error('Este archivo no contiene un respaldo compatible de Almendra.');
+ if(!raw||typeof raw!=='object'||!Array.isArray(raw.products)||!Array.isArray(raw.clients)||!Array.isArray(raw.periods))throw new Error('Este archivo no contiene un respaldo compatible de Inventarios GU.');
  if(raw.products.length>10000||raw.clients.length>10000||raw.periods.length>500||!raw.periods.length||!raw.clients.length)throw new Error('El respaldo tiene un tamaño o estructura no admitidos.');
  const makeUnique=(array,entity,normalize)=>{const seen=new Set();return array.map(v=>{if(!v||typeof v!=='object'||!safeid(v.id)||seen.has(v.id))throw new Error(`${entity}: identificador inválido o duplicado.`);seen.add(v.id);return normalize(v);});};
  const string=(v,max=130)=>String(v??'').slice(0,max);
@@ -594,7 +942,7 @@ async function handleFile(file){
  try{const text=await file.text();let pkg=JSON.parse(text);
   if(pkg.format==='almendra-inventario-encrypted')pkg=await decryptPackage(pkg);
   if(!pkg)return;
-  if(pkg.format!=='almendra-inventario-backup'||pkg.version!==1||!pkg.data)throw new Error('El archivo no es un respaldo JSON de Almendra.');
+  if(pkg.format!=='almendra-inventario-backup'||pkg.version!==1||!pkg.data)throw new Error('El archivo no es un respaldo JSON compatible de Inventarios GU.');
   if(pkg.sha256){const actual=await sha256(JSON.stringify(pkg.data));if(actual&&actual!==pkg.sha256)throw new Error('La verificación SHA-256 falló: el archivo fue modificado o está dañado.');}
   pendingImport=normalizeImported(pkg.data);
   showModal('Confirmar migración',`<div class="modal-body"><p>Respaldo compatible: <b>${pendingImport.products.length} productos</b>, <b>${pendingImport.clients.length} espacios</b>, <b>${pendingImport.periods.length} períodos</b>.</p><div class="section-label">Cómo aplicar la información</div><label class="switch-line" style="margin-bottom:15px"><input type="radio" name="import-mode" value="replace" checked> <span><b>Reemplazar todo</b><br>Restaurar exactamente los datos del archivo.</span></label><label class="switch-line"><input type="radio" name="import-mode" value="merge"> <span><b>Fusionar por identificador</b><br>Conservar ambos catálogos; si una celda comparte ID, prevalece la del archivo. No sumar valores repetidos.</span></label><div class="help-note">Se guardará una copia interna del estado actual antes de migrar.</div></div>`,`<button class="btn" data-action="close-modal">Cancelar</button><button class="btn btn-primary" data-action="confirm-import">Aplicar migración</button>`);
@@ -621,7 +969,7 @@ async function restoreSnapshot(snapshotId){
  }catch(e){toast('No fue posible restaurar: '+e.message);}
 }
 function csvEscape(value,textual=false){let string=String(value??'');if(textual&&/^[\s]*[=+@\-\t\r]/.test(string))string="'"+string;return '"'+string.replace(/"/g,'""')+'"';}
-function csvDownload(rows,name){downloadBlob('\ufeff'+rows.map(row=>row.map((v,i)=>csvEscape(v,typeof v==='string')).join(';')).join('\r\n'),filename('Almendra_'+name,'csv'),'text/csv;charset=utf-8');toast('Archivo CSV descargado para abrir en Excel.');}
+function csvDownload(rows,name){downloadBlob('\ufeff'+rows.map(row=>row.map((v,i)=>csvEscape(v,typeof v==='string')).join(';')).join('\r\n'),filename('Inventarios_GU_'+name,'csv'),'text/csv;charset=utf-8');toast('Archivo CSV descargado para abrir en Excel.');}
 function csvFinal(){
  const header=['Producto','ID',...state.periods.map(p=>p.label),'H_Total_Semanas','L_CantidadN','M_CantidadV','J_LmasM','N_Stock','O_Valor','P_Total','Q_Cantidad','R_Cantidad2','S_Promedio','T_Meses','U_Cajas','V_CYU'];
  csvDownload([header,...state.products.map(p=>{const r=C.result(state,p);return [p.name,p.id,...r.weekly,r.H,p.quantityN,p.quantityV,r.J,r.N,p.value,r.P,r.Q,r.R,p.average,r.T??'',p.boxes,r.V??''];})],'Consolidado');
@@ -631,7 +979,38 @@ function csvMovements(){
  for(const w of state.periods)for(const p of state.products){const cells=state.movements[w.id]?.[p.id]||{};for(const [cid,quantity] of Object.entries(cells)){const client=state.clients.find(c=>c.id===cid);if(!client)continue;rows.push([w.label,w.start,w.end,p.name,p.id,client.code,client.name,quantity,state.prices[w.id]?.[p.id]??'',state.weekTotals[w.id]?.[p.id]??'']);}}
  csvDownload(rows,'Registros');
 }
+// Buscador global: navegación y acceso a productos con Ctrl/Cmd+K.
+const searchTargets=[['dashboard','Panel general'],['weekly','Registro semanal'],['final','Consolidado'],['products','Productos'],['clients','Clientes / espacios'],['audit','Historial'],['backup','Copias y migración'],['settings','Configuración']];
+function closePalette(){const dialog=$('#command-palette');if(dialog)dialog.hidden=true;}
+function paletteOptions(){
+ const input=$('#palette-input');if(!input||!state)return;
+ const q=input.value.trim().toLocaleLowerCase('es');
+ const menu=searchTargets.filter(x=>x[1].toLocaleLowerCase('es').includes(q)).slice(0,8);
+ const products=state.products.filter(p=>`${p.name} ${p.category||''}`.toLocaleLowerCase('es').includes(q)).slice(0,12);
+ const html=[...menu.map(([key,label])=>`<button type="button" class="command-result" data-command-view="${key}" role="option"><span class="command-kind">SECCIÓN</span><span>${esc(label)}</span><span class="command-arrow">↵</span></button>`),...products.map(p=>`<button type="button" class="command-result" data-command-product="${esc(p.id)}" role="option"><span class="command-kind">PRODUCTO</span><span>${esc(p.name)} <small>${esc(p.category||'')}</small></span><span class="command-arrow">↵</span></button>`)].join('');
+ $('#palette-results').innerHTML=html||'<div class="command-empty">No hay resultados. Busca una sección o producto.</div>';
+}
+function openPalette(){if(!state)return;const dialog=$('#command-palette');dialog.hidden=false;$('#palette-input').value='';paletteOptions();$('#palette-input').focus();}
+document.addEventListener('click',e=>{
+ if(e.target.closest('[data-command-close]')){closePalette();return;}
+ const v=e.target.closest('[data-command-view]');if(v){closePalette();navigate(v.dataset.commandView);return;}
+ const p=e.target.closest('[data-command-product]');if(p){closePalette();productModal(p.dataset.commandProduct);return;}
+ if(e.target.id==='command-palette')closePalette();
+});
+document.addEventListener('input',e=>{if(e.target.id==='palette-input')paletteOptions();});
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
+document.addEventListener('click',e=>{
+ const btn=e.target.closest('[data-dashboard-panels]');if(!btn)return;
+ const action=btn.dataset.dashboardPanels;
+ const prefs=metricPrefs();
+ if(action==='reset'){try{localStorage.removeItem(metricVisibilityKey)}catch{}}
+ else document.querySelectorAll('.metric-panel[data-metric]').forEach(panel=>{prefs[panel.dataset.metric]=action==='collapse'});
+ if(action!=='reset')try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}
+ render();
+});
+document.addEventListener('click',e=>{if(e.target.closest('[data-dashboard-export]'))exportDashboardCSV()});
+document.addEventListener('click',e=>{const btn=e.target.closest('[data-review-filter]');if(!btn)return;reviewFilter=btn.dataset.reviewFilter;render();});
+document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'＋ Mostrar':'− Minimizar';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=collapsed?'Mostrar':'Minimizar';if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}
@@ -645,10 +1024,10 @@ document.addEventListener('click',async e=>{
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
   case 'new-product':productModal();break;
   case 'edit-product':productModal(targetId);break;
-  case 'remove-product':removeProduct(targetId);break;
+  case 'remove-product':await removeProduct(targetId);break;
   case 'new-period':periodModal();break;
   case 'edit-period':periodModal(activePeriod());break;
-  case 'remove-period':removePeriod(targetId);break;
+  case 'remove-period':await removePeriod(targetId);break;
   case 'clients':navigate('clients');break;
   case 'add-client':{const count=state.clients.length+1;mutation(`Espacio A-${count} creado`,()=>state.clients.push({id:id('client'),code:'A-'+count,name:'',active:true}));toast('Nuevo espacio A-'+count+' disponible en todas las semanas.');break;}
   case 'jump-week':periodId=btn.dataset.period||state.periods[0].id;query=state.products.find(p=>p.id===targetId)?.name||'';page=0;view='weekly';render();break;
@@ -661,6 +1040,8 @@ document.addEventListener('click',async e=>{
   case 'delete-snapshot':if(confirm('¿Eliminar esta copia de seguridad interna?')){await DB.deleteBackup(targetId);await refreshBackups();render();toast('Copia interna eliminada.');}break;
   case 'download-snapshot':{const backup=backupsCache.find(b=>b.id===targetId);if(backup)await exportJSON(backup.data);break;}
   case 'confirm-import':await applyImport();break;
+  case 'csv-review':exportReviewCSV();break;
+  case 'global-search':openPalette();break;
   case 'csv-final':csvFinal();break;
   case 'csv-movements':csvMovements();break;
   case 'reload':location.reload();break;
@@ -697,15 +1078,23 @@ document.addEventListener('input',e=>{
  if(el.id==='client-search'){const pos=el.selectionStart;clientQuery=el.value;render();const next=$('#client-search');if(next){next.focus();try{next.setSelectionRange(pos,pos);}catch{}}}
 });
 document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&!$('#command-palette')?.hidden){closePalette();return;}
  if(e.key==='Escape'&&$('#modal-root').innerHTML){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}}
- if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!e.target.matches('input,textarea,[contenteditable]')){e.preventDefault();undo();}
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();return;}
+ if(!$('#command-palette')?.hidden&&['ArrowDown','ArrowUp','Enter'].includes(e.key)){
+   const options=$$('#palette-results .command-result');
+   if(!options.length)return;
+   if(e.key==='Enter') {e.preventDefault();const target=options.find(x=>x===document.activeElement)||options[0];target.click();return;}
+   e.preventDefault();const current=options.indexOf(document.activeElement),next=e.key==='ArrowDown'?(current+1)%options.length:(current<1?options.length-1:current-1);options[next].focus();return;
+ }
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z' &&!e.target.matches('input,textarea,[contenteditable]')){e.preventDefault();undo();}
 });
 $('#undo-btn').addEventListener('click',undo);
 $('#quick-theme').addEventListener('click',()=>{if(!state)return;mutation('Cambio de modo día/noche',()=>state.settings.mode=state.settings.mode==='dark'?'light':'dark');});
 $('#quick-backup').addEventListener('click',()=>{if(state)exportJSON().catch(e=>toast(e.message));});
 $('#backup-file').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';await handleFile(file);});
 window.addEventListener('storage',e=>{if(e.key!=='almendra-last-revision'||!state)return;try{const note=JSON.parse(e.newValue);if(note.tabId!==tabId){storageConflict=true;indicator('Otra pestaña modificó los datos','error');render();}}catch{}});
-window.addEventListener('resize',()=>{if(view==='dashboard')requestAnimationFrame(drawDashboard);});
+let chartResizeTimer;window.addEventListener('resize',()=>{if(view!=='dashboard')return;clearTimeout(chartResizeTimer);chartResizeTimer=setTimeout(()=>drawDashboard(),150);});
 async function init(){
  try{
   const loaded=await DB.load();

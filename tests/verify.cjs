@@ -30,6 +30,8 @@ function element(q){if(!elements.has(q))elements.set(q,{innerHTML:'',textContent
 const d={cookie:'',body:{dataset:{}},addEventListener(type,fn){handlers[type]=fn;},querySelector:element,querySelectorAll(){return [];},createElement(tag){return {className:'',textContent:'',append(){},remove(){},click(){}};}};
 const DB={load:async()=>null,save:async s=>{lastSaved=s;},backups:async()=>backups,getBackup:async id=>backups.find(b=>b.id===id),backup:async b=>{backups.push(b);},deleteBackup:async id=>{backups=backups.filter(x=>x.id!==id);}};
 const ctx={window:{AlmendraDB:DB,AlmendraCalc:Calc,AlmendraCharts:{bars(){},horizontal(){}},addEventListener(){} ,scrollTo(){}},document:d,navigator:{},crypto:webcrypto,location:{protocol:'file:',hostname:''},localStorage:{setItem(){}},console,Number,Math,Object,Array,String,Intl,Date,JSON,Promise,setTimeout,clearTimeout,requestAnimationFrame:fn=>fn(),confirm:()=>true,URL,Blob,TextEncoder,TextDecoder};
+vm.runInNewContext(fs.readFileSync(path.join(folder,'insights.js'),'utf8'),ctx);
+ctx.window.GUIcons={svg(){return '<svg></svg>';},enhance(){}};
 vm.runInNewContext(fs.readFileSync(path.join(folder,'app.js'),'utf8'),ctx);
 function click(kind,data){const e={target:{closest(query){if(query==='[data-action]'&&kind==='action')return {dataset:data};if(query==='[data-nav]'&&kind==='nav')return {dataset:data};if(query==='[data-period-tab]'&&kind==='period')return {dataset:data};return null;}}};return handlers.click(e);}
 (async()=>{
@@ -53,4 +55,10 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  assert.equal(lastSaved.products.length,6);
  assert.equal(lastSaved.clients.length,101);
  console.log('✓ Renderizado inicial, demostración, 6 vistas, ampliación de clientes, auto-guardado.');
+ const firstProduct=lastSaved.products[0].id;
+ await click('action',{action:'remove-product',id:firstProduct});
+ await new Promise(r=>setTimeout(r,350));
+ assert.equal(lastSaved.products.length,5);
+ assert(backups.some(b=>b.label.startsWith('Copia preventiva')&&b.data.products.length===6));
+ console.log('✓ La eliminación genera copia preventiva y conserva recuperación del catálogo.');
 })().catch(err=>{console.error(err);process.exitCode=1;});
