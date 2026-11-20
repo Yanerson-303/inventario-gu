@@ -1,5 +1,7 @@
-# Inventarios GU 3.3
+# Inventarios GU 3.4
 
-Web: `inventarios-gu-web/index.html`. Archivos CSS y JavaScript separados. Descargas autónomas para PC y móvil dentro de `inventarios-gu-web/descargas/`.
-
-Cambios: `inventarios-gu-web/CAMBIOS_3_3.md`. Antes de actualizar, exporta una copia JSON del inventario. Para PWA con uso sin conexión abre primero vía HTTPS o localhost.
+- `index.html` inicia la aplicación web, con CSS/JS separados.
+- `descargas/Inventarios_GU_PC.html` y `descargas/Inventarios_GU_Movil_iPhone_Android.html` son versiones HTML autónomas descargables desde la web.
+- `preview.html` ofrece una vista autónoma de prueba.
+- `CAMBIOS_3_4.md` contiene el resumen de este parche.
+- Para conservar datos entre navegadores o dispositivos, crea y restaura un respaldo JSON.

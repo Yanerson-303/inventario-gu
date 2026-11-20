@@ -150,3 +150,111 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 }
 @media(max-width:375px){.stat-card.visual-stat{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);}.metric-donut-wrap{flex-direction:row;}.metric-donut{width:53px;height:53px;}.metric-spark{height:52px;}}
 @media(prefers-reduced-motion:reduce){.metric-panel .metric-toggle.metric-icon-control,.metric-bar-row,.metric-bar-track i,.metric-point,.metric-slice,.metric-legend-row,.metric-panel .gu-info{transition:none!important;transform:none!important;}}
+
+
+/* Inventarios GU 3.4 — lenguaje visual unificado: icono arriba-izquierda, título centrado, cero insignias +/- o i. */
+.metric-panel .metric-icon-mark{display:none!important;}
+.metric-panel .metric-content > .card{position:relative;min-width:0;}
+.metric-panel .metric-toggle.metric-icon-control{
+ position:absolute!important;top:14px!important;left:14px!important;right:auto!important;bottom:auto!important;
+ display:grid!important;place-items:center!important;width:36px!important;height:36px!important;
+ min-width:36px!important;min-height:36px!important;border-radius:10px!important;
+ color:var(--accent)!important;background:var(--surface2)!important;
+ z-index:5;touch-action:manipulation;
+}
+.metric-panel .metric-toggle.metric-icon-control:hover,
+.metric-panel .metric-toggle.metric-icon-control:focus-visible{color:#c83c45!important;background:#fff0f0!important;border-color:#e1787e!important;outline:2px solid #e1787e44!important;}
+.metric-panel .metric-toggle.metric-icon-control::before,
+.metric-panel .metric-toggle.metric-icon-control::after{content:none!important;}
+/* Conserva el mismo encabezado al plegar: icono a la izquierda, texto verdaderamente centrado. */
+.metric-collapsed{height:56px!important;min-height:56px!important;}
+.metric-collapsed > .metric-folded-bar{position:relative!important;display:flex!important;justify-content:center!important;align-items:center!important;padding:7px 64px!important;min-height:56px!important;}
+.metric-folded-bar .metric-toggle.metric-icon-control{top:10px!important;left:14px!important;}
+.metric-folded-title{font-weight:750!important;text-align:center!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;}
+/* Tarjetas KPI y su contenido. */
+.metric-panel .stat-card::before{content:none!important;}
+.metric-panel .stat-icon-container{position:absolute!important;top:14px!important;left:14px!important;right:auto!important;bottom:auto!important;display:block!important;width:36px!important;height:36px!important;z-index:5;}
+.metric-panel .stat-icon-container > .metric-icon-control{top:0!important;left:0!important;}
+.metric-panel .stat-label{display:block!important;text-align:center!important;width:100%!important;max-width:100%!important;min-height:40px!important;margin:0 0 8px!important;padding:3px 28px 0!important;box-sizing:border-box;line-height:1.35!important;}
+/* Encabezados de tarjetas mayores. Tres columnas simétricas mantienen el título centrado. */
+.metric-panel .metric-content > .card > .card-title,
+.metric-panel .metric-content > .card > .warehouse-heading{
+ display:grid!important;grid-template-columns:minmax(40px,1fr) minmax(0,3.8fr) minmax(40px,1fr);
+ align-items:center!important;justify-items:center;gap:7px!important;min-height:45px!important;
+ margin-bottom:12px!important;padding:0!important;text-align:center!important;position:relative!important;
+}
+.metric-panel .metric-content > .card > .card-title > div:first-of-type,
+.metric-panel .metric-content > .card > .warehouse-heading > div:first-of-type{
+ grid-column:2!important;grid-row:1!important;justify-self:stretch!important;
+ min-width:0!important;width:100%!important;max-width:100%!important;
+ text-align:center!important;flex:none!important;
+}
+.metric-panel .card-title .eyebrow,.metric-panel .warehouse-heading .eyebrow{letter-spacing:.065em;font-size:9px;}
+.metric-panel .card-title h3,.metric-panel .warehouse-heading h2{display:block!important;margin:2px auto 0!important;min-width:0;overflow-wrap:break-word;line-height:1.25!important;text-align:center!important;}
+.metric-panel .metric-content > .card > .card-title > .badge,
+.metric-panel .metric-content > .card > .card-title > .btn,
+.metric-panel .metric-content > .card > .warehouse-heading > .warehouse-total{
+ grid-column:3!important;grid-row:1!important;justify-self:end!important;align-self:center!important;
+ position:static!important;transform:none!important;margin:0!important;min-width:0!important;
+}
+.metric-panel .metric-content > .card > .card-title > .metric-icon-control,
+.metric-panel .metric-content > .card > .warehouse-heading > .metric-icon-control{
+ position:absolute!important;top:3px!important;left:0!important;right:auto!important;
+}
+.metric-panel .metric-content > .card > .warehouse-heading .warehouse-total{text-align:right!important;}
+.metric-panel .metric-content > .card > .warehouse-heading .warehouse-total strong{font-size:clamp(15px,1.6vw,21px);}
+.metric-panel .metric-content > .card > .warehouse-heading .warehouse-total span{font-size:9px;line-height:1.3;}
+.metric-panel .metric-content > .card > .card-title > .btn{font-size:10px!important;padding:6px 8px!important;min-height:31px!important;white-space:normal!important;max-width:132px;}
+.metric-panel .metric-content > .card > .card-title > .badge{font-size:9px!important;padding:3px 5px!important;white-space:normal!important;}
+.metric-panel .metric-content > .card > .card-title > .btn:focus-visible{outline:2px solid var(--accent);}
+/* Título es el acceso a su ayuda. No se añaden símbolos ni botones secundarios. */
+.gu-title-help{
+ appearance:none;border:0!important;background:transparent!important;color:inherit!important;
+ font:inherit;letter-spacing:inherit;line-height:inherit;text-align:inherit;
+ cursor:help;border-radius:4px;padding:0 2px!important;margin:0;
+ max-width:100%;white-space:normal;overflow-wrap:break-word;vertical-align:baseline;
+ transition:color .16s ease,box-shadow .16s ease;
+}
+.gu-title-help:hover,.gu-title-help:focus-visible{color:#a57c0a!important;text-decoration:underline;text-decoration-color:#dcb846;text-underline-offset:4px;outline:none;box-shadow:0 3px 0 -1px #ebc85180;}
+.stat-label .gu-title-help{font-weight:inherit;}
+.page-heading .gu-title-help{font-weight:inherit;text-align:left;}
+.gu-summary-bar .gu-title-help{font-weight:inherit;}
+/* Los botones i heredados no se insertan; mantén los detalles de ayuda como texto del título. */
+.metric-panel .gu-info,.page-heading .gu-info{display:none!important;}
+@media(max-width:800px){
+ .metric-panel .metric-toggle.metric-icon-control{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;}
+ .metric-panel .metric-content > .card > .card-title,
+ .metric-panel .metric-content > .card > .warehouse-heading{grid-template-columns:minmax(36px,1fr) minmax(0,3.4fr) minmax(36px,1fr);}
+}
+@media(max-width:550px){
+ .metric-panel .metric-toggle.metric-icon-control{top:11px!important;left:11px!important;}
+ .metric-panel .stat-icon-container{top:11px!important;left:11px!important;bottom:auto!important;right:auto!important;}
+ .metric-panel .stat-icon-container > .metric-icon-control{top:0!important;left:0!important;}
+ .stat-card.visual-stat{grid-template-rows:auto auto 1fr!important;}
+ .stat-card.visual-stat .stat-label{grid-column:1 / -1!important;grid-row:1!important;width:100%!important;padding:0 36px!important;align-self:center!important;min-height:30px!important;}
+ .stat-card.visual-stat .stat-value{grid-column:1!important;grid-row:2 / 4!important;align-self:center!important;}
+ .stat-card.visual-stat .stat-visual{grid-column:2!important;grid-row:2 / 4!important;align-self:center!important;}
+ .metric-panel .metric-content > .card > .card-title,
+ .metric-panel .metric-content > .card > .warehouse-heading{grid-template-columns:44px minmax(0,1fr) 44px;min-height:43px!important;}
+ .metric-panel .metric-content > .card > .card-title > .btn{grid-column:2 / 4!important;grid-row:2!important;justify-self:end!important;margin-top:3px!important;max-width:100%;}
+ .metric-panel .metric-content > .card > .warehouse-heading > .warehouse-total{grid-column:2 / 4!important;grid-row:2!important;justify-self:center!important;text-align:center!important;flex-direction:row!important;align-items:baseline;gap:6px;}
+ .metric-panel .metric-content > .card > .warehouse-heading .warehouse-total span{white-space:nowrap;}
+ .metric-panel .metric-content > .card > .card-title .eyebrow{font-size:8px;}
+ .metric-folded-bar .metric-toggle.metric-icon-control{left:11px!important;}
+ .metric-collapsed > .metric-folded-bar{padding:7px 55px!important;}
+}
+@media(prefers-reduced-motion:reduce){.gu-title-help{transition:none!important;}}
+
+/* Barra superior móvil: botón de descargas sin desbordamiento del texto. */
+@media(max-width:700px){
+ #install-open.install-trigger{font-size:0!important;line-height:0!important;width:36px!important;min-width:36px!important;height:36px!important;padding:0!important;overflow:hidden;flex:0 0 36px!important;}
+ #install-open.install-trigger::before{content:'↓';font-size:19px;line-height:1;color:var(--text);}
+ .topbar .top-actions{flex-shrink:0;gap:6px;}
+ .topbar .breadcrumbs{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+}
+/* La regla móvil heredada colocaba iconos KPI al pie; esta prioridad los fija arriba-izquierda. */
+@media(max-width:550px){
+ .metric-panel .stat-card.visual-stat .stat-icon-container{
+  top:11px!important;bottom:auto!important;left:11px!important;right:auto!important;
+ }
+}

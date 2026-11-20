@@ -1,5 +1,5 @@
 /* Cache-first para archivos versionados; navegación con respaldo offline. */
-const VERSION='inventarios-gu-v3.3.0';
+const VERSION='inventarios-gu-v3.4.0';
 const CORE=['./','./index.html','./styles.css','./ux.css','./ui.js','./motion.js','./db.js','./calc.js','./charts.js','./chart-hover.js','./metric-visuals.js','./warehouse.js','./app.js','./insights.js','./icons.js','./install.js','./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./descargas/Inventarios_GU_PC.html','./descargas/Inventarios_GU_Movil_iPhone_Android.html'];
 async function prepare(){const cache=await caches.open(VERSION);await cache.addAll(CORE);}
 self.addEventListener('install',event=>event.waitUntil(prepare().then(()=>self.skipWaiting())));

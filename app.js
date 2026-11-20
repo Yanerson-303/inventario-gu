@@ -1,5 +1,5 @@
 /*
-  INVENTARIOS GU 3.3 — CONTROL DE INVENTARIO LOCAL
+  INVENTARIOS GU 3.4 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
   Sin servicios externos, sin envío de datos y sin librerías de terceros.
 */
@@ -100,7 +100,7 @@ function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibili
 const metricIconNames={volumen:'calendar-days',saldo:'activity',valor:'trending-up',productos:'package',stock:'boxes',referencias:'archive',bodega:'boxes',proyecciones:'trending-up','grafico-semanal':'activity','grafico-productos':'bar-chart-3',revision:'shield-check',tendencias:'trending-up','vista-rapida':'layers',actividad:'history'};
 function metricButton(id,collapsed=false){
  const title=esc(metricLabels[id]||id),verb=collapsed?'Expandir':'Contraer';
- return `<button type="button" class="metric-toggle metric-icon-control" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${verb} ${title}" title="${verb} ${title}">${Icons.svg(metricIconNames[id]||'package')}<span class="metric-icon-mark" aria-hidden="true">${collapsed?'+':'−'}</span></button>`;
+ return `<button type="button" class="metric-toggle metric-icon-control" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${verb} ${title}" title="${verb} ${title}">${Icons.svg(metricIconNames[id]||'package')}</button>`;
 }
 function metricBox(id,html){
  const collapsed=!!metricPrefs()[id],icon=metricButton(id);

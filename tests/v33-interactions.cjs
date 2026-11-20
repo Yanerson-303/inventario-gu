@@ -5,7 +5,7 @@ const store=new Map();const ctx={localStorage:{getItem:k=>store.get(k)||null,set
 vm.runInNewContext(moduleSource+'\nwindowOut={metricBox,metricPrefs};',ctx);
 const card='<article class="card stat-card"><div class="stat-icon">📦</div><div class="stat-label">Stock</div></article>';
 let out=ctx.windowOut.metricBox('stock',card);
-assert.match(out,/stat-icon-container/);assert.match(out,/metric-icon-control/);assert.match(out,/aria-label="Contraer Unidades en stock"/);
+assert.match(out,/stat-icon-container/);assert.match(out,/metric-icon-control/);assert.match(out,/aria-label="Contraer Unidades en stock"/);assert(!out.includes('metric-icon-mark'));
 assert(!out.includes('>📦</div>')); // El icono visual original se convierte en un botón funcional
 store.set('inventarios-gu-metricas-v22',JSON.stringify({stock:true}));out=ctx.windowOut.metricBox('stock',card);
 assert.match(out,/metric-collapsed/);assert.match(out,/aria-label="Expandir Unidades en stock"/);

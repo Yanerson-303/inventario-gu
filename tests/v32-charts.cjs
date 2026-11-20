@@ -21,6 +21,6 @@ assert(polluted.includes('&lt;img'));
 assert(/aria-label="[^"]+"/.test(M.donut([{label:'A',value:1}])));
 const app=fs.readFileSync(path.join(dir,'app.js'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
 for(const v of ['M.spark','M.balances','M.valueMix','M.catalogue','M.stockTop','M.references','M.issueBars','Graph.line'])assert(app.includes(v),v+' no integrado');
-assert(app.includes('metric-icon-control')&&app.includes('metric-icon-mark'),'Control integrado al icono ausente');
+assert(app.includes('metric-icon-control')&&!app.includes('metric-icon-mark'),'Control integrado al icono debe carecer de signos adicionales');
 assert(index.includes('metric-visuals.js'));
 console.log('✓ Visualizaciones, casos vacíos, iconos y escape de datos: 15 controles.');
