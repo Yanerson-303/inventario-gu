@@ -1,0 +1,1 @@
+{"name":"Almendra · Control de inventario","short_name":"Almendra","description":"Control de inventario offline, semanas, clientes y copias de seguridad.","lang":"es","start_url":"./index.html","scope":"./","display":"standalone","background_color":"#f6f2ea","theme_color":"#634631","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

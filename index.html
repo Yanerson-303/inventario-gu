@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#e8dbc6">
+  <meta name="description" content="Inventario y control semanal local: cinco semanas, 100 clientes, consolidado, gráficos y copias de seguridad.">
+  <title>Almendra · Control de inventario</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
+  <script src="db.js" defer></script>
+  <script src="calc.js" defer></script>
+  <script src="charts.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body data-palette="almond" data-mode="light">
+  <div id="app" class="app">
+    <aside class="sidebar" aria-label="Navegación principal">
+      <div class="brand"><div class="brand-mark">A</div><div><strong>almendra<span class="brand-dot">.</span></strong><small>GESTIÓN DE INVENTARIO</small></div></div>
+      <div class="workspace-pill"><span class="status-pulse"></span><span>Espacio privado<br><b>Este dispositivo</b></span></div>
+      <nav class="navigation" id="side-nav">
+        <button type="button" data-nav="dashboard" class="nav-item active"><span class="nav-icon">◫</span><span>Panel general</span></button>
+        <button type="button" data-nav="weekly" class="nav-item"><span class="nav-icon">▦</span><span>Registro semanal</span></button>
+        <button type="button" data-nav="final" class="nav-item"><span class="nav-icon">▤</span><span>Consolidado</span></button>
+        <div class="nav-caption">ADMINISTRACIÓN</div>
+        <button type="button" data-nav="products" class="nav-item"><span class="nav-icon">◇</span><span>Productos</span></button>
+        <button type="button" data-nav="clients" class="nav-item"><span class="nav-icon">◎</span><span>Clientes / espacios</span></button>
+        <button type="button" data-nav="audit" class="nav-item"><span class="nav-icon">◴</span><span>Historial</span></button>
+        <div class="nav-caption">HERRAMIENTAS</div>
+        <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon">⇅</span><span>Copias y migración</span></button>
+        <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon">⚙</span><span>Configuración</span></button>
+      </nav>
+      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control a tu manera</b><p>Todos tus registros están disponibles incluso sin conexión, después de la primera carga.</p></div><div class="side-foot">ALMENDRA / EDICIÓN LOCAL <span id="app-version">v1.0</span></div></div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="breadcrumbs"><span class="breadcrumb-muted">Mi espacio</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-title">Panel general</strong></div>
+        <div class="top-actions"><span id="save-indicator" class="save-indicator"><span class="save-dot"></span> Guardado local</span><button id="undo-btn" type="button" class="icon-btn" title="Deshacer último cambio" aria-label="Deshacer último cambio">↶</button><button id="quick-theme" type="button" class="icon-btn" title="Cambiar modo día/noche" aria-label="Cambiar modo día/noche">☾</button><button type="button" id="quick-backup" class="btn btn-primary btn-small">↧ <span>Guardar copia</span></button></div>
+      </header>
+      <main id="main-content" class="main-content" tabindex="-1" aria-live="polite"><section class="loading-view"><div class="spinner"></div><h2>Preparando tu espacio…</h2></section></main>
+    </div>
+    <nav class="bottom-nav" aria-label="Navegación móvil"><button data-nav="dashboard" class="active"><span>◫</span><small>Inicio</small></button><button data-nav="weekly"><span>▦</span><small>Semanas</small></button><button data-nav="final"><span>▤</span><small>Final</small></button><button data-nav="products"><span>◇</span><small>Productos</small></button><button data-nav="backup"><span>⇅</span><small>Copias</small></button><button data-nav="settings"><span>☷</span><small>Más</small></button></nav>
+  </div>
+  <div id="modal-root"></div><div id="toast-area" role="status" aria-live="polite"></div>
+  <input id="backup-file" type="file" accept=".json,.almendra,application/json" hidden>
+</body>
+</html>
