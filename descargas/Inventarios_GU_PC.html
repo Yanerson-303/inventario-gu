@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="es" data-edicion="movil">
+<html lang="es" data-edicion="pc">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#e8dbc6">
   <meta name="description" content="Inventario y control semanal local: cinco semanas, 100 clientes, consolidado, gráficos y copias de seguridad.">
-  <title>Almendra · Control de inventario</title>
+  <title>Inventarios GU · Control de inventario</title>
 
 
 
@@ -67,7 +67,18 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 @media(min-width:1100px){.dashboard-visual-row{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}.dashboard-visual-row .warehouse-viewport{height:clamp(235px,22vw,310px)}}
 @media(max-width:700px){.network-state{font-size:0;width:10px;height:10px;padding:0;border-radius:50%;background:#27966c}.network-state.offline{background:#d18428}.install-trigger{font-size:11px;padding:8px!important}.dashboard-visual-row .warehouse-viewport{height:clamp(205px,62vw,270px)}.install-actions{display:grid;grid-template-columns:1fr}.install-actions button{width:100%}}
 @media(max-width:360px){.top-actions{gap:4px}.install-trigger{font-size:10px;padding:7px!important}.dashboard-visual-row .warehouse-hint{display:none}}
-@media(min-width:850px){html[data-edicion="movil"] .main-shell{max-width:760px;margin:auto}}
+
+/* Opciones de descarga, compatibles con panel y teléfono */
+.platform-downloads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.platform-download{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:12px;padding:16px;border:1px solid var(--border,#dce5dd);border-radius:14px;background:var(--surface,#fff)}
+.platform-download p{font-size:13px;line-height:1.5;margin:7px 0 0;color:var(--text-muted,#64736a)}
+.platform-download .btn{width:100%;text-align:center;justify-content:center;text-decoration:none;white-space:normal}
+.install-section-heading{font-size:14px;margin:18px 0 10px}
+@media(max-width:620px){.platform-downloads{grid-template-columns:1fr}.platform-download{padding:13px;gap:10px}.install-sheet{max-height:90dvh;overflow-y:auto}}
+
+/* Inventarios GU 2.2: métricas configurables y tabla bidireccional */
+.metric-panel{position:relative;min-width:0;max-width:100%}.metric-panel>.metric-content{min-width:0;height:100%}.metric-panel>.metric-content>.card,.metric-panel>.metric-content>.stat-card{height:100%}.metric-toggle{position:absolute;right:10px;top:9px;z-index:8;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;padding:5px 8px;font-size:10px;font-weight:750;cursor:pointer;box-shadow:0 2px 8px #0000000b}.metric-toggle:hover,.metric-toggle:focus-visible{color:var(--accent);border-color:var(--accent);outline-offset:2px}.metric-collapsed{min-height:49px!important;height:49px!important;border:1px dashed var(--line);border-radius:13px;background:var(--surface2);}.metric-collapsed>.metric-content{display:none}.metric-collapsed>.metric-toggle{left:10px;right:auto;top:10px}.stats-grid>.metric-panel{min-width:0}.stats-grid>.metric-panel>.metric-content>.stat-card{min-height:100%}.dashboard-visual-row>.metric-panel,.dashboard-grid>.metric-panel,.dashboard-bottom>.metric-panel{min-width:0}.week-scroll-2d{overflow:auto!important;overscroll-behavior:contain;max-height:min(68vh,650px);scrollbar-width:thin}.week-scroll-2d .data-table th{position:sticky;top:0;z-index:5}.week-scroll-2d .data-table th.sticky-first{z-index:7}.week-scroll-2d .data-table td.sticky-first{z-index:4}.brand-mark{font-size:14px!important;letter-spacing:-.6px!important}.brand strong{font-size:16px!important;letter-spacing:-.5px}.stat-icon{opacity:.82}.card,.stat-card{transition:border-color .2s,box-shadow .2s}.card:hover{box-shadow:0 7px 25px #0000000a}@media(max-width:700px){.metric-toggle{top:6px;right:6px;padding:4px 6px;font-size:9px}.metric-collapsed{height:45px!important;min-height:45px!important}.week-scroll-2d{max-height:62vh}}
+
 </style>
   <script>
 /*
@@ -399,6 +410,9 @@ function render(){
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
 }
+const metricVisibilityKey='inventarios-gu-metricas-v22';
+function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
+function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} métrica" title="${collapsed?'Mostrar':'Minimizar'}">${collapsed?'＋ Mostrar':'− Minimizar'}</button><div class="metric-content">${html}</div></div>`}
 function renderDashboard(){
  const all=C.totals(state,state.products);
  const open=state.periods.filter(p=>!p.locked).length;
@@ -408,21 +422,21 @@ function renderDashboard(){
  ${!state.products.length?`<div class="banner"><div><h3>Tu espacio está listo para comenzar</h3><p>El PDF no incluía productos originales. Añade productos o activa datos de demostración para explorar la interfaz.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
- ${statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦')}
- ${statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎')}
- ${statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈')}
- ${statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇')}
- ${statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣')}
- ${statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉')}
+ ${metricBox('volumen',statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦'))}
+ ${metricBox('saldo',statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎'))}
+ ${metricBox('valor',statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈'))}
+ ${metricBox('productos',statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇'))}
+ ${metricBox('stock',statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣'))}
+ ${metricBox('referencias',statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉'))}
  </section>
  <div class="dashboard-visual-row">
- ${window.AlmendraWarehouse?.render(state,C)||''}
- ${renderProjections()}
+ ${metricBox('bodega',window.AlmendraWarehouse?.render(state,C)||'')}
+ ${metricBox('proyecciones',renderProjections())}
  </div>
- <div class="dashboard-grid"><article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>
- <article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article></div>
- <div class="dashboard-bottom"><article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>
- <article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article></div>`;
+ <div class="dashboard-grid">${metricBox('grafico-semanal',`<article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>`)}
+ ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
+ <div class="dashboard-bottom">${metricBox('vista-rapida',`<article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>`)}
+ ${metricBox('actividad',`<article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article>`)}</div>`;
 }
 function renderProjections(){
  // Proyección lineal de movimiento registrado: solo semanas con fechas válidas.
@@ -456,7 +470,7 @@ function slotSelect(){const total=state.clients.length;const block=Math.min(slot
 function renderWeekly(){
  const period=activePeriod(),slots=currentSlots(),all=productsFiltered(),sel=selection(all),locked=period.locked,weekQty=state.products.reduce((s,p)=>s+C.qty(state,period.id,p.id),0);
  const cols=slots.map(cl=>`<th class="slot-col" title="${esc(cl.name||cl.code)}">${esc(cl.name||cl.code)}</th>`).join('');
- const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
+ const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal con desplazamiento horizontal y vertical"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
   return `<tr><td class="sticky-first">${productButton(pr)}</td>${slots.map(cl=>`<td class="week-cell">${numInput('movement',state.movements[period.id]?.[pr.id]?.[cl.id]??'',`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" aria-label="${esc(pr.name)} / ${esc(cl.name||cl.code)}" ${locked?'disabled':''}`)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="week-cell">${numInput('price',prc,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Precio ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="week-cell">${numInput('week-total',total,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Total manual ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
  }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',state.products.length?'No hay coincidencias para tu búsqueda.':'Crea un producto para comenzar a registrar cantidades.','new-product','Añadir producto');
@@ -466,7 +480,7 @@ function renderWeekly(){
  <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos: <strong>${state.products.length}</strong></span></div></div>
  <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button class="btn btn-small" data-action="new-product">+ Producto</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
- ${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
+ <p class="table-hint">Desplaza la tabla hacia los lados y hacia abajo para ver más espacios y productos. En móvil se mantiene la vista por tarjetas.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
 }
 function renderFinal(){
  const all=productsFiltered(),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
@@ -728,6 +742,7 @@ function csvMovements(){
  csvDownload(rows,'Registros');
 }
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
+document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'＋ Mostrar':'− Minimizar';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=collapsed?'Mostrar':'Minimizar';if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}
@@ -827,7 +842,7 @@ init();
 <body data-palette="almond" data-mode="light">
   <div id="app" class="app">
     <aside class="sidebar" aria-label="Navegación principal">
-      <div class="brand"><div class="brand-mark">A</div><div><strong>almendra<span class="brand-dot">.</span></strong><small>GESTIÓN DE INVENTARIO</small></div></div>
+      <div class="brand"><div class="brand-mark">GU</div><div><strong>Inventarios GU<span class="brand-dot">.</span></strong><small>GESTIÓN DE INVENTARIO</small></div></div>
       <div class="workspace-pill"><span class="status-pulse"></span><span>Espacio privado<br><b>Este dispositivo</b></span></div>
       <nav class="navigation" id="side-nav">
         <button type="button" data-nav="dashboard" class="nav-item active"><span class="nav-icon">◫</span><span>Panel general</span></button>
@@ -841,7 +856,7 @@ init();
         <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon">⇅</span><span>Copias y migración</span></button>
         <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon">⚙</span><span>Configuración</span></button>
       </nav>
-      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control a tu manera</b><p>Todos tus registros están disponibles incluso sin conexión, después de la primera carga.</p></div><div class="side-foot">ALMENDRA / EDICIÓN LOCAL <span id="app-version">v1.0</span></div></div>
+      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control a tu manera</b><p>Todos tus registros están disponibles incluso sin conexión, después de la primera carga.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v2.2</span></div></div>
     </aside>
     <div class="main-shell">
       <header class="topbar">

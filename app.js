@@ -91,6 +91,9 @@ function render(){
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
 }
+const metricVisibilityKey='inventarios-gu-metricas-v22';
+function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
+function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} métrica" title="${collapsed?'Mostrar':'Minimizar'}">${collapsed?'＋ Mostrar':'− Minimizar'}</button><div class="metric-content">${html}</div></div>`}
 function renderDashboard(){
  const all=C.totals(state,state.products);
  const open=state.periods.filter(p=>!p.locked).length;
@@ -100,21 +103,21 @@ function renderDashboard(){
  ${!state.products.length?`<div class="banner"><div><h3>Tu espacio está listo para comenzar</h3><p>El PDF no incluía productos originales. Añade productos o activa datos de demostración para explorar la interfaz.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
- ${statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦')}
- ${statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎')}
- ${statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈')}
- ${statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇')}
- ${statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣')}
- ${statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉')}
+ ${metricBox('volumen',statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦'))}
+ ${metricBox('saldo',statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎'))}
+ ${metricBox('valor',statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈'))}
+ ${metricBox('productos',statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇'))}
+ ${metricBox('stock',statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣'))}
+ ${metricBox('referencias',statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉'))}
  </section>
  <div class="dashboard-visual-row">
- ${window.AlmendraWarehouse?.render(state,C)||''}
- ${renderProjections()}
+ ${metricBox('bodega',window.AlmendraWarehouse?.render(state,C)||'')}
+ ${metricBox('proyecciones',renderProjections())}
  </div>
- <div class="dashboard-grid"><article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>
- <article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article></div>
- <div class="dashboard-bottom"><article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>
- <article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article></div>`;
+ <div class="dashboard-grid">${metricBox('grafico-semanal',`<article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>`)}
+ ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
+ <div class="dashboard-bottom">${metricBox('vista-rapida',`<article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>`)}
+ ${metricBox('actividad',`<article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article>`)}</div>`;
 }
 function renderProjections(){
  // Proyección lineal de movimiento registrado: solo semanas con fechas válidas.
@@ -148,7 +151,7 @@ function slotSelect(){const total=state.clients.length;const block=Math.min(slot
 function renderWeekly(){
  const period=activePeriod(),slots=currentSlots(),all=productsFiltered(),sel=selection(all),locked=period.locked,weekQty=state.products.reduce((s,p)=>s+C.qty(state,period.id,p.id),0);
  const cols=slots.map(cl=>`<th class="slot-col" title="${esc(cl.name||cl.code)}">${esc(cl.name||cl.code)}</th>`).join('');
- const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
+ const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal con desplazamiento horizontal y vertical"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
   return `<tr><td class="sticky-first">${productButton(pr)}</td>${slots.map(cl=>`<td class="week-cell">${numInput('movement',state.movements[period.id]?.[pr.id]?.[cl.id]??'',`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" aria-label="${esc(pr.name)} / ${esc(cl.name||cl.code)}" ${locked?'disabled':''}`)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="week-cell">${numInput('price',prc,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Precio ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="week-cell">${numInput('week-total',total,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Total manual ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
  }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',state.products.length?'No hay coincidencias para tu búsqueda.':'Crea un producto para comenzar a registrar cantidades.','new-product','Añadir producto');
@@ -158,7 +161,7 @@ function renderWeekly(){
  <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos: <strong>${state.products.length}</strong></span></div></div>
  <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button class="btn btn-small" data-action="new-product">+ Producto</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
- ${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
+ <p class="table-hint">Desplaza la tabla hacia los lados y hacia abajo para ver más espacios y productos. En móvil se mantiene la vista por tarjetas.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
 }
 function renderFinal(){
  const all=productsFiltered(),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
@@ -420,6 +423,7 @@ function csvMovements(){
  csvDownload(rows,'Registros');
 }
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
+document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'＋ Mostrar':'− Minimizar';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=collapsed?'Mostrar':'Minimizar';if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}

@@ -1,7 +1,7 @@
 {
   "id": "./index.html",
-  "name": "Almendra · Gestión de inventario",
-  "short_name": "Almendra",
+  "name": "Inventarios GU · Gestión de inventario",
+  "short_name": "Inventarios GU",
   "description": "Inventario local con bodega 3D, analíticas y respaldos. Funciona sin conexión después de instalarse.",
   "lang": "es-CO",
   "dir": "ltr",
