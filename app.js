@@ -1,5 +1,5 @@
 /*
-  INVENTARIOS GU 4.0 — CONTROL DE INVENTARIO LOCAL
+  INVENTARIOS GU 4.1 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
   Sin servicios externos, sin envío de datos y sin librerías de terceros.
 */
@@ -21,11 +21,11 @@ const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
 let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',reviewFilter='all',reviewShowAll=false,finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false,weeklyFocusNext=null;
-let gu4Stage=[],gu4Sheet=null,gu4LayoutEditing=false;
+let gu4Stage=[],gu4Sheet=null,gu4LayoutEditing=false,gu4CountEditing='';
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',warehouse4:'Bodega física 4.0',counts4:'Conteos físicos',intelligence4:'Predicciones y alertas',imports4:'Excel e informes'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3}}};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -89,7 +89,7 @@ function productButton(p){return `<button class="product-link" title="Editar ${e
 function statusBalance(n){return `<span class="${n<0?'text-danger':n>0?'text-good':''} mono">${format(n)}</span>`;}
 function render(){
  if(!state)return;updateHeader();syncTheme();
- const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,warehouse4:()=>G4Views.warehouse(state,C),counts4:()=>G4Views.counts(state,C,gu4Stage),intelligence4:()=>G4Views.intelligence(state,C),imports4:()=>G4Views.imports(state,C,gu4Sheet)};
+ const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,warehouse4:()=>G4Views.warehouse(state,C),counts4:()=>G4Views.counts(state,C,gu4Stage,gu4CountEditing),intelligence4:()=>G4Views.intelligence(state,C),imports4:()=>G4Views.imports(state,C,gu4Sheet)};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  if(view==='dashboard')G4Views?.layoutDashboard($('#main-content'),state,gu4LayoutEditing);
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
@@ -547,6 +547,8 @@ document.addEventListener('click',async e=>{
   if(!state.gu4.locations.some(l=>GU4.slot(l)===GU4.slot(key))){toast('La posición ya está libre.');return;}
   if(!confirm(`¿Liberar la posición R${key.rack}-N${key.level}-P${key.position}? No se modifica el stock.`))return;
   mutation('Se liberó ubicación física',()=>GU4.clearLocation(state,key));return;}
+ const editCount=e.target.closest('[data-gu4-edit-count]');if(editCount){const next=editCount.dataset.gu4EditCount;gu4CountEditing=gu4CountEditing===next?'':next;render();return;}
+ const quickFull=e.target.closest('[data-gu4-quick-full]');if(quickFull){const form=e.target.closest('#gu4-quick-product-form');productModal(form?.elements.productId?.value||quickFull.dataset.gu4EditProduct);return;}
  const drop=e.target.closest('[data-gu4-remove-stage]');if(drop){gu4Stage=gu4Stage.filter(l=>l.productId!==drop.dataset.gu4RemoveStage);render();return;}
  if(e.target.closest('[data-gu4-create-count]')){if(!gu4Stage.length)return;
   if(mutation('Conteo físico registrado',()=>GU4.makeCount(state,C,gu4Stage,new Date().toISOString(),id('count')))){gu4Stage=[];render();toast('Conteo guardado para revisión.');}return;}
@@ -565,6 +567,8 @@ document.addEventListener('click',async e=>{
  if(e.target.closest('[data-gu4-xlsx]')){try{downloadBlob(await G4Excel.report(state,C,GU4),filename('Inventarios_GU_4_Informe','xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');}catch(err){toast(err.message);}return;}
  if(e.target.closest('[data-gu4-print]')){printGu4Report();return;}
  if(e.target.closest('[data-gu4-offline-help]')){$('#install-open')?.click();return;}
+ const layoutReset=e.target.closest('[data-gu4-reset-layout]');if(layoutReset){if(!confirm('¿Restablecer tamaños y orden del panel? Las métricas no se eliminan.'))return;mutation('Distribución del panel restablecida',()=>{state.gu4.panelOrder=[];state.gu4.panelSizes={};});return;}
+
  const edit=e.target.closest('[data-gu4-edit-product]');if(edit){productModal(edit.dataset.gu4EditProduct);return;}
  const layout=e.target.closest('[data-gu4-layout]');if(layout){gu4LayoutEditing=!gu4LayoutEditing;render();return;}
  const move=e.target.closest('[data-gu4-move]');if(move){const ids=$$('.metric-panel[data-metric]').map(x=>x.dataset.metric),ix=ids.indexOf(move.dataset.gu4Move),dest=ix+Number(move.dataset.gu4Direction);
@@ -573,19 +577,46 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
  const form=e.target;
+ if(form.id==='gu4-count-edit-form'){e.preventDefault();const d=new FormData(form),ident=String(d.get('countId')||''),entry=state.gu4.counts.find(c=>c.id===ident);
+  if(!entry||entry.status!=='pending'){toast('Este conteo no está pendiente.');return;}
+  const changes=Object.fromEntries(entry.lines.map(l=>[l.productId,d.get('qty_'+l.productId)]));
+  if(mutation('Conteo pendiente editado',()=>GU4.editPendingCount(state,ident,changes))){gu4CountEditing='';render();toast('Conteo actualizado; el stock no se modificó.');}return;}
+ if(form.id==='gu4-quick-product-form'){e.preventDefault();const d=new FormData(form),pid=String(d.get('productId')||'');
+  const patch={};for(const key of ['quantityN','quantityV','value']){const raw=String(d.get(key)??'').trim(),v=Number(raw.replace(',','.'));if(!raw||!Number.isFinite(v)||Math.abs(v)>1e12){toast('Cantidad o valor inválido.');return;}patch[key]=v;}
+  const product=state.products.find(p=>p.id===pid);if(!product){toast('Producto no encontrado.');return;}
+  if(mutation('Ficha rápida actualizada: '+product.name,()=>Object.assign(product,patch))){toast('Inventario actualizado; bodega y alertas sincronizadas.');}return;}
+ if(form.id==='gu4-product-threshold-form'){e.preventDefault();const d=new FormData(form),pid=String(d.get('productId')||''),value=String(d.get('threshold')??'').trim();
+  if(mutation('Umbral individual actualizado',()=>GU4.setProductThreshold(state,pid,value)))toast('Alerta personalizada guardada.');return;}
+ if(form.id==='gu4-import-preference-form'){e.preventDefault();const mode=String(new FormData(form).get('importMode')||'');if(!['only-new','update'].includes(mode)){toast('Modo de importación inválido.');return;}
+  mutation('Preferencia de importación actualizada',()=>{state.gu4.preferences.importMode=mode;});return;}
  if(form.id==='gu4-location-form'){e.preventDefault();const d=new FormData(form);if(mutation('Ubicación física guardada',()=>GU4.setLocation(state,C,Object.fromEntries(d))))toast('Posición actualizada.');return;}
  if(form.id==='gu4-count-form'){e.preventDefault();const d=new FormData(form),productId=String(d.get('productId')||''),counted=Number(d.get('counted'));
   if(!state.products.some(p=>p.id===productId)||!Number.isFinite(counted)||counted<0){toast('Selecciona un producto y una cantidad válida.');return;}
   gu4Stage=gu4Stage.filter(x=>x.productId!==productId).concat([{productId,counted}]);render();return;}
  if(form.id==='gu4-threshold-form'){e.preventDefault();const threshold=Number(new FormData(form).get('threshold'));if(!Number.isFinite(threshold)||threshold<0||threshold>100000){toast('Umbral inválido.');return;}
-  mutation('Umbral de alertas actualizado',()=>{state.gu4.preferences.warningThreshold=threshold;});return;}
+  const forecastPeriods=Number(new FormData(form).get('forecastPeriods'));
+  if(![2,4,6,8].includes(forecastPeriods)){toast('Cantidad de períodos inválida.');return;}
+  mutation('Parámetros de alertas y predicción actualizados',()=>{state.gu4.preferences.warningThreshold=threshold;state.gu4.preferences.forecastPeriods=forecastPeriods;});return;}
  if(form.id==='gu4-import-form'){e.preventDefault();if(!gu4Sheet?.length)return;
   const mode=String(new FormData(form).get('importMode')||'only-new'),existing=gu4Sheet.filter(p=>p.exists).length;
   if(!confirm(`¿Importar ${gu4Sheet.length} productos? ${existing} coinciden. Modo: ${mode==='update'?'actualizar coincidencias':'solo nuevos'}. Se creará copia preventiva.`))return;
   (async()=>{try{await DB.backup({id:id('before-sheet'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de importar Excel o CSV',data:clone(state)});
-   let summary;const ok=mutation('Productos importados desde Excel/CSV',()=>{summary=GU4.applyProducts(state,gu4Sheet,mode,()=>id('prod'),new Date().toISOString());});
+   let summary;const ok=mutation('Productos importados desde Excel/CSV',()=>{summary=GU4.applyProducts(state,gu4Sheet,mode,()=>id('prod'),new Date().toISOString());state.gu4.preferences.importMode=mode;});
    if(ok){gu4Sheet=null;toast(`Importación: ${summary.added} nuevos, ${summary.updated} actualizados, ${summary.skipped} omitidos.`);await refreshBackups();}
   }catch(err){toast('Importación cancelada: '+err.message);}})();return;}
+});
+document.addEventListener('gu:warehouse-rack-select',e=>{
+ const rack=Number(e.detail?.rack);if(![1,2,3].includes(rack))return;
+ if(view==='dashboard')navigate('warehouse4');
+ const form=$('#gu4-location-form');if(form){form.elements.rack.value=String(rack);$$('.gu4-rack-card').forEach((node,i)=>node.classList.toggle('gu4-selected-rack',i+1===rack));}
+});
+document.addEventListener('change',e=>{const node=e.target;
+ if(node.matches('[data-gu4-quick-select]')){const p=state?.products.find(x=>x.id===node.value),form=node.closest('form');if(!p||!form)return;
+  for(const k of ['quantityN','quantityV','value'])form.elements[k].value=p[k]??0;
+  const balance=form.querySelector('[data-gu4-live-balance]');if(balance)balance.textContent=format(C.result(state,p).N);
+  const full=form.querySelector('[data-gu4-quick-full]');if(full)full.dataset.gu4EditProduct=p.id;
+ }
+ if(node.matches('[data-gu4-threshold-select]')){const form=node.closest('form');if(form)form.elements.threshold.value=state.gu4.preferences.productThresholds?.[node.value]??'';}
 });
 $('#gu4-sheet-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;
  try{gu4Sheet=GU4.validateImport(await G4Excel.parseFile(file),state);navigate('imports4');toast(`Archivo revisado: ${gu4Sheet.length} productos.`);}catch(err){toast('No se importó: '+err.message);}
@@ -703,10 +734,13 @@ async function init(){
  if(!loaded||!loaded.gu4)await DB.save(state);
   periodId=state.periods[0].id;
   await refreshBackups();render();savedStatus();
+  try{const summary=GU4.allocations(state,C);typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:summary.racks.map(x=>x.units)}}));}catch{typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:[0,0,0]}}));}
+
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
  }catch(error){
   $('#main-content').innerHTML=`<div class="card card-pad"><h1>No se pudo abrir el espacio de datos</h1><p>${esc(error.message)}</p><p>Si existe un respaldo JSON, conserva ese archivo. Abre la aplicación desde HTTPS o localhost para recuperar los datos del navegador cuando estén disponibles.</p></div>`;
   indicator('Almacenamiento no disponible','error');
+  typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:false}}));
  }
 }
 init();

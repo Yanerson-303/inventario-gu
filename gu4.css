@@ -80,3 +80,11 @@
 
 .gu4-section-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px;padding-bottom:4px}.gu4-section-nav>.btn{min-width:80px}
 @media(max-width:730px){.gu4-section-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.gu4-section-nav>.btn{min-width:0;font-size:10px;padding:6px 3px}}
+
+/* Edición directa desde el módulo, versión 4.1. */
+.gu4-count-edit-lines{display:grid;gap:7px;max-height:340px;overflow:auto}.gu4-count-edit-line{display:grid;grid-template-columns:minmax(0,1fr) 130px;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding:6px 0;font-size:12px}.gu4-count-edit-line span{min-width:0;overflow-wrap:anywhere}.gu4-count-edit-line small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.gu4-live-balance{display:flex;min-height:39px;align-items:center;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-weight:600;font-size:11px}
+.gu4-card>.gu4-form{min-width:0}.gu4-layout-toolbar{flex-wrap:wrap}.gu4-layout-toolbar .btn{margin-left:4px}
+@media(max-width:430px){.gu4-count-edit-line{grid-template-columns:minmax(0,1fr) 103px}}
+
+.gu4-rack-card.gu4-selected-rack{outline:2px solid var(--accent);outline-offset:2px}

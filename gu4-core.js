@@ -4,11 +4,14 @@ const LIMIT=10000;
 const validId=x=>/^[A-Za-z0-9_-]{1,110}$/.test(String(x||''));
 const qty=x=>{const n=Number(x);return Number.isFinite(n)?n:0;};
 const slot=x=>`${x.rack}-${x.level}-${x.position}`;
-const defaultV4=()=>({version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3}});
+const defaultV4=()=>({version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}});
 function ensure(s){if(!s.gu4||typeof s.gu4!=='object')s.gu4=defaultV4();const d=s.gu4;
  if(!Array.isArray(d.locations))d.locations=[];if(!Array.isArray(d.counts))d.counts=[];
  if(!Array.isArray(d.panelOrder))d.panelOrder=[];if(!d.panelSizes||typeof d.panelSizes!=='object')d.panelSizes={};
  if(!d.preferences||typeof d.preferences!=='object')d.preferences={warningThreshold:3};
+ if(!d.preferences.productThresholds||typeof d.preferences.productThresholds!=='object'||Array.isArray(d.preferences.productThresholds))d.preferences.productThresholds={};
+ if(![2,4,6,8].includes(Number(d.preferences.forecastPeriods)))d.preferences.forecastPeriods=8;
+ if(!['only-new','update'].includes(d.preferences.importMode))d.preferences.importMode='only-new';
  if(!Number.isFinite(Number(d.preferences.warningThreshold))||Number(d.preferences.warningThreshold)<0)d.preferences.warningThreshold=3;
  d.version=1;return d;
 }
@@ -50,6 +53,25 @@ function applyCount(s,C,ident,now=new Date().toISOString()){
  p.quantityN=before-qty(line.difference);entry.adjustments.push({productId:p.id,before,after:p.quantityN});}
  entry.status='applied';entry.appliedAt=now;return entry;
 }
+function editPendingCount(s,ident,changes,now=new Date().toISOString()){
+ const item=ensure(s).counts.find(c=>c.id===ident);
+ if(!item||item.status!=='pending')throw new Error('Solo se pueden editar conteos pendientes.');
+ if(!changes||typeof changes!=='object')throw new Error('No hay cantidades para guardar.');
+ const updated=item.lines.map(line=>{
+  if(!Object.prototype.hasOwnProperty.call(changes,line.productId))throw new Error('Falta una cantidad del conteo.');
+  const counted=Number(changes[line.productId]);
+  if(!Number.isFinite(counted)||counted<0||counted>1e12)throw new Error('Cantidad contada inválida.');
+  return {...line,counted,difference:counted-line.expected};
+ });
+ item.lines=updated;item.updatedAt=now;return item;
+}
+function setProductThreshold(s,pid,value){
+ const d=ensure(s),map=d.preferences.productThresholds;
+ if(!s.products.some(p=>p.id===pid))throw new Error('Producto no encontrado.');
+ if(value===null||value===undefined||value===''){delete map[pid];return;}
+ const n=Number(value);if(!Number.isFinite(n)||n<0||n>100000)throw new Error('Umbral inválido.');
+ map[pid]=n;
+}
 function validateImport(raw,s){const existing=new Set(s.products.map(p=>p.name.trim().toLocaleLowerCase('es')));const dupe=new Set(),result=[];
  for(const row of raw.slice(0,LIMIT)){
   const name=String(row.name??'').trim().slice(0,110);if(!name)continue;
@@ -86,9 +108,16 @@ function normalizeGu4(source,s){const out=defaultV4(),input=source&&typeof sourc
  out.panelOrder=Array.isArray(input.panelOrder)?input.panelOrder.filter(x=>typeof x==='string'&&/^[a-z0-9-]+$/.test(x)).slice(0,50):[];
  if(input.panelSizes&&typeof input.panelSizes==='object')for(const [k,v]of Object.entries(input.panelSizes)){if(/^[a-z0-9-]+$/.test(k)&&['wide','normal'].includes(v))out.panelSizes[k]=v;}
  out.preferences.warningThreshold=Math.min(100000,Math.max(0,qty(input.preferences?.warningThreshold??3)));
+ if([2,4,6,8].includes(Number(input.preferences?.forecastPeriods)))out.preferences.forecastPeriods=Number(input.preferences.forecastPeriods);
+ if(['only-new','update'].includes(input.preferences?.importMode))out.preferences.importMode=input.preferences.importMode;
+ if(input.preferences?.productThresholds&&typeof input.preferences.productThresholds==='object'){
+  for(const [pid,value] of Object.entries(input.preferences.productThresholds)){
+   if(validProducts.has(pid)&&Number.isFinite(Number(value))&&Number(value)>=0&&Number(value)<=100000)out.preferences.productThresholds[pid]=Number(value);
+  }
+ }
  return out;
 }
-function forecasts(s,C){const periods=s.periods.filter(p=>/^\d{4}-\d{2}-\d{2}$/.test(p.start)&&/^\d{4}-\d{2}-\d{2}$/.test(p.end)&&Date.parse(p.end)>=Date.parse(p.start)).sort((a,b)=>b.end.localeCompare(a.end)).slice(0,8);
+function forecasts(s,C){const periods=s.periods.filter(p=>/^\d{4}-\d{2}-\d{2}$/.test(p.start)&&/^\d{4}-\d{2}-\d{2}$/.test(p.end)&&Date.parse(p.end)>=Date.parse(p.start)).sort((a,b)=>b.end.localeCompare(a.end)).slice(0,ensure(s).preferences.forecastPeriods);
  const nDays=p=>Math.max(1,Math.round((Date.parse(p.end)-Date.parse(p.start))/86400000)+1);
  const ordered=periods.slice().sort((a,b)=>a.start.localeCompare(b.start));
  if(ordered.some((p,i)=>i>0&&p.start<=ordered[i-1].end))return {available:false,periods:periods.length,days:0,reason:'Hay períodos con fechas superpuestas. Corrige el registro antes de proyectar movimientos.'};
@@ -99,13 +128,13 @@ function forecasts(s,C){const periods=s.periods.filter(p=>/^\d{4}-\d{2}-\d{2}$/.
  return {available:true,periods:periods.length,days,averagePerPeriod:avg,day:perDay,week:perDay*7,month:perDay*30,year:perDay*365,confidence:periods.length>=6?'media':periods.length>=4?'limitada':'baja',products:recent};
 }
 function alerts(s,C,daysSince=Date.now()){
- const alloc=allocations(s,C),issues=[];const threshold=ensure(s).preferences.warningThreshold;
- for(const p of alloc.productRows){if(stock(s,C,p.id)<0)issues.push({type:'danger',name:p.name,message:'Saldo negativo',id:p.id});else if(stock(s,C,p.id)===0)issues.push({type:'warn',name:p.name,message:'Sin saldo',id:p.id});else if(p.available<=threshold)issues.push({type:'warn',name:p.name,message:`Stock bajo (≤ ${threshold})`,id:p.id});
+ const alloc=allocations(s,C),issues=[];const prefs=ensure(s).preferences;
+ for(const p of alloc.productRows){const threshold=Object.prototype.hasOwnProperty.call(prefs.productThresholds,p.id)?prefs.productThresholds[p.id]:prefs.warningThreshold;if(stock(s,C,p.id)<0)issues.push({type:'danger',name:p.name,message:'Saldo negativo',id:p.id});else if(stock(s,C,p.id)===0)issues.push({type:'warn',name:p.name,message:'Sin saldo',id:p.id});else if(p.available<=threshold)issues.push({type:'warn',name:p.name,message:`Stock bajo (≤ ${threshold})`,id:p.id});
   if(p.over>1e-8)issues.push({type:'danger',name:p.name,message:`Asignación excedida: ${p.over}`,id:p.id});
   else if(p.unassigned>1e-8)issues.push({type:'info',name:p.name,message:`Sin ubicar: ${p.unassigned}`,id:p.id});}
  const cutoff=daysSince-30*86400000;const recent= s.periods.some(p=>p.start&&Date.parse(p.start)>=cutoff);
  if(s.products.length&&!recent)issues.push({type:'info',name:'Historial',message:'Sin períodos fechados en los últimos 30 días',id:''});
  return issues.slice(0,1000);
 }
-window.GU4Core={ensure,allocations,stock,slot,setLocation,clearLocation,makeCount,applyCount,cancelCount,validateImport,applyProducts,normalizeGu4,forecasts,alerts};
+window.GU4Core={ensure,allocations,stock,slot,setLocation,clearLocation,makeCount,applyCount,cancelCount,validateImport,applyProducts,normalizeGu4,forecasts,alerts,editPendingCount,setProductThreshold};
 })();

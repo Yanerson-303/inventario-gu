@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#e8dbc6">
-  <meta name="description" content="Inventarios GU 4.0: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
-  <title>Inventarios GU 4.0.1 · Control de inventario</title>
+  <meta name="description" content="Inventarios GU 4.1: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
+  <title>Inventarios GU 4.1.0 · Control de inventario</title>
   
   
   
@@ -488,9 +488,37 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .gu4-section-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px;padding-bottom:4px}.gu4-section-nav>.btn{min-width:80px}
 @media(max-width:730px){.gu4-section-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.gu4-section-nav>.btn{min-width:0;font-size:10px;padding:6px 3px}}
 
+/* Edición directa desde el módulo, versión 4.1. */
+.gu4-count-edit-lines{display:grid;gap:7px;max-height:340px;overflow:auto}.gu4-count-edit-line{display:grid;grid-template-columns:minmax(0,1fr) 130px;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding:6px 0;font-size:12px}.gu4-count-edit-line span{min-width:0;overflow-wrap:anywhere}.gu4-count-edit-line small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.gu4-live-balance{display:flex;min-height:39px;align-items:center;background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-weight:600;font-size:11px}
+.gu4-card>.gu4-form{min-width:0}.gu4-layout-toolbar{flex-wrap:wrap}.gu4-layout-toolbar .btn{margin-left:4px}
+@media(max-width:430px){.gu4-count-edit-line{grid-template-columns:minmax(0,1fr) 103px}}
+
+.gu4-rack-card.gu4-selected-rack{outline:2px solid var(--accent);outline-offset:2px}
+
+/* GU 4.1 · Acceso isométrico profesional: sin pantalla de confirmación. */
+#gu-entry{position:fixed;inset:0;z-index:11000;display:grid;place-items:center;overflow:hidden;background:#07131e;color:#f1f6f9;font-family:Inter,system-ui,Arial,sans-serif;isolation:isolate;opacity:1;transition:opacity .48s ease,visibility .48s}
+#gu-entry.gu-entry-exit{opacity:0;visibility:hidden;pointer-events:none}
+#gu-entry:before{content:'';position:absolute;inset:0;background:linear-gradient(125deg,#0a1827ed,transparent 57%,#07111ab0);pointer-events:none;z-index:1}
+.gu-entry-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff05 1px,transparent 1px),linear-gradient(90deg,#ffffff05 1px,transparent 1px);background-size:35px 35px;opacity:.6}
+.gu-entry-stage{width:min(1100px,94vw);height:min(780px,92dvh);min-height:370px;position:relative;border:1px solid #a7c3d51f;border-radius:24px;overflow:hidden;background:#112334;box-shadow:0 25px 100px #0009}
+.gu-entry-stage canvas{position:absolute;width:100%;height:100%;inset:0;touch-action:none;cursor:grab;outline-offset:-5px}.gu-entry-stage canvas:active{cursor:grabbing}
+.gu-entry-top,.gu-entry-bottom{position:absolute;z-index:2;left:clamp(18px,3.8vw,45px);right:clamp(18px,3.8vw,45px);pointer-events:none}
+.gu-entry-top{top:clamp(18px,3vw,38px);display:flex;align-items:center;justify-content:space-between;gap:15px}
+.gu-entry-ident{display:flex;align-items:center;gap:13px}.gu-entry-mark{border:1px solid #f3c7788f;color:#f7d69c;width:47px;height:47px;border-radius:12px;display:grid;place-items:center;font-weight:900;letter-spacing:-.09em;font-size:20px;background:#ffc96614}.gu-entry-ident strong{display:block;font-size:clamp(16px,1.6vw,23px);letter-spacing:-.04em}.gu-entry-ident small{display:block;margin-top:4px;font-size:10px;color:#a9c2cf;letter-spacing:.2em}
+.gu-entry-type{display:flex;align-items:center;gap:8px;font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:#afcfca}.gu-entry-type:before{content:'';width:7px;height:7px;background:#7bd4ac;border-radius:50%;box-shadow:0 0 12px #7bd4ac}
+.gu-entry-bottom{bottom:clamp(17px,3vw,38px);display:flex;align-items:end;justify-content:space-between;gap:24px}.gu-entry-status-wrap{max-width:430px;flex:1}.gu-entry-kicker{font-size:10px;letter-spacing:.23em;font-weight:800;color:#e5bd77}.gu-entry-status-wrap h2{margin:9px 0 6px;color:#fff;font-size:clamp(16px,2.15vw,28px);letter-spacing:-.03em}.gu-entry-meta{margin:0 0 15px;color:#b2c5d0;font-size:12px}
+.gu-entry-track{height:4px;background:#a2bdc335;border-radius:20px;overflow:hidden;max-width:430px}.gu-entry-track-fill{height:100%;width:1%;background:linear-gradient(90deg,#e8b758,#8cdcc8);border-radius:20px;transition:width .25s ease}
+.gu-entry-hint{font-size:11px;color:#adc4cb;background:#0d2536aa;border:1px solid #ffffff1a;border-radius:10px;padding:9px 13px;white-space:nowrap}
+body.gu-entry-active{overflow:hidden}
+@media(max-width:650px){.gu-entry-stage{width:100%;height:100dvh;min-height:100dvh;border:0;border-radius:0}.gu-entry-top{align-items:start}.gu-entry-type{font-size:9px}.gu-entry-ident{gap:9px}.gu-entry-mark{width:38px;height:38px;font-size:16px}.gu-entry-hint{font-size:10px;white-space:normal;max-width:120px;text-align:center}.gu-entry-bottom{align-items:stretch}.gu-entry-meta{margin-bottom:12px}}
+@media(prefers-reduced-motion:reduce){#gu-entry{transition:none}.gu-entry-track-fill{transition:none}}
+
 </style>
 
 
+
+  
   
   
   
@@ -509,6 +537,14 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
   
 </head>
 <body data-palette="almond" data-mode="light">
+  <div id="gu-entry" role="status" aria-label="Preparando Inventarios GU, acceso automático">
+    <div class="gu-entry-grid" aria-hidden="true"></div>
+    <section class="gu-entry-stage" aria-label="Vista previa 3D interactiva de la bodega">
+      <canvas id="gu-entry-canvas" tabindex="0" aria-label="Bodega 3D giratoria. Arrastra para rotar, usa la rueda para hacer zoom o flechas del teclado para girar."></canvas>
+      <div class="gu-entry-top"><div class="gu-entry-ident"><span class="gu-entry-mark">GU</span><div><strong>Inventarios GU</strong><small>CONTROL INTELIGENTE · 4.1</small></div></div><span class="gu-entry-type">CARGA LOCAL SEGURA</span></div>
+      <div class="gu-entry-bottom"><div class="gu-entry-status-wrap"><span class="gu-entry-kicker">PREPARANDO TU ESPACIO</span><h2 data-entry-status>Cargando inventario y módulos</h2><p class="gu-entry-meta" data-entry-meta>Entrada automática al finalizar la carga</p><div class="gu-entry-track"><div class="gu-entry-track-fill" data-entry-progress></div></div></div><span class="gu-entry-hint">Arrastra para girar · Rueda para acercar</span></div>
+    </section>
+  </div>
   <a class="skip-link" href="#main-content">Saltar al contenido</a>
   <div id="app" class="app">
     <aside class="sidebar" aria-label="Navegación principal">
@@ -531,7 +567,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
         <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon" data-gu-icon="database-backup"></span><span>Copias y migración</span></button>
         <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon" data-gu-icon="settings"></span><span>Configuración</span></button>
       </nav>
-      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v4.0.1</span></div></div>
+      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v4.1.0</span></div></div>
     </aside>
     <div class="main-shell">
       <header class="topbar">
@@ -546,6 +582,81 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
   <div id="modal-root"></div><div id="toast-area" role="status" aria-live="polite"></div>
   <input id="backup-file" type="file" accept=".json,.almendra,application/json" hidden>
   <input id="gu4-sheet-file" type="file" accept=".xlsx,.csv,.tsv" hidden>
+<script>
+/* Inventarios GU 4.1 · Vista de acceso interactiva, automática y sin red. */
+(function(){'use strict';
+ const entry=document.getElementById('gu-entry');if(!entry)return;
+ const canvas=entry.querySelector('#gu-entry-canvas'),ctx=canvas?.getContext('2d');
+ const status=entry.querySelector('[data-entry-status]'),progress=entry.querySelector('[data-entry-progress]'),meta=entry.querySelector('[data-entry-meta]');
+ const MIN=3000,start=performance.now(),reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
+ let ready=false,failed=false,finished=false,raf=0,angle=-.59,target=-.59,zoom=1,drag=null,last=0,size={w:0,h:0,dpr:1};
+ let boxes=[0,0,0],totals=[0,0,0],records=0;
+ const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+ const finish=()=>{if(finished||!ready||performance.now()-start<MIN)return;finished=true;entry.classList.add('gu-entry-exit');entry.setAttribute('aria-hidden','true');document.body.classList.remove('gu-entry-active');setTimeout(()=>{cancelAnimationFrame(raf);entry.remove();},550);};
+ function resized(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;const dpr=clamp(window.devicePixelRatio||1,1,2);if(Math.abs(rect.width-size.w)>.5||Math.abs(rect.height-size.h)>.5||dpr!==size.dpr){size={w:rect.width,h:rect.height,dpr};canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}}
+ function frame(t){if(finished||!canvas?.isConnected)return;raf=requestAnimationFrame(frame);if(document.hidden||t-last<28)return;last=t;
+  resized();const {w,h}=size;if(!w||!h)return;
+  if(!drag&&!reduce)target+=.0013;
+  const diff=(target-angle);angle+=diff*.12;
+  ctx.clearRect(0,0,w,h);const bg=ctx.createRadialGradient(w*.53,h*.45,10,w*.53,h*.45,Math.max(w,h)*.75);bg.addColorStop(0,'#263c50');bg.addColorStop(.64,'#102332');bg.addColorStop(1,'#07131e');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  const sc=Math.min(w/930,h/635)*zoom*.91,cx=w*.5,cy=h*.62;
+  function P(x,y,z){const xx=x*Math.cos(angle)-y*Math.sin(angle),yy=x*Math.sin(angle)+y*Math.cos(angle);return [cx+xx*sc,cy+(yy*.52-z*.88)*sc];}
+  function poly(pts,fill,stroke,width=1){ctx.beginPath();pts.forEach((p,i)=>{const q=P(...p);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=Math.max(.6,width*sc);ctx.stroke();}}
+  function line(a,b,color,width=2){ctx.beginPath();ctx.moveTo(...P(...a));ctx.lineTo(...P(...b));ctx.strokeStyle=color;ctx.lineWidth=Math.max(.65,width*sc);ctx.stroke();}
+  function cube(x,y,z,dx,dy,dz,top,front,side){const A=[x,y,z],B=[x+dx,y,z],C=[x+dx,y+dy,z],D=[x,y+dy,z],E=[x,y,z+dz],F=[x+dx,y,z+dz],G=[x+dx,y+dy,z+dz],H=[x,y+dy,z+dz];poly([A,B,F,E],front);poly([B,C,G,F],side);poly([E,F,G,H],top);}
+  function label(txt,x,y,z,color,size=12){const p=P(x,y,z);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`700 ${Math.max(8,size*sc)}px system-ui`;ctx.lineWidth=Math.max(1,3*sc);ctx.strokeStyle='#102233';ctx.strokeText(txt,...p);ctx.fillStyle=color;ctx.fillText(txt,...p);}
+  // Base y perímetro abierto: rack izquierdo, central, derecho, acceso libre y oficina posterior.
+  poly([[-390,-215,-3],[390,-215,-3],[390,220,-3],[-390,220,-3]],'#8597a2','#8fa4b0',2);
+  for(let x=-390;x<=390;x+=48)line([x,-215,-2],[x,220,-2],'#9fabb4',.6);
+  for(let y=-215;y<=220;y+=48)line([-390,y,-2],[390,y,-2],'#9fabb4',.6);
+  cube(-390,-215,0,780,8,102,'#8a9ba6','#344e62','#5d7180');cube(-390,-215,0,7,435,102,'#748995','#3d596c','#344c5e');
+  for(let i=0;i<5;i++){const x=-317+i*139;cube(x,-207,99,65,9,3,'#f5e3aa','#d5c28d','#d5c28d');}
+  for(const x of [-262,-12,238]){line([x-66,-166,1],[x-66,136,1],'#ecc343',3);line([x+66,-166,1],[x+66,136,1],'#ecc343',3);}
+  line([-369,150,1],[365,150,1],'#ecc343',3);line([-369,-166,1],[365,-166,1],'#ecc343',3);
+  // Oficina acristalada en la parte posterior.
+  cube(212,-207,0,153,65,80,'#b0c2ce','#6b8fa6','#58798d');cube(228,-147,20,123,4,42,'#9ad3e1','#4b829f','#3b6f89');cube(253,-144,22,45,9,24,'#3d5b75','#182b47','#263f57');cube(291,-132,28,12,13,16,'#e5bb81','#d69a67','#ba825b');label('INVENTARIO',287,-153,88,'#fff',12);
+  // Mesa para clasificación y pallet cerca de la entrada.
+  poly([[202,98,1],[365,98,1],[365,206,1],[202,206,1]],'#6c838d','#e8bf48',2);
+  cube(218,113,0,71,32,20,'#b9a184','#806852','#957c5f');cube(224,118,20,24,22,17,'#efd0a4','#b58962','#d0a174');cube(253,118,20,28,24,14,'#e6c18c','#af7e52','#c39260');label('ACOMODO',279,202,2,'#f9fbfc',11);
+  // Estructura de los tres racks, 2 niveles y cajas según ubicaciones físicas.
+  for(let r=0;r<3;r++){
+   const x=-310+r*239,y=-130,dx=105,dy=232;
+   poly([[x-12,y-12,0],[x+dx+12,y-12,0],[x+dx+12,y+dy+12,0],[x-12,y+dy+12,0]],'#788f9c','#efbb46',2);
+   for(const level of [7,63])cube(x,y,level,dx,dy,6,'#ed9f3b','#bb7226','#c57a2b');
+   for(const px of [x,x+dx])for(const py of [y,y+dy])cube(px-4,py-4,0,8,8,131,'#3f92c4','#18567f','#236b9a');
+   const displayed=Math.min(16,boxes[r]);
+   for(let j=0;j<displayed;j++){
+    const level=j>=8?1:0,cell=j%8,col=cell%2,row=Math.floor(cell/2);
+    const xx=x+9+col*47,yy=y+10+row*53,zz=level?69:14;
+    cube(xx,yy,zz,37,39,37,'#ebc69c','#b27c52','#d99c68');line([xx+18,yy,zz+37],[xx+18,yy+39,zz+37],'#bd956e',2);
+   }
+   label(String(totals[r]),x+dx*.5,y+dy*.5,148,'#fff',23);label('RACK '+(r+1),x+dx*.5,y+dy*.5,168,'#ffdb8a',12);
+  }
+  // Operario con chaleco reflectivo y tableta.
+  const wy=28+(reduce?0:Math.sin(t*.001)*19);
+  cube(-175,wy,0,14,15,30,'#ffad44','#e48028','#dc7527');cube(-176,wy,30,15,15,13,'#efc38b','#d9a46f','#cb9260');cube(-178,wy-1,43,18,18,5,'#ffe16d','#ddb73b','#e0bd44');cube(-154,wy,23,16,12,3,'#b3d6e3','#305b78','#2a597b');
+  label('ENTRADA',0,208,1,'#e7f6f3',13);
+  const elapsed=t-start,percent=ready?100:Math.min(92,Math.floor(elapsed/MIN*84));progress.style.width=percent+'%';
+  if(ready){status.textContent=failed?'Revisa el estado de la aplicación':'Inventario preparado';meta.textContent=failed?'Se mostrará la información de recuperación.':`${records} productos · ${totals.reduce((a,b)=>a+b,0)} unidades ubicadas`;finish();}
+ }
+ function complete(detail){if(ready)return;ready=true;failed=!detail?.ok;
+  if(detail?.ok){records=Number(detail.products)||0;const next=detail.racks||[];totals=[0,1,2].map(i=>Math.max(0,Number(next[i])||0));boxes=totals.map(v=>Math.min(16,Math.floor(v)));}
+  if(!ctx){setTimeout(()=>{entry.remove();document.body.classList.remove('gu-entry-active');},Math.max(0,MIN-(performance.now()-start)));return;}
+  finish();}
+ window.addEventListener('gu:app-ready',event=>complete(event.detail));
+ document.body.classList.add('gu-entry-active');
+ if(!ctx){status.textContent='Preparando inventario';return;}
+ canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,a:target};canvas.setPointerCapture?.(e.pointerId);});
+ canvas.addEventListener('pointermove',e=>{if(drag)target=drag.a+(e.clientX-drag.x)*.006;});
+ const end=()=>{drag=null;};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
+ canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=clamp(zoom-e.deltaY*.0008,.7,1.55);},{passive:false});
+ canvas.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){target-=.17;e.preventDefault();}if(e.key==='ArrowRight'){target+=.17;e.preventDefault();}if(e.key==='+'){zoom=clamp(zoom+.1,.7,1.55);e.preventDefault();}if(e.key==='-'){zoom=clamp(zoom-.1,.7,1.55);e.preventDefault();}});
+ raf=requestAnimationFrame(frame);
+ // No se exige pulsar entrar: si el navegador no finaliza la carga, aparece el mensaje de recuperación.
+ setTimeout(()=>{if(ready||finished)return;ready=true;failed=true;status.textContent='La carga está tardando';meta.textContent='Comprueba la información de recuperación';const main=document.getElementById('main-content');if(main?.querySelector('.loading-view'))main.innerHTML='<section class="card card-pad"><h2>No se pudo completar la carga</h2><p>Revisa el almacenamiento del navegador o recarga la página. Conserva tu respaldo JSON.</p></section>';finish();},20000);
+})();
+
+</script>
 <script>
 /* Iconografía vectorial local, sin solicitudes externas. */
 (function(){'use strict';
@@ -1145,7 +1256,7 @@ function mount(){
  text('ENTRADA',0,183,2,'#fff',12);
  if(!s.paused)s.frame++;raf=requestAnimationFrame(draw);
  }
- function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${p.level?`N${p.level} · P${p.position} · `:''}${esc(p.name)}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;}
+ function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${p.level?`N${p.level} · P${p.position} · `:''}${esc(p.name)}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;document.dispatchEvent(new CustomEvent('gu:warehouse-rack-select',{detail:{rack:k+1}}));}
  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);canvas._drag={x:e.clientX,y:e.clientY,angle:s.angle,moved:false};});
  canvas.addEventListener('pointermove',e=>{if(!canvas._drag)return;const dx=e.clientX-canvas._drag.x;if(Math.abs(dx)>4)canvas._drag.moved=true;s.angle=canvas._drag.angle+dx*.007;});
  canvas.addEventListener('pointerup',e=>{const d=canvas._drag;canvas._drag=null;if(!d||d.moved)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let best=null,dist=Infinity;for(const h of hit){const dd=Math.hypot(x-h.p[0],y-h.p[1]);if(dd<dist){dist=dd;best=h.k;}}if(dist<85*scale&&best!==null)detail(best);});
@@ -1180,11 +1291,14 @@ const LIMIT=10000;
 const validId=x=>/^[A-Za-z0-9_-]{1,110}$/.test(String(x||''));
 const qty=x=>{const n=Number(x);return Number.isFinite(n)?n:0;};
 const slot=x=>`${x.rack}-${x.level}-${x.position}`;
-const defaultV4=()=>({version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3}});
+const defaultV4=()=>({version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}});
 function ensure(s){if(!s.gu4||typeof s.gu4!=='object')s.gu4=defaultV4();const d=s.gu4;
  if(!Array.isArray(d.locations))d.locations=[];if(!Array.isArray(d.counts))d.counts=[];
  if(!Array.isArray(d.panelOrder))d.panelOrder=[];if(!d.panelSizes||typeof d.panelSizes!=='object')d.panelSizes={};
  if(!d.preferences||typeof d.preferences!=='object')d.preferences={warningThreshold:3};
+ if(!d.preferences.productThresholds||typeof d.preferences.productThresholds!=='object'||Array.isArray(d.preferences.productThresholds))d.preferences.productThresholds={};
+ if(![2,4,6,8].includes(Number(d.preferences.forecastPeriods)))d.preferences.forecastPeriods=8;
+ if(!['only-new','update'].includes(d.preferences.importMode))d.preferences.importMode='only-new';
  if(!Number.isFinite(Number(d.preferences.warningThreshold))||Number(d.preferences.warningThreshold)<0)d.preferences.warningThreshold=3;
  d.version=1;return d;
 }
@@ -1226,6 +1340,25 @@ function applyCount(s,C,ident,now=new Date().toISOString()){
  p.quantityN=before-qty(line.difference);entry.adjustments.push({productId:p.id,before,after:p.quantityN});}
  entry.status='applied';entry.appliedAt=now;return entry;
 }
+function editPendingCount(s,ident,changes,now=new Date().toISOString()){
+ const item=ensure(s).counts.find(c=>c.id===ident);
+ if(!item||item.status!=='pending')throw new Error('Solo se pueden editar conteos pendientes.');
+ if(!changes||typeof changes!=='object')throw new Error('No hay cantidades para guardar.');
+ const updated=item.lines.map(line=>{
+  if(!Object.prototype.hasOwnProperty.call(changes,line.productId))throw new Error('Falta una cantidad del conteo.');
+  const counted=Number(changes[line.productId]);
+  if(!Number.isFinite(counted)||counted<0||counted>1e12)throw new Error('Cantidad contada inválida.');
+  return {...line,counted,difference:counted-line.expected};
+ });
+ item.lines=updated;item.updatedAt=now;return item;
+}
+function setProductThreshold(s,pid,value){
+ const d=ensure(s),map=d.preferences.productThresholds;
+ if(!s.products.some(p=>p.id===pid))throw new Error('Producto no encontrado.');
+ if(value===null||value===undefined||value===''){delete map[pid];return;}
+ const n=Number(value);if(!Number.isFinite(n)||n<0||n>100000)throw new Error('Umbral inválido.');
+ map[pid]=n;
+}
 function validateImport(raw,s){const existing=new Set(s.products.map(p=>p.name.trim().toLocaleLowerCase('es')));const dupe=new Set(),result=[];
  for(const row of raw.slice(0,LIMIT)){
   const name=String(row.name??'').trim().slice(0,110);if(!name)continue;
@@ -1262,9 +1395,16 @@ function normalizeGu4(source,s){const out=defaultV4(),input=source&&typeof sourc
  out.panelOrder=Array.isArray(input.panelOrder)?input.panelOrder.filter(x=>typeof x==='string'&&/^[a-z0-9-]+$/.test(x)).slice(0,50):[];
  if(input.panelSizes&&typeof input.panelSizes==='object')for(const [k,v]of Object.entries(input.panelSizes)){if(/^[a-z0-9-]+$/.test(k)&&['wide','normal'].includes(v))out.panelSizes[k]=v;}
  out.preferences.warningThreshold=Math.min(100000,Math.max(0,qty(input.preferences?.warningThreshold??3)));
+ if([2,4,6,8].includes(Number(input.preferences?.forecastPeriods)))out.preferences.forecastPeriods=Number(input.preferences.forecastPeriods);
+ if(['only-new','update'].includes(input.preferences?.importMode))out.preferences.importMode=input.preferences.importMode;
+ if(input.preferences?.productThresholds&&typeof input.preferences.productThresholds==='object'){
+  for(const [pid,value] of Object.entries(input.preferences.productThresholds)){
+   if(validProducts.has(pid)&&Number.isFinite(Number(value))&&Number(value)>=0&&Number(value)<=100000)out.preferences.productThresholds[pid]=Number(value);
+  }
+ }
  return out;
 }
-function forecasts(s,C){const periods=s.periods.filter(p=>/^\d{4}-\d{2}-\d{2}$/.test(p.start)&&/^\d{4}-\d{2}-\d{2}$/.test(p.end)&&Date.parse(p.end)>=Date.parse(p.start)).sort((a,b)=>b.end.localeCompare(a.end)).slice(0,8);
+function forecasts(s,C){const periods=s.periods.filter(p=>/^\d{4}-\d{2}-\d{2}$/.test(p.start)&&/^\d{4}-\d{2}-\d{2}$/.test(p.end)&&Date.parse(p.end)>=Date.parse(p.start)).sort((a,b)=>b.end.localeCompare(a.end)).slice(0,ensure(s).preferences.forecastPeriods);
  const nDays=p=>Math.max(1,Math.round((Date.parse(p.end)-Date.parse(p.start))/86400000)+1);
  const ordered=periods.slice().sort((a,b)=>a.start.localeCompare(b.start));
  if(ordered.some((p,i)=>i>0&&p.start<=ordered[i-1].end))return {available:false,periods:periods.length,days:0,reason:'Hay períodos con fechas superpuestas. Corrige el registro antes de proyectar movimientos.'};
@@ -1275,15 +1415,15 @@ function forecasts(s,C){const periods=s.periods.filter(p=>/^\d{4}-\d{2}-\d{2}$/.
  return {available:true,periods:periods.length,days,averagePerPeriod:avg,day:perDay,week:perDay*7,month:perDay*30,year:perDay*365,confidence:periods.length>=6?'media':periods.length>=4?'limitada':'baja',products:recent};
 }
 function alerts(s,C,daysSince=Date.now()){
- const alloc=allocations(s,C),issues=[];const threshold=ensure(s).preferences.warningThreshold;
- for(const p of alloc.productRows){if(stock(s,C,p.id)<0)issues.push({type:'danger',name:p.name,message:'Saldo negativo',id:p.id});else if(stock(s,C,p.id)===0)issues.push({type:'warn',name:p.name,message:'Sin saldo',id:p.id});else if(p.available<=threshold)issues.push({type:'warn',name:p.name,message:`Stock bajo (≤ ${threshold})`,id:p.id});
+ const alloc=allocations(s,C),issues=[];const prefs=ensure(s).preferences;
+ for(const p of alloc.productRows){const threshold=Object.prototype.hasOwnProperty.call(prefs.productThresholds,p.id)?prefs.productThresholds[p.id]:prefs.warningThreshold;if(stock(s,C,p.id)<0)issues.push({type:'danger',name:p.name,message:'Saldo negativo',id:p.id});else if(stock(s,C,p.id)===0)issues.push({type:'warn',name:p.name,message:'Sin saldo',id:p.id});else if(p.available<=threshold)issues.push({type:'warn',name:p.name,message:`Stock bajo (≤ ${threshold})`,id:p.id});
   if(p.over>1e-8)issues.push({type:'danger',name:p.name,message:`Asignación excedida: ${p.over}`,id:p.id});
   else if(p.unassigned>1e-8)issues.push({type:'info',name:p.name,message:`Sin ubicar: ${p.unassigned}`,id:p.id});}
  const cutoff=daysSince-30*86400000;const recent= s.periods.some(p=>p.start&&Date.parse(p.start)>=cutoff);
  if(s.products.length&&!recent)issues.push({type:'info',name:'Historial',message:'Sin períodos fechados en los últimos 30 días',id:''});
  return issues.slice(0,1000);
 }
-window.GU4Core={ensure,allocations,stock,slot,setLocation,clearLocation,makeCount,applyCount,cancelCount,validateImport,applyProducts,normalizeGu4,forecasts,alerts};
+window.GU4Core={ensure,allocations,stock,slot,setLocation,clearLocation,makeCount,applyCount,cancelCount,validateImport,applyProducts,normalizeGu4,forecasts,alerts,editPendingCount,setProductThreshold};
 })();
 
 </script>
@@ -1349,6 +1489,10 @@ const header=(small,title,subtitle='',tools='')=>`<header class="gu4-heading"><d
 const card=(title,content,iconName='package')=>`<article class="card card-pad gu4-card"><div class="gu4-card-head"><span class="gu4-header-icon">${icon(iconName)}</span><h3>${esc(title)}</h3></div>${content}</article>`;
 const subnav=()=>`<nav class="gu4-section-nav" aria-label="Navegar por herramientas 4.0"><button class="btn btn-small" data-nav="warehouse4">Bodega</button><button class="btn btn-small" data-nav="counts4">Conteos</button><button class="btn btn-small" data-nav="intelligence4">Alertas</button><button class="btn btn-small" data-nav="imports4">Excel</button></nav>`;
 const productOption=(s,pid='')=>`<option value="">Seleccionar producto</option>`+s.products.map(p=>`<option value="${esc(p.id)}" ${p.id===pid?'selected':''}>${esc(p.name)}</option>`).join('');
+function quickEditor(s,C){
+ const first=s.products[0];if(!first)return '<p class="muted">Crea un producto en el catálogo antes de editar.</p><button class="btn" data-action="new-product">Crear producto</button>';
+ return `<form id="gu4-quick-product-form" class="gu4-form"><div class="field"><label>Producto</label><select name="productId" required class="form-control" data-gu4-quick-select>${productOption(s,first.id)}</select></div><div class="gu4-form-grid"><div class="field"><label>Cantidad.N</label><input class="form-control" type="number" step="any" name="quantityN" value="${esc(first.quantityN??0)}" required></div><div class="field"><label>Cantidad.V</label><input class="form-control" type="number" step="any" name="quantityV" value="${esc(first.quantityV??0)}" required></div><div class="field"><label>Valor unitario</label><input class="form-control" type="number" step="any" name="value" value="${esc(first.value??0)}" required></div><div class="field"><label>Saldo actual</label><output class="gu4-live-balance" data-gu4-live-balance>${fmt(C.result(s,first).N)} unidades</output></div></div><div class="gu4-form-actions"><button type="submit" class="btn btn-primary">Guardar en inventario</button><button type="button" data-gu4-edit-product="${esc(first.id)}" class="btn" data-gu4-quick-full>Ficha completa</button></div><p class="gu4-help-text">Edita los datos reales del catálogo. Las ubicaciones y las alertas se recalculan automáticamente.</p></form>`;
+}
 function warehouse(s,C){const core=window.GU4Core,a=core.allocations(s,C),locations=s.gu4.locations.slice().sort((x,y)=>x.rack-y.rack||x.level-y.level||x.position-y.position),ids=new Set(locations.map(x=>core.slot(x)));
  const map=[1,2,3].map(r=>`<article class="gu4-rack-card"><div class="gu4-rack-heading"><strong>Rack ${r}</strong><small>${fmt(a.racks[r-1].units)} uds. · ${a.racks[r-1].positions}/16 posiciones</small></div>${[2,1].map(level=>`<div class="gu4-level"><span>N${level}</span><div class="gu4-slots">${Array.from({length:8},(_,index)=>{const position=index+1,l=locations.find(x=>x.rack===r&&x.level===level&&x.position===position);return `<button type="button" data-gu4-select-position="${r}-${level}-${position}" class="gu4-slot ${l?'occupied':''}" title="Rack ${r} · Nivel ${level} · Posición ${position}${l?': '+esc(s.products.find(p=>p.id===l.productId)?.name||'Producto eliminado')+' · '+fmt(l.qty)+' unidades':''}">${l?'<span>▣</span>':'·'}<small>${position}</small></button>`;}).join('')}</div></div>`).join('')}</article>`).join('');
  return `${header('OPERACIÓN FÍSICA','Bodega 3D · Ubicaciones','Posiciones manuales verificables por producto.',`<button class="btn" data-nav="dashboard">Panel general</button>`)}
@@ -1358,25 +1502,29 @@ function warehouse(s,C){const core=window.GU4Core,a=core.allocations(s,C),locati
  <div class="gu4-two-col">${card('Mapa físico',`<p class="muted gu4-tight">Selecciona una posición para editarla.</p><div class="gu4-rack-map">${map}</div>`,'boxes')}
  ${card('Asignar o actualizar',`<form id="gu4-location-form" class="gu4-form"><div class="field"><label>Producto</label><select required name="productId" class="form-control">${productOption(s)}</select></div><div class="gu4-form-grid"><div class="field"><label>Rack</label><select name="rack" class="form-control"><option>1</option><option>2</option><option>3</option></select></div><div class="field"><label>Nivel</label><select name="level" class="form-control"><option>1</option><option>2</option></select></div><div class="field"><label>Posición</label><select name="position" class="form-control">${Array.from({length:8},(_,i)=>`<option>${i+1}</option>`).join('')}</select></div><div class="field"><label>Unidades</label><input name="qty" type="number" required min="0.001" step="any" class="form-control" placeholder="0"></div></div><div class="gu4-form-actions"><button type="submit" class="btn btn-primary">Guardar ubicación</button><button type="button" class="btn" data-gu4-clear-position="1">Liberar posición</button></div><p class="muted gu4-tight">No se modifica el stock. Se impide asignar más unidades que las disponibles.</p></form>`,'map-pin')}
  </div>
+ ${card('Edición rápida del catálogo',quickEditor(s,C),'package')}
  ${card('Registro de posiciones',`<div class="table-scroll"><table class="data-table"><thead><tr><th>Ubicación</th><th>Producto</th><th class="num">Unidades</th><th>Acción</th></tr></thead><tbody>${locations.length?locations.map(l=>`<tr><td>R${l.rack} · N${l.level} · P${l.position}</td><td>${esc(s.products.find(p=>p.id===l.productId)?.name||'Producto eliminado')}</td><td class="num">${fmt(l.qty)}</td><td><button class="btn btn-small" data-gu4-select-position="${l.rack}-${l.level}-${l.position}">Editar</button></td></tr>`).join(''):'<tr><td colspan="4">Sin ubicaciones asignadas. Los productos permanecen en el consolidado.</td></tr>'}</tbody></table></div>`, 'list')}
  ${card('Pendientes de ubicación',`<div class="gu4-chip-grid">${a.productRows.filter(p=>p.unassigned>0||p.over>0).slice(0,30).map(p=>`<span class="gu4-chip ${p.over?'danger':''}">${esc(p.name)} · ${p.over?'Exceso '+fmt(p.over):'Pendiente '+fmt(p.unassigned)}</span>`).join('')||'<span class="muted">Todo el saldo positivo está ubicado.</span>'}</div>`,'clipboard-list')}`;
 }
-function counts(s,C,stage){const entries=s.gu4.counts;
+function counts(s,C,stage,editingId=''){const entries=s.gu4.counts;
  return `${header('CONTROL DE EXISTENCIAS','Conteo físico','Compara los registros con el conteo real. El ajuste requiere confirmación.',`<button class="btn" data-nav="warehouse4">Ver bodega</button>`)}
  ${subnav()}
  <div class="gu4-two-col">${card('Preparar conteo',`<form id="gu4-count-form" class="gu4-form"><div class="field"><label>Producto</label><select required class="form-control" name="productId">${productOption(s)}</select></div><div class="field"><label>Cantidad física</label><input required type="number" name="counted" min="0" step="any" class="form-control"></div><button class="btn" type="submit">Añadir al conteo</button></form><div class="gu4-staged">${stage.length?stage.map(l=>`<div class="gu4-stage-row"><span>${esc(s.products.find(p=>p.id===l.productId)?.name||'Producto')} · <b>${fmt(l.counted)}</b></span><button class="icon-btn" type="button" data-gu4-remove-stage="${esc(l.productId)}" aria-label="Quitar del conteo">×</button></div>`).join(''):'<span class="muted">Sin productos añadidos.</span>'}</div><button class="btn btn-primary" data-gu4-create-count="1" ${!stage.length?'disabled':''}>Guardar conteo (${stage.length})</button>`,'clipboard-check')}
  ${card('Proceso seguro',`<ol class="gu4-process"><li>Registrar cantidades físicas.</li><li>Comparar con el saldo calculado N.</li><li>Confirmar discrepancias.</li><li>Aplicar el ajuste solo si se autoriza.</li></ol><p class="gu4-help-text">El ajuste modifica <b>Cantidad.N</b> para conservar la fórmula original H − (Cantidad.N + Cantidad.V). Antes de aplicarlo se crea un respaldo interno.</p>`,'shield-check')}</div>
- ${card('Conteos registrados',`<div class="gu4-count-list">${entries.length?entries.map(c=>`<div class="gu4-count-item"><div><b>Conteo ${esc(c.id.slice(-8))}</b><small>${esc(date(c.createdAt))} · ${c.lines.length} producto(s) · ${c.status==='applied'?'Ajustado':c.status==='cancelled'?'Cancelado':'Pendiente de confirmación'}</small></div><div class="gu4-count-actions"><button class="btn btn-small" data-gu4-show-count="${esc(c.id)}">Detalles</button>${c.status==='pending'?`<button class="btn btn-primary btn-small" data-gu4-apply-count="${esc(c.id)}">Revisar ajuste</button><button class="btn btn-small" data-gu4-cancel-count="${esc(c.id)}">Cancelar</button>`:''}</div></div>`).join(''):'<div class="muted">Todavía no hay conteos.</div>'}</div>`,'history')}`;
+ ${editingId?(()=>{const item=entries.find(c=>c.id===editingId&&c.status==='pending');return item?card('Editar conteo pendiente',`<form class="gu4-form" id="gu4-count-edit-form"><input type="hidden" name="countId" value="${esc(item.id)}"><div class="gu4-count-edit-lines">${item.lines.map(l=>`<label class="gu4-count-edit-line"><span>${esc(l.productName)}<small>Esperado: ${fmt(l.expected)}</small></span><input class="form-control" type="number" name="qty_${esc(l.productId)}" min="0" step="any" required value="${esc(l.counted)}"></label>`).join('')}</div><div class="gu4-form-actions"><button class="btn btn-primary" type="submit">Guardar cambios</button><button class="btn" type="button" data-gu4-edit-count="${esc(item.id)}">Cerrar</button></div></form>`,'clipboard-edit'):'';})():''}
+ ${card('Conteos registrados',`<div class="gu4-count-list">${entries.length?entries.map(c=>`<div class="gu4-count-item"><div><b>Conteo ${esc(c.id.slice(-8))}</b><small>${esc(date(c.createdAt))} · ${c.lines.length} producto(s) · ${c.status==='applied'?'Ajustado':c.status==='cancelled'?'Cancelado':'Pendiente de confirmación'}</small></div><div class="gu4-count-actions"><button class="btn btn-small" data-gu4-show-count="${esc(c.id)}">Detalles</button>${c.status==='pending'?`<button class="btn btn-small" data-gu4-edit-count="${esc(c.id)}">${editingId===c.id?'Cerrar edición':'Editar'}</button>`:''}${c.status==='pending'?`<button class="btn btn-primary btn-small" data-gu4-apply-count="${esc(c.id)}">Revisar ajuste</button><button class="btn btn-small" data-gu4-cancel-count="${esc(c.id)}">Cancelar</button>`:''}</div></div>`).join(''):'<div class="muted">Todavía no hay conteos.</div>'}</div>`,'history')}`;
 }
-function intelligence(s,C){const core=window.GU4Core,f=core.forecasts(s,C),alerts=core.alerts(s,C),totals=C.totals(s,s.products),threshold=s.gu4.preferences.warningThreshold;
+function intelligence(s,C){const core=window.GU4Core,f=core.forecasts(s,C),alerts=core.alerts(s,C),totals=C.totals(s,s.products),threshold=s.gu4.preferences.warningThreshold,periodCount=s.gu4.preferences.forecastPeriods||8;
  const byType={danger:alerts.filter(a=>a.type==='danger').length,warn:alerts.filter(a=>a.type==='warn').length,info:alerts.filter(a=>a.type==='info').length};
  const forecastCards=f.available?[['Diaria',f.day],['Semanal',f.week],['Mensual · 30d',f.month],['Anual · 365d',f.year]].map(([l,v])=>`<div><strong>${fmt(v)}</strong><span>${l}</span></div>`).join(''):`<div class="gu4-wide-note">${esc(f.reason)}</div>`;
  return `${header('ANÁLISIS RESPONSABLE','Predicciones y alertas','Proyección de movimientos registrados, no predicción de ventas ni salidas.')}
  ${subnav()}
  <section class="gu4-kpis">${forecastCards}</section>
  <div class="gu4-two-col">${card('Confiabilidad de la estimación',`<div class="gu4-info-grid"><span>Períodos con fechas</span><b>${f.periods}</b><span>Días observados</span><b>${f.days}</b><span>Calidad de la muestra</span><b>${f.available?esc(f.confidence):'Insuficiente'}</b><span>Saldo neto actual</span><b>${fmt(totals.balance)}</b></div><p class="gu4-help-text">Se usa la media diaria de hasta ocho períodos fechados. No se asume que los movimientos sean ventas o consumo. Los intervalos superpuestos no se corrigen automáticamente.</p>`,'chart-no-axes-combined')}
- ${card('Umbral de aviso',`<form id="gu4-threshold-form" class="gu4-form"><div class="field"><label>Alertar cuando el saldo sea igual o inferior a</label><input class="form-control" type="number" min="0" max="100000" step="any" name="threshold" value="${esc(threshold)}"></div><button class="btn btn-primary" type="submit">Guardar umbral</button></form><div class="gu4-chip-grid"><span class="gu4-chip danger">${byType.danger} críticas</span><span class="gu4-chip warn">${byType.warn} advertencias</span><span class="gu4-chip">${byType.info} informativas</span></div>`,'bell')}
+ ${card('Umbral de aviso',`<form id="gu4-threshold-form" class="gu4-form"><div class="field"><label>Alertar cuando el saldo sea igual o inferior a</label><input class="form-control" type="number" min="0" max="100000" step="any" name="threshold" value="${esc(threshold)}"></div><div class="field"><label>Períodos para proyección</label><select class="form-control" name="forecastPeriods">${[2,4,6,8].map(n=>`<option value="${n}" ${n===periodCount?'selected':''}>Últimos ${n}</option>`).join('')}</select></div><button class="btn btn-primary" type="submit">Guardar parámetros</button></form><div class="gu4-chip-grid"><span class="gu4-chip danger">${byType.danger} críticas</span><span class="gu4-chip warn">${byType.warn} advertencias</span><span class="gu4-chip">${byType.info} informativas</span></div>`,'bell')}
  </div>
+ ${card('Umbral por producto',`<form class="gu4-form" id="gu4-product-threshold-form"><div class="field"><label>Producto</label><select class="form-control" name="productId" data-gu4-threshold-select required>${productOption(s,s.products[0]?.id)}</select></div><div class="field"><label>Umbral específico (vacío: usar general)</label><input class="form-control" name="threshold" type="number" step="any" min="0" max="100000" placeholder="Usar umbral general" value="${esc(s.gu4.preferences.productThresholds?.[s.products[0]?.id]??'')}"></div><button type="submit" class="btn btn-primary">Guardar umbral del producto</button></form>`,'sliders-horizontal')}
+ ${card('Editar existencias y valor',quickEditor(s,C),'package')}
  ${card('Centro de alertas',`<div class="gu4-alert-list">${alerts.length?alerts.slice(0,100).map(a=>`<div class="gu4-alert-row ${a.type}"><span class="gu4-alert-dot"></span><span><strong>${esc(a.name)}</strong><small>${esc(a.message)}</small></span>${a.id?`<button class="btn btn-small" data-gu4-edit-product="${esc(a.id)}">Producto</button>`:''}</div>`).join(''):'<p class="muted">Sin alertas detectadas.</p>'}</div>`,'shield-alert')}
  ${card('Productos · Movimiento estimado',`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Día</th><th class="num">Semana</th><th class="num">Mes</th></tr></thead><tbody>${f.available?f.products.slice(0,80).map(p=>`<tr><td>${esc(p.name)}</td><td class="num">${fmt(p.day)}</td><td class="num">${fmt(p.week)}</td><td class="num">${fmt(p.month)}</td></tr>`).join(''):'<tr><td colspan="4">Agrega fechas de inicio y fin a los períodos para proyectar.</td></tr>'}</tbody></table></div>`,'bar-chart-3')}`;
 }
@@ -1385,17 +1533,18 @@ function imports(s,C,pending){const view=pending||[];
  ${subnav()}
  <div class="gu4-two-col">${card('Importar productos',`<p class="muted gu4-tight">Archivos Excel .xlsx, CSV y TSV. La primera hoja debe tener columna «Producto».</p><div class="gu4-form-actions"><button type="button" class="btn btn-primary" data-gu4-choose-sheet="1">Elegir archivo</button><button type="button" class="btn" data-gu4-template="1">Descargar plantilla</button></div><p class="gu4-help-text">Solo se importan las columnas presentes. Las columnas ausentes no borrarán cantidades existentes.</p>`,'file-up')}
  ${card('Exportar y presentar',`<div class="gu4-form gu4-report-buttons"><button class="btn btn-primary" data-gu4-xlsx="1">Informe Excel completo</button><button class="btn" data-gu4-print="1">Imprimir / Guardar como PDF</button><button class="btn" data-action="csv-final">Consolidado CSV</button><button class="btn" data-action="export-json">Copia íntegra JSON</button></div><p class="gu4-help-text">El PDF se genera mediante la función Imprimir del navegador; el respaldo JSON es el único formato recomendado para migración completa.</p>`,'file-chart-column-increasing')}</div>
- ${view.length?card('Vista previa · '+view.length+' productos',`<div class="gu4-import-summary"><b>${view.filter(x=>x.exists).length} coincidencias</b><span>·</span><b>${view.filter(x=>!x.exists).length} nuevos</b></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Categoría</th><th class="num">Precio</th><th>Estado</th></tr></thead><tbody>${view.slice(0,35).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td class="num">${Object.hasOwn(p,'value')?money(p.value,s):'<span class="muted">Sin cambios</span>'}</td><td>${p.exists?'Coincide':'Nuevo'}</td></tr>`).join('')}</tbody></table></div><form id="gu4-import-form" class="gu4-import-options"><label><input type="radio" name="importMode" value="only-new" checked> Solo productos nuevos</label><label><input type="radio" name="importMode" value="update"> Actualizar por nombre y agregar nuevos</label><button class="btn btn-primary" type="submit">Confirmar importación</button><button class="btn" type="button" data-gu4-cancel-sheet="1">Cancelar</button></form><p class="gu4-help-text">Los datos de productos existentes que no figuren en el archivo se mantienen. Se crea un respaldo antes de importar.</p>`,'table-2'):''}
+ ${view.length?card('Vista previa · '+view.length+' productos',`<div class="gu4-import-summary"><b>${view.filter(x=>x.exists).length} coincidencias</b><span>·</span><b>${view.filter(x=>!x.exists).length} nuevos</b></div><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th>Categoría</th><th class="num">Precio</th><th>Estado</th></tr></thead><tbody>${view.slice(0,35).map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.category)}</td><td class="num">${Object.hasOwn(p,'value')?money(p.value,s):'<span class="muted">Sin cambios</span>'}</td><td>${p.exists?'Coincide':'Nuevo'}</td></tr>`).join('')}</tbody></table></div><form id="gu4-import-form" class="gu4-import-options"><label><input type="radio" name="importMode" value="only-new" ${s.gu4.preferences.importMode!=='update'?'checked':''}> Solo nuevos</label><label><input type="radio" name="importMode" value="update" ${s.gu4.preferences.importMode==='update'?'checked':''}> Actualizar coincidencias</label><button class="btn btn-primary" type="submit">Confirmar importación</button><button class="btn" type="button" data-gu4-cancel-sheet="1">Cancelar</button></form><p class="gu4-help-text">Los datos de productos existentes que no figuren en el archivo se mantienen. Se crea un respaldo antes de importar.</p>`,'table-2'):''}
+ ${card('Preferencias de importación',`<form class="gu4-form" id="gu4-import-preference-form"><div class="field"><label>Modo predeterminado</label><select class="form-control" name="importMode"><option value="only-new" ${s.gu4.preferences.importMode!=='update'?'selected':''}>Solo productos nuevos</option><option value="update" ${s.gu4.preferences.importMode==='update'?'selected':''}>Actualizar coincidencias por nombre</option></select></div><button class="btn btn-primary" type="submit">Guardar preferencia</button></form>`,'settings-2')}
  ${card('Respaldo y almacenamiento',`<div class="gu4-info-grid"><span>Motor</span><b>${esc(window.AlmendraDB.mode()||'Comprobando')}</b><span>Productos</span><b>${s.products.length}</b><span>Períodos</span><b>${s.periods.length}</b><span>Ubicaciones físicas</span><b>${s.gu4.locations.length}</b><span>Conteos archivados</span><b>${s.gu4.counts.length}</b></div><div class="gu4-form-actions"><button class="btn" data-nav="backup">Ver respaldos</button><button class="btn" data-gu4-offline-help="1">Uso offline</button></div>`,'database-backup')}`;
 }
 function dashboardOverview(s,C){const core=window.GU4Core,a=core.allocations(s,C),alerts=core.alerts(s,C),f=core.forecasts(s,C);
- return `<section class="gu4-command-strip" aria-label="Herramientas de Inventarios GU 4.0"><div class="gu4-command-title"><span class="eyebrow">CENTRO DE CONTROL 4.0</span><b>${alerts.filter(x=>x.type==='danger').length} alertas críticas · ${fmt(a.unassigned)} sin ubicar</b><small>${f.available?'Tendencia semanal: '+fmt(f.week)+' movimientos':'Proyección: fechas insuficientes'}</small></div><div class="gu4-command-actions"><button class="btn btn-small" data-nav="warehouse4">Bodega</button><button class="btn btn-small" data-nav="counts4">Conteos</button><button class="btn btn-small" data-nav="intelligence4">Alertas</button><button class="btn btn-small" data-nav="imports4">Excel / Informes</button></div></section>`;
+ return `<section class="gu4-command-strip" aria-label="Herramientas de Inventarios GU 4.0"><div class="gu4-command-title"><span class="eyebrow">CENTRO DE CONTROL 4.0</span><b>${alerts.filter(x=>x.type==='danger').length} alertas críticas · ${fmt(a.unassigned)} sin ubicar</b><small>${f.available?'Tendencia semanal: '+fmt(f.week)+' movimientos':'Proyección: fechas insuficientes'} · Datos vinculados al consolidado</small></div><div class="gu4-command-actions"><button class="btn btn-small" data-nav="warehouse4">Bodega</button><button class="btn btn-small" data-nav="counts4">Conteos</button><button class="btn btn-small" data-nav="intelligence4">Alertas</button><button class="btn btn-small" data-nav="imports4">Excel / Informes</button></div></section>`;
 }
 function layoutDashboard(root,s,editing=false){if(!root||!window.GU4Core)return;const panels=Array.from(root.querySelectorAll('.metric-panel[data-metric]'));if(!panels.length)return;
  const pref=s.gu4,order=pref.panelOrder,board=document.createElement('section');board.className='gu4-dashboard-board';board.id='gu4-dashboard-board';board.setAttribute('aria-label','Métricas configurables');
  const before=root.querySelector('.stats-grid');if(!before)return;before.parentNode.insertBefore(board,before);
  const overview=document.createElement('div');overview.innerHTML=dashboardOverview(s,window.AlmendraCalc);board.before(overview.firstElementChild);
- const toolbar=document.createElement('div');toolbar.className='gu4-layout-toolbar';toolbar.innerHTML=`<span>Panel · ${panels.length} tarjetas</span><button class="btn btn-small" type="button" data-gu4-layout="toggle" aria-pressed="${editing}">${editing?'Terminar edición':'Organizar panel'}</button>`;board.before(toolbar);
+ const toolbar=document.createElement('div');toolbar.className='gu4-layout-toolbar';toolbar.innerHTML=`<span>Panel · ${panels.length} tarjetas</span><button class="btn btn-small" type="button" data-gu4-layout="toggle" aria-pressed="${editing}">${editing?'Terminar edición':'Organizar panel'}</button>${editing?'<button class="btn btn-small" type="button" data-gu4-reset-layout="1">Restablecer</button>':''}`;board.before(toolbar);
  const sorted=panels.sort((a,b)=>{const x=order.indexOf(a.dataset.metric),y=order.indexOf(b.dataset.metric);return (x===-1?999:x)-(y===-1?999:y);});
  sorted.forEach(panel=>{const id=panel.dataset.metric;board.append(panel);panel.classList.toggle('gu4-wide-card',pref.panelSizes[id]==='wide'||(!pref.panelSizes[id]&&['bodega','proyecciones','grafico-semanal','grafico-productos','revision','tendencias','vista-rapida','actividad'].includes(id)));
   panel.classList.toggle('gu4-editing',editing);if(editing){const tools=document.createElement('div');tools.className='gu4-panel-order';tools.innerHTML=`<span>Ordenar</span><button type="button" data-gu4-move="${esc(id)}" data-gu4-direction="-1" aria-label="Mover tarjeta hacia arriba">↑</button><button type="button" data-gu4-move="${esc(id)}" data-gu4-direction="1" aria-label="Mover tarjeta hacia abajo">↓</button><button type="button" data-gu4-resize="${esc(id)}" aria-label="Alternar tamaño">${panel.classList.contains('gu4-wide-card')?'Normal':'Ancha'}</button>`;panel.prepend(tools);}
@@ -1408,7 +1557,7 @@ window.GU4Views={warehouse,counts,intelligence,imports,layoutDashboard};
 </script>
 <script>
 /*
-  INVENTARIOS GU 4.0 — CONTROL DE INVENTARIO LOCAL
+  INVENTARIOS GU 4.1 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
   Sin servicios externos, sin envío de datos y sin librerías de terceros.
 */
@@ -1430,11 +1579,11 @@ const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
 let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',reviewFilter='all',reviewShowAll=false,finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false,weeklyFocusNext=null;
-let gu4Stage=[],gu4Sheet=null,gu4LayoutEditing=false;
+let gu4Stage=[],gu4Sheet=null,gu4LayoutEditing=false,gu4CountEditing='';
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',warehouse4:'Bodega física 4.0',counts4:'Conteos físicos',intelligence4:'Predicciones y alertas',imports4:'Excel e informes'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3}}};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -1498,7 +1647,7 @@ function productButton(p){return `<button class="product-link" title="Editar ${e
 function statusBalance(n){return `<span class="${n<0?'text-danger':n>0?'text-good':''} mono">${format(n)}</span>`;}
 function render(){
  if(!state)return;updateHeader();syncTheme();
- const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,warehouse4:()=>G4Views.warehouse(state,C),counts4:()=>G4Views.counts(state,C,gu4Stage),intelligence4:()=>G4Views.intelligence(state,C),imports4:()=>G4Views.imports(state,C,gu4Sheet)};
+ const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,warehouse4:()=>G4Views.warehouse(state,C),counts4:()=>G4Views.counts(state,C,gu4Stage,gu4CountEditing),intelligence4:()=>G4Views.intelligence(state,C),imports4:()=>G4Views.imports(state,C,gu4Sheet)};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  if(view==='dashboard')G4Views?.layoutDashboard($('#main-content'),state,gu4LayoutEditing);
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
@@ -1956,6 +2105,8 @@ document.addEventListener('click',async e=>{
   if(!state.gu4.locations.some(l=>GU4.slot(l)===GU4.slot(key))){toast('La posición ya está libre.');return;}
   if(!confirm(`¿Liberar la posición R${key.rack}-N${key.level}-P${key.position}? No se modifica el stock.`))return;
   mutation('Se liberó ubicación física',()=>GU4.clearLocation(state,key));return;}
+ const editCount=e.target.closest('[data-gu4-edit-count]');if(editCount){const next=editCount.dataset.gu4EditCount;gu4CountEditing=gu4CountEditing===next?'':next;render();return;}
+ const quickFull=e.target.closest('[data-gu4-quick-full]');if(quickFull){const form=e.target.closest('#gu4-quick-product-form');productModal(form?.elements.productId?.value||quickFull.dataset.gu4EditProduct);return;}
  const drop=e.target.closest('[data-gu4-remove-stage]');if(drop){gu4Stage=gu4Stage.filter(l=>l.productId!==drop.dataset.gu4RemoveStage);render();return;}
  if(e.target.closest('[data-gu4-create-count]')){if(!gu4Stage.length)return;
   if(mutation('Conteo físico registrado',()=>GU4.makeCount(state,C,gu4Stage,new Date().toISOString(),id('count')))){gu4Stage=[];render();toast('Conteo guardado para revisión.');}return;}
@@ -1974,6 +2125,8 @@ document.addEventListener('click',async e=>{
  if(e.target.closest('[data-gu4-xlsx]')){try{downloadBlob(await G4Excel.report(state,C,GU4),filename('Inventarios_GU_4_Informe','xlsx'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');}catch(err){toast(err.message);}return;}
  if(e.target.closest('[data-gu4-print]')){printGu4Report();return;}
  if(e.target.closest('[data-gu4-offline-help]')){$('#install-open')?.click();return;}
+ const layoutReset=e.target.closest('[data-gu4-reset-layout]');if(layoutReset){if(!confirm('¿Restablecer tamaños y orden del panel? Las métricas no se eliminan.'))return;mutation('Distribución del panel restablecida',()=>{state.gu4.panelOrder=[];state.gu4.panelSizes={};});return;}
+
  const edit=e.target.closest('[data-gu4-edit-product]');if(edit){productModal(edit.dataset.gu4EditProduct);return;}
  const layout=e.target.closest('[data-gu4-layout]');if(layout){gu4LayoutEditing=!gu4LayoutEditing;render();return;}
  const move=e.target.closest('[data-gu4-move]');if(move){const ids=$$('.metric-panel[data-metric]').map(x=>x.dataset.metric),ix=ids.indexOf(move.dataset.gu4Move),dest=ix+Number(move.dataset.gu4Direction);
@@ -1982,19 +2135,46 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
  const form=e.target;
+ if(form.id==='gu4-count-edit-form'){e.preventDefault();const d=new FormData(form),ident=String(d.get('countId')||''),entry=state.gu4.counts.find(c=>c.id===ident);
+  if(!entry||entry.status!=='pending'){toast('Este conteo no está pendiente.');return;}
+  const changes=Object.fromEntries(entry.lines.map(l=>[l.productId,d.get('qty_'+l.productId)]));
+  if(mutation('Conteo pendiente editado',()=>GU4.editPendingCount(state,ident,changes))){gu4CountEditing='';render();toast('Conteo actualizado; el stock no se modificó.');}return;}
+ if(form.id==='gu4-quick-product-form'){e.preventDefault();const d=new FormData(form),pid=String(d.get('productId')||'');
+  const patch={};for(const key of ['quantityN','quantityV','value']){const raw=String(d.get(key)??'').trim(),v=Number(raw.replace(',','.'));if(!raw||!Number.isFinite(v)||Math.abs(v)>1e12){toast('Cantidad o valor inválido.');return;}patch[key]=v;}
+  const product=state.products.find(p=>p.id===pid);if(!product){toast('Producto no encontrado.');return;}
+  if(mutation('Ficha rápida actualizada: '+product.name,()=>Object.assign(product,patch))){toast('Inventario actualizado; bodega y alertas sincronizadas.');}return;}
+ if(form.id==='gu4-product-threshold-form'){e.preventDefault();const d=new FormData(form),pid=String(d.get('productId')||''),value=String(d.get('threshold')??'').trim();
+  if(mutation('Umbral individual actualizado',()=>GU4.setProductThreshold(state,pid,value)))toast('Alerta personalizada guardada.');return;}
+ if(form.id==='gu4-import-preference-form'){e.preventDefault();const mode=String(new FormData(form).get('importMode')||'');if(!['only-new','update'].includes(mode)){toast('Modo de importación inválido.');return;}
+  mutation('Preferencia de importación actualizada',()=>{state.gu4.preferences.importMode=mode;});return;}
  if(form.id==='gu4-location-form'){e.preventDefault();const d=new FormData(form);if(mutation('Ubicación física guardada',()=>GU4.setLocation(state,C,Object.fromEntries(d))))toast('Posición actualizada.');return;}
  if(form.id==='gu4-count-form'){e.preventDefault();const d=new FormData(form),productId=String(d.get('productId')||''),counted=Number(d.get('counted'));
   if(!state.products.some(p=>p.id===productId)||!Number.isFinite(counted)||counted<0){toast('Selecciona un producto y una cantidad válida.');return;}
   gu4Stage=gu4Stage.filter(x=>x.productId!==productId).concat([{productId,counted}]);render();return;}
  if(form.id==='gu4-threshold-form'){e.preventDefault();const threshold=Number(new FormData(form).get('threshold'));if(!Number.isFinite(threshold)||threshold<0||threshold>100000){toast('Umbral inválido.');return;}
-  mutation('Umbral de alertas actualizado',()=>{state.gu4.preferences.warningThreshold=threshold;});return;}
+  const forecastPeriods=Number(new FormData(form).get('forecastPeriods'));
+  if(![2,4,6,8].includes(forecastPeriods)){toast('Cantidad de períodos inválida.');return;}
+  mutation('Parámetros de alertas y predicción actualizados',()=>{state.gu4.preferences.warningThreshold=threshold;state.gu4.preferences.forecastPeriods=forecastPeriods;});return;}
  if(form.id==='gu4-import-form'){e.preventDefault();if(!gu4Sheet?.length)return;
   const mode=String(new FormData(form).get('importMode')||'only-new'),existing=gu4Sheet.filter(p=>p.exists).length;
   if(!confirm(`¿Importar ${gu4Sheet.length} productos? ${existing} coinciden. Modo: ${mode==='update'?'actualizar coincidencias':'solo nuevos'}. Se creará copia preventiva.`))return;
   (async()=>{try{await DB.backup({id:id('before-sheet'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de importar Excel o CSV',data:clone(state)});
-   let summary;const ok=mutation('Productos importados desde Excel/CSV',()=>{summary=GU4.applyProducts(state,gu4Sheet,mode,()=>id('prod'),new Date().toISOString());});
+   let summary;const ok=mutation('Productos importados desde Excel/CSV',()=>{summary=GU4.applyProducts(state,gu4Sheet,mode,()=>id('prod'),new Date().toISOString());state.gu4.preferences.importMode=mode;});
    if(ok){gu4Sheet=null;toast(`Importación: ${summary.added} nuevos, ${summary.updated} actualizados, ${summary.skipped} omitidos.`);await refreshBackups();}
   }catch(err){toast('Importación cancelada: '+err.message);}})();return;}
+});
+document.addEventListener('gu:warehouse-rack-select',e=>{
+ const rack=Number(e.detail?.rack);if(![1,2,3].includes(rack))return;
+ if(view==='dashboard')navigate('warehouse4');
+ const form=$('#gu4-location-form');if(form){form.elements.rack.value=String(rack);$$('.gu4-rack-card').forEach((node,i)=>node.classList.toggle('gu4-selected-rack',i+1===rack));}
+});
+document.addEventListener('change',e=>{const node=e.target;
+ if(node.matches('[data-gu4-quick-select]')){const p=state?.products.find(x=>x.id===node.value),form=node.closest('form');if(!p||!form)return;
+  for(const k of ['quantityN','quantityV','value'])form.elements[k].value=p[k]??0;
+  const balance=form.querySelector('[data-gu4-live-balance]');if(balance)balance.textContent=format(C.result(state,p).N);
+  const full=form.querySelector('[data-gu4-quick-full]');if(full)full.dataset.gu4EditProduct=p.id;
+ }
+ if(node.matches('[data-gu4-threshold-select]')){const form=node.closest('form');if(form)form.elements.threshold.value=state.gu4.preferences.productThresholds?.[node.value]??'';}
 });
 $('#gu4-sheet-file')?.addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;
  try{gu4Sheet=GU4.validateImport(await G4Excel.parseFile(file),state);navigate('imports4');toast(`Archivo revisado: ${gu4Sheet.length} productos.`);}catch(err){toast('No se importó: '+err.message);}
@@ -2112,10 +2292,13 @@ async function init(){
  if(!loaded||!loaded.gu4)await DB.save(state);
   periodId=state.periods[0].id;
   await refreshBackups();render();savedStatus();
+  try{const summary=GU4.allocations(state,C);typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:summary.racks.map(x=>x.units)}}));}catch{typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:[0,0,0]}}));}
+
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
  }catch(error){
   $('#main-content').innerHTML=`<div class="card card-pad"><h1>No se pudo abrir el espacio de datos</h1><p>${esc(error.message)}</p><p>Si existe un respaldo JSON, conserva ese archivo. Abre la aplicación desde HTTPS o localhost para recuperar los datos del navegador cuando estén disponibles.</p></div>`;
   indicator('Almacenamiento no disponible','error');
+  typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:false}}));
  }
 }
 init();

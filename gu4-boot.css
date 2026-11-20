@@ -1,0 +1,17 @@
+/* GU 4.1 · Acceso isométrico profesional: sin pantalla de confirmación. */
+#gu-entry{position:fixed;inset:0;z-index:11000;display:grid;place-items:center;overflow:hidden;background:#07131e;color:#f1f6f9;font-family:Inter,system-ui,Arial,sans-serif;isolation:isolate;opacity:1;transition:opacity .48s ease,visibility .48s}
+#gu-entry.gu-entry-exit{opacity:0;visibility:hidden;pointer-events:none}
+#gu-entry:before{content:'';position:absolute;inset:0;background:linear-gradient(125deg,#0a1827ed,transparent 57%,#07111ab0);pointer-events:none;z-index:1}
+.gu-entry-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff05 1px,transparent 1px),linear-gradient(90deg,#ffffff05 1px,transparent 1px);background-size:35px 35px;opacity:.6}
+.gu-entry-stage{width:min(1100px,94vw);height:min(780px,92dvh);min-height:370px;position:relative;border:1px solid #a7c3d51f;border-radius:24px;overflow:hidden;background:#112334;box-shadow:0 25px 100px #0009}
+.gu-entry-stage canvas{position:absolute;width:100%;height:100%;inset:0;touch-action:none;cursor:grab;outline-offset:-5px}.gu-entry-stage canvas:active{cursor:grabbing}
+.gu-entry-top,.gu-entry-bottom{position:absolute;z-index:2;left:clamp(18px,3.8vw,45px);right:clamp(18px,3.8vw,45px);pointer-events:none}
+.gu-entry-top{top:clamp(18px,3vw,38px);display:flex;align-items:center;justify-content:space-between;gap:15px}
+.gu-entry-ident{display:flex;align-items:center;gap:13px}.gu-entry-mark{border:1px solid #f3c7788f;color:#f7d69c;width:47px;height:47px;border-radius:12px;display:grid;place-items:center;font-weight:900;letter-spacing:-.09em;font-size:20px;background:#ffc96614}.gu-entry-ident strong{display:block;font-size:clamp(16px,1.6vw,23px);letter-spacing:-.04em}.gu-entry-ident small{display:block;margin-top:4px;font-size:10px;color:#a9c2cf;letter-spacing:.2em}
+.gu-entry-type{display:flex;align-items:center;gap:8px;font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:#afcfca}.gu-entry-type:before{content:'';width:7px;height:7px;background:#7bd4ac;border-radius:50%;box-shadow:0 0 12px #7bd4ac}
+.gu-entry-bottom{bottom:clamp(17px,3vw,38px);display:flex;align-items:end;justify-content:space-between;gap:24px}.gu-entry-status-wrap{max-width:430px;flex:1}.gu-entry-kicker{font-size:10px;letter-spacing:.23em;font-weight:800;color:#e5bd77}.gu-entry-status-wrap h2{margin:9px 0 6px;color:#fff;font-size:clamp(16px,2.15vw,28px);letter-spacing:-.03em}.gu-entry-meta{margin:0 0 15px;color:#b2c5d0;font-size:12px}
+.gu-entry-track{height:4px;background:#a2bdc335;border-radius:20px;overflow:hidden;max-width:430px}.gu-entry-track-fill{height:100%;width:1%;background:linear-gradient(90deg,#e8b758,#8cdcc8);border-radius:20px;transition:width .25s ease}
+.gu-entry-hint{font-size:11px;color:#adc4cb;background:#0d2536aa;border:1px solid #ffffff1a;border-radius:10px;padding:9px 13px;white-space:nowrap}
+body.gu-entry-active{overflow:hidden}
+@media(max-width:650px){.gu-entry-stage{width:100%;height:100dvh;min-height:100dvh;border:0;border-radius:0}.gu-entry-top{align-items:start}.gu-entry-type{font-size:9px}.gu-entry-ident{gap:9px}.gu-entry-mark{width:38px;height:38px;font-size:16px}.gu-entry-hint{font-size:10px;white-space:normal;max-width:120px;text-align:center}.gu-entry-bottom{align-items:stretch}.gu-entry-meta{margin-bottom:12px}}
+@media(prefers-reduced-motion:reduce){#gu-entry{transition:none}.gu-entry-track-fill{transition:none}}
