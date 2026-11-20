@@ -99,17 +99,40 @@ function renderDashboard(){
  return `${heading('VISTA GENERAL','Tu negocio, en perspectiva','Todos los períodos y productos, actualizados con cada registro.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
  ${!state.products.length?`<div class="banner"><div><h3>Tu espacio está listo para comenzar</h3><p>El PDF no incluía productos originales. Añade productos o activa datos de demostración para explorar la interfaz.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
- ${window.AlmendraWarehouse?.render(state,C)||''}
  <section class="stats-grid" aria-label="Indicadores generales">
  ${statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦')}
  ${statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎')}
  ${statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈')}
  ${statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇')}
+ ${statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣')}
+ ${statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉')}
  </section>
+ <div class="dashboard-visual-row">
+ ${window.AlmendraWarehouse?.render(state,C)||''}
+ ${renderProjections()}
+ </div>
  <div class="dashboard-grid"><article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Gráfico de cantidades por semana"></canvas></article>
  <article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article></div>
  <div class="dashboard-bottom"><article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>
  <article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article></div>`;
+}
+function renderProjections(){
+ // Proyección lineal de movimiento registrado: solo semanas con fechas válidas.
+ // No se asume que los movimientos equivalgan a ventas ni se pronostica stock futuro.
+ const observations=state.periods.map(p=>{
+  const start=p.start?new Date(p.start+'T12:00:00'):null;
+  const end=p.end?new Date(p.end+'T12:00:00'):null;
+  if(!start||!end||!Number.isFinite(+start)||!Number.isFinite(+end)||end<start)return null;
+  const days=Math.floor((end-start)/86400000)+1;
+  if(days<1||days>366)return null;
+  return {days,quantity:state.products.reduce((sum,pr)=>sum+C.qty(state,p.id,pr.id),0)};
+ }).filter(Boolean);
+ const days=observations.reduce((sum,p)=>sum+p.days,0);
+ const quantity=observations.reduce((sum,p)=>sum+p.quantity,0);
+ const daily=days?quantity/days:null;
+ const periods=[['Diaria',1],['Semanal',7],['Mensual',30],['Anual',365]];
+ const ready=daily!==null&&observations.length>0;
+ return `<section class="card forecast-card" aria-label="Proyección de movimiento"><div class="card-title"><div><h3>Proyección de movimiento</h3><p>Estimación según los registros y fechas de los períodos.</p></div><span class="badge">ESTIMACIÓN</span></div><div class="forecast-grid">${periods.map(([label,span])=>`<div class="forecast-item"><span>${label}</span><strong class="mono">${ready?format(daily*span):'—'}</strong><small>${ready?'unidades estimadas':'Sin datos fechados'}</small></div>`).join('')}</div><p class="forecast-note">${ready?`Promedio de ${format(quantity)} unidades registradas durante ${format(days,0)} días de ${observations.length} período(s) con fechas. Mes = 30 días; año = 365 días. No representa ventas ni stock futuro.`:'Para calcular proyecciones, registra las fechas de inicio y fin de al menos un período semanal. No se inventan datos.'}</p></section>`;
 }
 function statCard(label,value,foot,icon){return `<article class="card stat-card"><div class="stat-icon">${icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div><div class="stat-foot">${esc(foot)}</div></article>`;}
 function drawDashboard(){
