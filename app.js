@@ -91,7 +91,7 @@ function render(){
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
 }
-const metricVisibilityKey='inventarios-gu-metricas-v22';
+const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
 function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
 function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} métrica" title="${collapsed?'Mostrar':'Minimizar'}">${collapsed?'＋ Mostrar':'− Minimizar'}</button><div class="metric-content">${html}</div></div>`}
 function renderDashboard(){
@@ -100,6 +100,8 @@ function renderDashboard(){
  const top=all.rows.slice().sort((a,b)=>Math.abs(b.H)-Math.abs(a.H)).slice(0,6);
  const recent=state.audit.slice(0,5);
  return `${heading('VISTA GENERAL','Tu negocio, en perspectiva','Todos los períodos y productos, actualizados con cada registro.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
+ <div class="dashboard-tools" role="group" aria-label="Personalizar indicadores"><div><strong>Tu panel, a tu manera</strong><span>Organiza las tarjetas sin modificar los datos.</span></div><div class="dashboard-tools-actions"><button type="button" class="btn btn-small" data-dashboard-panels="expand">Mostrar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="collapse">Minimizar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="reset">Restablecer vista</button><button type="button" class="btn btn-small" data-dashboard-export="csv">Exportar resumen CSV</button></div></div>
+ ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Tu espacio está listo para comenzar</h3><p>El PDF no incluía productos originales. Añade productos o activa datos de demostración para explorar la interfaz.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
@@ -118,6 +120,22 @@ function renderDashboard(){
  ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
  <div class="dashboard-bottom">${metricBox('vista-rapida',`<article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>`)}
  ${metricBox('actividad',`<article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article>`)}</div>`;
+}
+function renderStockAlerts(all){
+ const zero=all.rows.filter(r=>Number(r.N)===0);
+ const negative=all.rows.filter(r=>Number(r.N)<0);
+ if(!zero.length&&!negative.length)return '';
+ const examples=[...negative,...zero].slice(0,4).map(r=>esc(r.product.name)).join(', ');
+ return `<div class="stock-alert-summary" role="status"><span class="stock-alert-dot" aria-hidden="true"></span><div><strong>Revisión de existencias: ${negative.length} negativas · ${zero.length} en cero</strong><p>${examples}${negative.length+zero.length>4?' y otros productos':''}. Consulta el consolidado para verificar cantidades.</p></div><button class="btn btn-small" data-nav="final">Revisar</button></div>`;
+}
+function exportDashboardCSV(){
+ const totals=C.totals(state,state.products);
+ const rows=[['Producto','Saldo disponible','Cantidad registrada','Valor total'],...totals.rows.map(r=>[r.product.name,r.N,r.H,r.P])];
+ // Evita que hojas de cálculo interpreten nombres de productos como fórmulas.
+ const cell=v=>{let t=String(v??'');if(/^[\s]*[=+@-]/.test(t)&&typeof v==='string')t="'"+t;return '"'+t.replace(/"/g,'""')+'"'};
+ const csv='\uFEFF'+rows.map(r=>r.map(cell).join(';')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='Inventarios_GU_resumen_2_3.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function renderProjections(){
  // Proyección lineal de movimiento registrado: solo semanas con fechas válidas.
@@ -423,6 +441,16 @@ function csvMovements(){
  csvDownload(rows,'Registros');
 }
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
+document.addEventListener('click',e=>{
+ const btn=e.target.closest('[data-dashboard-panels]');if(!btn)return;
+ const action=btn.dataset.dashboardPanels;
+ const prefs=metricPrefs();
+ if(action==='reset'){try{localStorage.removeItem(metricVisibilityKey)}catch{}}
+ else document.querySelectorAll('.metric-panel[data-metric]').forEach(panel=>{prefs[panel.dataset.metric]=action==='collapse'});
+ if(action!=='reset')try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}
+ render();
+});
+document.addEventListener('click',e=>{if(e.target.closest('[data-dashboard-export]'))exportDashboardCSV()});
 document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'＋ Mostrar':'− Minimizar';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=collapsed?'Mostrar':'Minimizar';if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}

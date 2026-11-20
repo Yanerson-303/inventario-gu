@@ -6,13 +6,12 @@
   <meta name="theme-color" content="#e8dbc6">
   <meta name="description" content="Inventario y control semanal local: cinco semanas, 100 clientes, consolidado, gráficos y copias de seguridad.">
   <title>Inventarios GU · Control de inventario</title>
-
-
-
+  
+  
+  
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <style>
-/* Almendra Inventory · Diseño responsive / skins y modos de luz */
+  <style>/* Almendra Inventory · Diseño responsive / skins y modos de luz */
 :root{font-family:Inter,"Segoe UI",Arial,sans-serif;font-synthesis:none;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 *{box-sizing:border-box}html{height:100%;scroll-behavior:smooth}body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;transition:background-color .2s,color .2s}
 body[data-palette="almond"]{--accent:#78583e;--accent-hover:#60412b;--accent-soft:#eee4d5;--accent-text:#fff7eb;--bg:#f7f5f0;--surface:#fffefa;--surface2:#f2ede5;--sidebar:#f0e9df;--text:#292824;--muted:#817d74;--line:#eae3d9;--good:#597e62;--good-soft:#e8f2e8;--warn:#b97747;--warn-soft:#fff0e1;--danger:#bc5e55;--danger-soft:#f9e8e6;--gold:#bd995d;--shadow:0 8px 26px rgba(92,66,44,.045)}
@@ -79,6 +78,13 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 /* Inventarios GU 2.2: métricas configurables y tabla bidireccional */
 .metric-panel{position:relative;min-width:0;max-width:100%}.metric-panel>.metric-content{min-width:0;height:100%}.metric-panel>.metric-content>.card,.metric-panel>.metric-content>.stat-card{height:100%}.metric-toggle{position:absolute;right:10px;top:9px;z-index:8;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;padding:5px 8px;font-size:10px;font-weight:750;cursor:pointer;box-shadow:0 2px 8px #0000000b}.metric-toggle:hover,.metric-toggle:focus-visible{color:var(--accent);border-color:var(--accent);outline-offset:2px}.metric-collapsed{min-height:49px!important;height:49px!important;border:1px dashed var(--line);border-radius:13px;background:var(--surface2);}.metric-collapsed>.metric-content{display:none}.metric-collapsed>.metric-toggle{left:10px;right:auto;top:10px}.stats-grid>.metric-panel{min-width:0}.stats-grid>.metric-panel>.metric-content>.stat-card{min-height:100%}.dashboard-visual-row>.metric-panel,.dashboard-grid>.metric-panel,.dashboard-bottom>.metric-panel{min-width:0}.week-scroll-2d{overflow:auto!important;overscroll-behavior:contain;max-height:min(68vh,650px);scrollbar-width:thin}.week-scroll-2d .data-table th{position:sticky;top:0;z-index:5}.week-scroll-2d .data-table th.sticky-first{z-index:7}.week-scroll-2d .data-table td.sticky-first{z-index:4}.brand-mark{font-size:14px!important;letter-spacing:-.6px!important}.brand strong{font-size:16px!important;letter-spacing:-.5px}.stat-icon{opacity:.82}.card,.stat-card{transition:border-color .2s,box-shadow .2s}.card:hover{box-shadow:0 7px 25px #0000000a}@media(max-width:700px){.metric-toggle{top:6px;right:6px;padding:4px 6px;font-size:9px}.metric-collapsed{height:45px!important;min-height:45px!important}.week-scroll-2d{max-height:62vh}}
 
+/* v2.3: controles compactos y alertas sin modificar métricas previas */
+.dashboard-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 16px;margin:0 0 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.dashboard-tools>div:first-child{display:flex;flex-direction:column;gap:3px}.dashboard-tools strong{font-size:13px}.dashboard-tools span{font-size:11px;color:var(--muted)}
+.dashboard-tools-actions{display:flex;flex-wrap:wrap;gap:7px}.dashboard-tools-actions .btn{white-space:normal;min-height:35px}
+.stock-alert-summary{display:flex;align-items:center;gap:12px;padding:13px 16px;margin:0 0 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface2)}
+.stock-alert-summary>div{flex:1;min-width:0}.stock-alert-summary strong{font-size:12px}.stock-alert-summary p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.stock-alert-dot{flex:0 0 9px;width:9px;height:9px;border-radius:50%;background:#d98d3c}
+@media(max-width:700px){.dashboard-tools{align-items:stretch}.dashboard-tools-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.dashboard-tools-actions .btn{font-size:11px}.stock-alert-summary{align-items:flex-start;flex-wrap:wrap}.stock-alert-summary .btn{margin-left:auto}}
 </style>
   <script>
 /*
@@ -410,7 +416,7 @@ function render(){
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
 }
-const metricVisibilityKey='inventarios-gu-metricas-v22';
+const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
 function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
 function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} métrica" title="${collapsed?'Mostrar':'Minimizar'}">${collapsed?'＋ Mostrar':'− Minimizar'}</button><div class="metric-content">${html}</div></div>`}
 function renderDashboard(){
@@ -419,6 +425,8 @@ function renderDashboard(){
  const top=all.rows.slice().sort((a,b)=>Math.abs(b.H)-Math.abs(a.H)).slice(0,6);
  const recent=state.audit.slice(0,5);
  return `${heading('VISTA GENERAL','Tu negocio, en perspectiva','Todos los períodos y productos, actualizados con cada registro.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
+ <div class="dashboard-tools" role="group" aria-label="Personalizar indicadores"><div><strong>Tu panel, a tu manera</strong><span>Organiza las tarjetas sin modificar los datos.</span></div><div class="dashboard-tools-actions"><button type="button" class="btn btn-small" data-dashboard-panels="expand">Mostrar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="collapse">Minimizar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="reset">Restablecer vista</button><button type="button" class="btn btn-small" data-dashboard-export="csv">Exportar resumen CSV</button></div></div>
+ ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Tu espacio está listo para comenzar</h3><p>El PDF no incluía productos originales. Añade productos o activa datos de demostración para explorar la interfaz.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
@@ -437,6 +445,22 @@ function renderDashboard(){
  ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?'<canvas class="chart" id="top-chart" role="img" aria-label="Gráfico de principales productos"></canvas>':empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
  <div class="dashboard-bottom">${metricBox('vista-rapida',`<article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>`)}
  ${metricBox('actividad',`<article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article>`)}</div>`;
+}
+function renderStockAlerts(all){
+ const zero=all.rows.filter(r=>Number(r.N)===0);
+ const negative=all.rows.filter(r=>Number(r.N)<0);
+ if(!zero.length&&!negative.length)return '';
+ const examples=[...negative,...zero].slice(0,4).map(r=>esc(r.product.name)).join(', ');
+ return `<div class="stock-alert-summary" role="status"><span class="stock-alert-dot" aria-hidden="true"></span><div><strong>Revisión de existencias: ${negative.length} negativas · ${zero.length} en cero</strong><p>${examples}${negative.length+zero.length>4?' y otros productos':''}. Consulta el consolidado para verificar cantidades.</p></div><button class="btn btn-small" data-nav="final">Revisar</button></div>`;
+}
+function exportDashboardCSV(){
+ const totals=C.totals(state,state.products);
+ const rows=[['Producto','Saldo disponible','Cantidad registrada','Valor total'],...totals.rows.map(r=>[r.product.name,r.N,r.H,r.P])];
+ // Evita que hojas de cálculo interpreten nombres de productos como fórmulas.
+ const cell=v=>{let t=String(v??'');if(/^[\s]*[=+@-]/.test(t)&&typeof v==='string')t="'"+t;return '"'+t.replace(/"/g,'""')+'"'};
+ const csv='\uFEFF'+rows.map(r=>r.map(cell).join(';')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='Inventarios_GU_resumen_2_3.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function renderProjections(){
  // Proyección lineal de movimiento registrado: solo semanas con fechas válidas.
@@ -742,6 +766,16 @@ function csvMovements(){
  csvDownload(rows,'Registros');
 }
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
+document.addEventListener('click',e=>{
+ const btn=e.target.closest('[data-dashboard-panels]');if(!btn)return;
+ const action=btn.dataset.dashboardPanels;
+ const prefs=metricPrefs();
+ if(action==='reset'){try{localStorage.removeItem(metricVisibilityKey)}catch{}}
+ else document.querySelectorAll('.metric-panel[data-metric]').forEach(panel=>{prefs[panel.dataset.metric]=action==='collapse'});
+ if(action!=='reset')try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}
+ render();
+});
+document.addEventListener('click',e=>{if(e.target.closest('[data-dashboard-export]'))exportDashboardCSV()});
 document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'＋ Mostrar':'− Minimizar';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=collapsed?'Mostrar':'Minimizar';if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
@@ -861,7 +895,7 @@ init();
     <div class="main-shell">
       <header class="topbar">
         <div class="breadcrumbs"><span class="breadcrumb-muted">Mi espacio</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-title">Panel general</strong></div>
-        <div class="top-actions"><span id="network-state" class="network-state" aria-live="polite">Comprobando red</span><span id="save-indicator" class="save-indicator"><span class="save-dot"></span> Guardado local</span><button id="undo-btn" type="button" class="icon-btn" title="Deshacer último cambio" aria-label="Deshacer último cambio">↶</button><button id="quick-theme" type="button" class="icon-btn" title="Cambiar modo día/noche" aria-label="Cambiar modo día/noche">☾</button><button type="button" id="quick-backup" class="btn btn-primary btn-small">↧ <span>Guardar copia</span></button></div>
+        <div class="top-actions"><span id="network-state" class="network-state" aria-live="polite">Comprobando red</span><button type="button" id="install-open" hidden class="btn btn-small install-trigger" aria-label="Descargar o instalar aplicación">Descargar app</button><span id="save-indicator" class="save-indicator"><span class="save-dot"></span> Guardado local</span><button id="undo-btn" type="button" class="icon-btn" title="Deshacer último cambio" aria-label="Deshacer último cambio">↶</button><button id="quick-theme" type="button" class="icon-btn" title="Cambiar modo día/noche" aria-label="Cambiar modo día/noche">☾</button><button type="button" id="quick-backup" class="btn btn-primary btn-small">↧ <span>Guardar copia</span></button></div>
       </header>
       <main id="main-content" class="main-content" tabindex="-1" aria-live="polite"><section class="loading-view"><div class="spinner"></div><h2>Preparando tu espacio…</h2></section></main>
     </div>
