@@ -1,4 +1,4 @@
-/* Inventarios GU 3.2 · Visualizaciones pequeñas con SVG, sin dependencias.
+/* Inventarios GU 3.3 · Visualizaciones pequeñas con SVG, sin dependencias.
    Son lecturas de datos; no modifican saldos ni movimientos. */
 (function () {
 'use strict';
@@ -16,7 +16,7 @@ function spark(items, label='Evolución de los movimientos', opts={}) {
  const pts=vals.map((v,i)=>[pad+(w-2*pad)*(data.length===1?.5:i/(data.length-1)),pad+(h-2*pad)*(max-v)/range]);
  const zeroY=pad+(h-2*pad)*max/range;
  const points=pts.map(([x,y])=>x.toFixed(2)+','+y.toFixed(2)).join(' ');
- const dots=pts.map(([x,y])=>`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${data.length<9?2.6:1.8}" fill="var(--accent)"/>`).join('');
+ const dots=pts.map(([x,y],i)=>`<circle class="metric-point" tabindex="0" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${data.length<9?3.1:2.4}" fill="var(--accent)"><title>${esc(data[i].label??'Período')}: ${esc(fmt(data[i].value))}</title></circle>`).join('');
  const last=fmt(vals.at(-1));
  const values=data.map(d=>`${String(d.label??'Período')}: ${fmt(d.value)}`).join(' · ');
  return `<div class="metric-mini-chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="metric-spark" role="img" aria-label="${esc(label)}. ${esc(values)}"><line x1="8" y1="${zeroY.toFixed(2)}" x2="232" y2="${zeroY.toFixed(2)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${dots}</svg><div class="metric-mini-foot"><span>${esc(opts.left||'Primer período')}</span><span>${esc(opts.right||`Último: ${last}`)}</span></div></div>`;
@@ -25,14 +25,14 @@ function barRows(items,label='Comparación de valores',opts={}){
  const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value)));
  if(!rows.length)return empty(opts.empty||'Sin datos para comparar');
  const max=Math.max(1,...rows.map(i=>Math.abs(num(i.value))));
- return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(rows.map(i=>`${i.label} ${fmt(i.value)}`).join(', '))}">${rows.slice(0,5).map(i=>{const amount=num(i.value),width=clamp(Math.abs(amount)/max*100,0,100);return `<div class="metric-bar-row"><div class="metric-bar-top"><span title="${esc(i.label)}">${esc(i.label)}</span><b class="mono">${esc(fmt(amount))}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(i.color||'var(--accent)')}"></i></div></div>`}).join('')}</div>`;
+ return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(rows.map(i=>`${i.label} ${fmt(i.value)}`).join(', '))}">${rows.slice(0,5).map(i=>{const amount=num(i.value),width=clamp(Math.abs(amount)/max*100,0,100);return `<div class="metric-bar-row" tabindex="0" aria-label="${esc(i.label)}: ${esc(fmt(amount))}"><div class="metric-bar-top"><span title="${esc(i.label)}">${esc(i.label)}</span><b class="mono">${esc(fmt(amount))}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(i.color||'var(--accent)')}"></i></div></div>`}).join('')}</div>`;
 }
 function donut(items,label='Distribución',opts={}){
  const rows=(Array.isArray(items)?items:[]).map(x=>({label:String(x.label),value:Math.max(0,num(x.value)),color:x.color||'var(--accent)'}));
  const total=rows.reduce((a,b)=>a+b.value,0);
  if(!total)return empty(opts.empty||'Sin valores para distribuir');
  const circumference=2*Math.PI*34;let offset=0;
- const paths=rows.filter(r=>r.value>0).map(r=>{const len=r.value/total*circumference;const p=`<circle cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${Math.max(0,len-0.4).toFixed(2)} ${circumference.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 46 46)"/>`;offset+=len;return p;}).join('');
+ const paths=rows.filter(r=>r.value>0).map(r=>{const len=r.value/total*circumference;const p=`<circle class="metric-slice" cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${Math.max(0,len-0.4).toFixed(2)} ${circumference.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 46 46)" tabindex="0"><title>${esc(r.label)}: ${esc(fmt(r.value))}</title></circle>`;offset+=len;return p;}).join('');
  const aria=rows.map(r=>`${r.label}: ${fmt(r.value)} (${Math.round(r.value/total*100)}%)`).join('; ');
  return `<div class="metric-donut-wrap"><svg class="metric-donut" viewBox="0 0 92 92" role="img" aria-label="${esc(label)}. ${esc(aria)}"><circle cx="46" cy="46" r="34" stroke="var(--line)" fill="none" stroke-width="12"/>${paths}<text x="46" y="45" fill="var(--text)" font-size="15" font-weight="800" text-anchor="middle">${esc(opts.center||fmt(total))}</text><text x="46" y="58" fill="var(--muted)" font-size="7" text-anchor="middle">${esc(opts.sub||'total')}</text></svg><div class="metric-legend">${rows.map(r=>`<div class="metric-legend-row"><i style="background:${esc(r.color)}"></i><span>${esc(r.label)}</span><b class="mono">${fmt(r.value)}</b></div>`).join('')}</div></div>`;
 }

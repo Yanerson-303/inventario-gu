@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const root=path.resolve(__dirname,'..');const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const moduleSource=app.slice(app.indexOf('const metricVisibilityKey='),app.indexOf('function renderDashboard(){'));
+const store=new Map();const ctx={localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},Icons:{svg:name=>'<svg>'+name+'</svg>'},esc:v=>String(v).replace(/</g,'&lt;')};
+vm.runInNewContext(moduleSource+'\nwindowOut={metricBox,metricPrefs};',ctx);
+const card='<article class="card stat-card"><div class="stat-icon">📦</div><div class="stat-label">Stock</div></article>';
+let out=ctx.windowOut.metricBox('stock',card);
+assert.match(out,/stat-icon-container/);assert.match(out,/metric-icon-control/);assert.match(out,/aria-label="Contraer Unidades en stock"/);
+assert(!out.includes('>📦</div>')); // El icono visual original se convierte en un botón funcional
+store.set('inventarios-gu-metricas-v22',JSON.stringify({stock:true}));out=ctx.windowOut.metricBox('stock',card);
+assert.match(out,/metric-collapsed/);assert.match(out,/aria-label="Expandir Unidades en stock"/);
+const generic=ctx.windowOut.metricBox('tendencias','<article class="card"><div class="card-title gu-control-head"><div><h3>Resumen</h3></div></div></article>');
+assert.match(generic,/card-title gu-control-head"><button/);
+const warehouse=ctx.windowOut.metricBox('bodega','<section class="card"><div class="warehouse-heading"><div><h2>Bodega</h2></div></div></section>');
+assert.match(warehouse,/warehouse-heading"><button/);
+const chart=fs.readFileSync(path.join(root,'metric-visuals.js'),'utf8');
+assert.match(chart,/class="metric-point"/);assert.match(chart,/class="metric-slice"/);assert.match(chart,/class="metric-bar-row" tabindex=/);
+const sound=fs.readFileSync(path.join(root,'motion.js'),'utf8');assert.match(sound,/\.011/);assert.match(sound,/data-gu-sound/);
+const css=fs.readFileSync(path.join(root,'ux.css'),'utf8');assert.match(css,/#c83c45/);assert.match(css,/#fff2b5/);
+const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.match(sw,/\.\/motion\.js/);assert.match(sw,/\.\/chart-hover\.js/);
+console.log('✓ Iconos contraíbles, animaciones, accesibilidad, audio opcional y caché PWA.');

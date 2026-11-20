@@ -35,7 +35,7 @@ let dialog,previousFocus;
 function openInfo(title,detail){
  if(!dialog){dialog=document.createElement('dialog');dialog.id='gu-help-dialog';dialog.className='gu-help-dialog';dialog.innerHTML='<div class="gu-help-head"><strong></strong><button type="button" class="gu-help-close" aria-label="Cerrar información">×</button></div><p></p><div class="gu-help-actions"><button type="button" class="btn btn-primary">Entendido</button></div>';document.body.append(dialog);
  dialog.querySelector('.gu-help-close').addEventListener('click',()=>dialog.close());dialog.querySelector('.gu-help-actions button').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>previousFocus?.focus?.());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});}
- previousFocus=document.activeElement;dialog.querySelector('.gu-help-head strong').textContent=title;dialog.querySelector('p').textContent=detail;
+ window.GUFeedback?.play('info');previousFocus=document.activeElement;dialog.querySelector('.gu-help-head strong').textContent=title;dialog.querySelector('p').textContent=detail;
  if(typeof dialog.showModal==='function')dialog.showModal();else alert(title+'\n\n'+detail);
 }
 document.addEventListener('click',event=>{const b=event.target.closest('[data-gu-help]');if(!b)return;event.preventDefault();openInfo(b.dataset.guTitle||'Información',b.dataset.guHelp||'');});

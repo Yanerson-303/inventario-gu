@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#e8dbc6">
-  <meta name="description" content="Inventarios GU 3.2: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
-  <title>Inventarios GU 3.2 · Control de inventario</title>
+  <meta name="description" content="Inventarios GU 3.3: gestión local, bodega 3D, analíticas, revisión de saldos y copias de seguridad.">
+  <title>Inventarios GU 3.3 · Control de inventario</title>
   
   
   
@@ -217,8 +217,90 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 
 .metric-visual-stack{width:100%;display:grid;gap:4px}
 
+/* Inventarios GU 3.3 · Interacciones precisas, iconografía integrada y menos ruido. */
+.metric-panel {min-width:0;}
+.metric-panel > .metric-content {height:100%;}
+.metric-folded-bar{display:none;}
+.metric-collapsed{height:48px!important;min-height:48px!important;border:1px solid var(--line)!important;border-radius:12px!important;background:var(--surface)!important;overflow:hidden;}
+.metric-collapsed > .metric-content{display:none!important;}
+.metric-collapsed > .metric-folded-bar{display:flex!important;align-items:center;gap:9px;padding:5px 12px;height:100%;}
+.metric-folded-title{font-size:12px;line-height:1.2;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.metric-panel .metric-toggle.metric-icon-control{
+ position:relative!important;inset:auto!important;display:inline-grid!important;place-items:center!important;
+ width:37px!important;height:37px!important;min-width:37px!important;min-height:37px!important;
+ margin:0!important;padding:0!important;border-radius:10px!important;box-shadow:none!important;
+ border:1px solid transparent!important;background:var(--surface2)!important;color:var(--accent)!important;
+ font-size:initial!important;line-height:1!important;cursor:pointer;transition:color .19s ease,background-color .19s ease,border-color .19s ease,transform .19s ease;
+}
+.metric-panel .metric-toggle.metric-icon-control::before{content:none!important;}
+.metric-panel .metric-toggle.metric-icon-control .gu-icon{display:block!important;width:20px!important;height:20px!important;stroke-width:1.85;transition:transform .18s ease;}
+.metric-icon-mark{position:absolute;right:-4px;bottom:-4px;display:grid;place-items:center;width:14px;height:14px;border-radius:50%;background:var(--surface);color:var(--muted);border:1px solid var(--line);font-weight:800;font-size:11px;line-height:1;}
+.metric-panel .metric-toggle.metric-icon-control:hover,.metric-panel .metric-toggle.metric-icon-control:focus-visible{color:#cc353c!important;border-color:#e1787e!important;background:#fff0f0!important;outline:2px solid transparent;box-shadow:0 0 0 2px #e1787e22!important;}
+.metric-panel .metric-toggle.metric-icon-control:hover .gu-icon,.metric-panel .metric-toggle.metric-icon-control:focus-visible .gu-icon{transform:scale(1.07);}
+.metric-panel .metric-toggle.metric-icon-control:hover .metric-icon-mark,.metric-panel .metric-toggle.metric-icon-control:focus-visible .metric-icon-mark{background:#c83c45;color:white;border-color:#c83c45;}
+.metric-panel .stat-icon-container{position:absolute!important;top:14px!important;right:14px!important;display:flex!important;opacity:1!important;pointer-events:auto!important;width:auto!important;height:auto!important;background:none!important;}
+.metric-panel .stat-icon-container .metric-icon-control{width:35px!important;height:35px!important;min-width:35px!important;min-height:35px!important;}
+.metric-content > .card > .card-title{display:flex;gap:10px;align-items:center;}
+.metric-content > .card > .card-title > .metric-icon-control{flex-shrink:0;}
+.metric-content > .card > .card-title > div{min-width:0;flex:1;}
+.metric-content .card-title h3,.metric-content .card-title h2{display:inline;line-height:1.4;}
+.metric-content .warehouse-heading{justify-content:initial;gap:9px;}
+.metric-content .warehouse-heading .metric-icon-control{flex:none;background:#203a50!important;color:#bfe1f5!important;}
+.metric-content .warehouse-heading > div:first-of-type{min-width:0;flex:1;}
+.metric-content .warehouse-heading .warehouse-total{flex:none;}
+.metric-panel .gu-info, .page-heading .gu-info{transition:background-color .17s ease,color .17s ease,border-color .17s ease,box-shadow .17s ease;}
+.metric-panel .gu-info:hover,.metric-panel .gu-info:focus-visible,.page-heading .gu-info:hover,.page-heading .gu-info:focus-visible{background:#fff2b5!important;border-color:#e6bd47!important;color:#926200!important;box-shadow:0 0 0 2px #f2d87b30;}
+.metric-panel .stat-label{max-width:calc(100% - 45px);padding-right:2px;}
+.metric-panel .stat-label + .gu-info{margin:0 0 0 3px;}
+.metric-content .gu-control-head,.metric-content .trend-card .card-title{padding-right:0!important;}
+.metric-content .gu-control-head .btn{margin-top:0;}
+/* Microinteracciones: sin animación constante ni consumo de CPU extra. */
+.metric-bar-row{border-radius:7px;padding:2px 4px;margin:0 -4px;outline:0;transition:background-color .18s ease;}
+.metric-bar-row:hover,.metric-bar-row:focus-visible{background:color-mix(in srgb,var(--accent) 6%,transparent);}
+.metric-bar-track{height:7px;overflow:visible;}
+.metric-bar-track i{transform-origin:left center;transition:width .25s ease,filter .2s ease,box-shadow .2s ease,transform .2s ease;}
+.metric-bar-row:hover .metric-bar-track i,.metric-bar-row:focus-visible .metric-bar-track i{filter:brightness(1.23);box-shadow:0 0 9px color-mix(in srgb,var(--accent) 22%,transparent);transform:scaleY(1.27);}
+.metric-bar-row:hover .metric-bar-top b,.metric-bar-row:focus-visible .metric-bar-top b{color:var(--accent);}
+.metric-point,.metric-slice{transition:filter .18s ease,stroke-width .18s ease,stroke .18s ease;outline:0;cursor:default;}
+.metric-point:hover,.metric-point:focus-visible{r:4.8;filter:drop-shadow(0 0 3px var(--accent));stroke:var(--surface);stroke-width:1.2px;}
+.metric-slice:hover,.metric-slice:focus-visible{stroke-width:15;filter:drop-shadow(0 0 2px #b7a887);}
+.metric-legend-row{border-radius:6px;padding:2px 4px;margin:0 -4px;transition:background-color .18s ease;}
+.metric-legend-row:hover{background:color-mix(in srgb,var(--accent) 7%,transparent);}
+.metric-mini-bars{gap:6px;}.metric-donut-wrap{gap:9px;}.metric-donut{width:82px;height:82px;max-width:39%;}
+.metric-spark{height:62px;}.metric-mini-foot{font-size:10px;}
+.stat-card.visual-stat{min-height:218px!important;padding:14px 16px 12px!important;}
+.stat-card.visual-stat .stat-label{min-height:auto!important;max-width:calc(100% - 43px);}
+.stat-card.visual-stat .stat-value{font-size:clamp(21px,2.35vw,29px)!important;margin:7px 0 6px!important;}
+.stat-card.visual-stat .stat-visual{min-height:75px!important;margin-top:auto;}
+.metric-chart-note{font-size:10px;}.gu-review-chart{padding:10px 12px;}.gu-trend-visual{padding:9px 11px;}
+.chart{height:194px!important;cursor:crosshair;}.chart-data-summary{margin-top:6px;}
+.dashboard-grid,.dashboard-bottom,.dashboard-visual-row,.dashboard-v3-row{gap:13px!important;margin-bottom:13px!important;}
+.stats-grid{gap:13px!important;margin-bottom:13px!important;}
+.forecast-grid{gap:8px!important;}.forecast-item{min-height:77px!important;padding:9px 11px!important;}.forecast-item strong{font-size:clamp(19px,2.5vw,25px)!important;}
+.forecast-chart{padding-top:8px!important;}.forecast-chart .metric-spark{height:53px!important;}
+.metric-chart-tooltip{position:absolute;z-index:4;pointer-events:none;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:9px;box-shadow:0 7px 20px #0002;padding:7px 9px;font-size:11px;line-height:1.4;transform:translate(-50%,-110%);max-width:180px;white-space:nowrap;}
+.metric-chart-tooltip[hidden]{display:none!important;}
+.gu-sound-options{align-items:center;}.gu-sound-status{font-size:11px;color:var(--muted);}
+@media(max-width:800px){.dashboard-visual-row .warehouse-viewport{height:clamp(210px,49vw,275px)!important;}.chart{height:185px!important;}.metric-panel .metric-toggle.metric-icon-control{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;}}
+@media(max-width:550px){.stats-grid{grid-template-columns:1fr!important;gap:9px!important;}.stat-card.visual-stat{min-height:158px!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:12px;padding:13px 14px!important;}
+ .stat-card.visual-stat .stat-label{grid-column:1;grid-row:1;max-width:100%;min-height:0!important;padding-right:0;}
+ .stat-card.visual-stat .stat-value{grid-column:1;grid-row:2;font-size:clamp(20px,6vw,26px)!important;align-self:start;}
+ .stat-card.visual-stat .stat-visual{grid-column:2;grid-row:1 / span 3;align-self:center;min-height:65px!important;}
+ .stat-card.visual-stat .stat-icon-container{top:auto!important;right:auto!important;bottom:11px!important;left:14px!important;}
+ .metric-donut-wrap{gap:5px;}.metric-donut{width:64px;height:64px;max-width:44%;}.metric-legend-row{font-size:9px;}.metric-legend-row b{font-size:9px;}.metric-spark{height:57px;}
+ .stat-card.visual-stat .stat-label + .gu-info{grid-column:1;grid-row:1;justify-self:end;}
+ .metric-mini-bars{gap:5px;}.metric-bar-top{font-size:9px;}.metric-chart-note{font-size:9px;}
+ .dashboard-v3-row,.dashboard-bottom,.dashboard-grid{gap:10px!important;}.chart{height:176px!important;}.gu-review-chart .metric-mini-bars{grid-template-columns:1fr!important;}
+ .metric-content .card-title{align-items:center;}.metric-content .card-title h3{font-size:13px;}
+ .metric-folded-title{font-size:11px;}
+}
+@media(max-width:375px){.stat-card.visual-stat{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);}.metric-donut-wrap{flex-direction:row;}.metric-donut{width:53px;height:53px;}.metric-spark{height:52px;}}
+@media(prefers-reduced-motion:reduce){.metric-panel .metric-toggle.metric-icon-control,.metric-bar-row,.metric-bar-track i,.metric-point,.metric-slice,.metric-legend-row,.metric-panel .gu-info{transition:none!important;transform:none!important;}}
+
 </style>
 
+  
+  
   
   
   
@@ -248,7 +330,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
         <button type="button" data-nav="backup" class="nav-item"><span class="nav-icon" data-gu-icon="database-backup"></span><span>Copias y migración</span></button>
         <button type="button" data-nav="settings" class="nav-item"><span class="nav-icon" data-gu-icon="settings"></span><span>Configuración</span></button>
       </nav>
-      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v3.2</span></div></div>
+      <div class="side-bottom"><div class="side-tip"><span>✦</span><b>Control local</b><p>Disponible sin conexión tras instalar.</p></div><div class="side-foot">INVENTARIOS GU / EDICIÓN LOCAL <span id="app-version">v3.3</span></div></div>
     </aside>
     <div class="main-shell">
       <header class="topbar">
@@ -299,6 +381,50 @@ document.addEventListener('DOMContentLoaded',()=>enhance());
 
 </script>
 <script>
+/* Inventarios GU 3.3 · microinteracciones y audio opcional; sin recursos externos. */
+(function(){
+'use strict';
+const KEY='inventarios-gu-sonido-suave-v33';
+let enabled=true;
+try{enabled=localStorage.getItem(KEY)!=='off';}catch{}
+let context=null,last=0;
+function play(type='tap'){
+ if(!enabled||document.hidden)return;
+ const time=Date.now();if(time-last<420)return;last=time;
+ const Ctx=window.AudioContext||window.webkitAudioContext;
+ if(!Ctx)return;
+ try{
+  if(!context)context=new Ctx();
+  if(context.state==='suspended')context.resume().catch(()=>{});
+  const now=context.currentTime;
+  const osc=context.createOscillator(),volume=context.createGain();
+  osc.type='sine';osc.frequency.setValueAtTime(type==='info'?690:type==='success'?660:470,now);
+  if(type==='success')osc.frequency.exponentialRampToValueAtTime(880,now+.075);
+  else osc.frequency.exponentialRampToValueAtTime(type==='close'?370:540,now+.085);
+  volume.gain.setValueAtTime(.0001,now);
+  volume.gain.linearRampToValueAtTime(.011,now+.015); // Muy suave, no se reproduce al pasar el cursor
+  volume.gain.exponentialRampToValueAtTime(.0001,now+.12);
+  osc.connect(volume).connect(context.destination);
+  osc.start(now);osc.stop(now+.135);
+ }catch{} // Dispositivos sin Web Audio siguen funcionando
+}
+function setEnabled(value){enabled=Boolean(value);try{localStorage.setItem(KEY,enabled?'on':'off')}catch{};return enabled;}
+function isEnabled(){return enabled;}
+// Se usan solo eventos poco frecuentes; NUNCA cada hover ni edición de celda.
+document.addEventListener('click',event=>{
+ const btn=event.target.closest('[data-gu-sound]');
+ if(!btn)return;
+ setEnabled(btn.dataset.guSound==='on');
+ const status=document.getElementById('gu-sound-state');
+ if(status)status.textContent=enabled?'Activados':'Silenciados';
+ document.querySelectorAll('[data-gu-sound]').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.guSound==='on')===enabled)));
+ if(enabled)play('info');
+});
+window.GUFeedback={play,setEnabled,isEnabled};
+})();
+
+</script>
+<script>
 /* Inventarios GU 3.1 — ayuda contextual accesible, sin dependencias. */
 (function(){'use strict';
 const INTRO={
@@ -336,7 +462,7 @@ let dialog,previousFocus;
 function openInfo(title,detail){
  if(!dialog){dialog=document.createElement('dialog');dialog.id='gu-help-dialog';dialog.className='gu-help-dialog';dialog.innerHTML='<div class="gu-help-head"><strong></strong><button type="button" class="gu-help-close" aria-label="Cerrar información">×</button></div><p></p><div class="gu-help-actions"><button type="button" class="btn btn-primary">Entendido</button></div>';document.body.append(dialog);
  dialog.querySelector('.gu-help-close').addEventListener('click',()=>dialog.close());dialog.querySelector('.gu-help-actions button').addEventListener('click',()=>dialog.close());dialog.addEventListener('close',()=>previousFocus?.focus?.());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});}
- previousFocus=document.activeElement;dialog.querySelector('.gu-help-head strong').textContent=title;dialog.querySelector('p').textContent=detail;
+ window.GUFeedback?.play('info');previousFocus=document.activeElement;dialog.querySelector('.gu-help-head strong').textContent=title;dialog.querySelector('p').textContent=detail;
  if(typeof dialog.showModal==='function')dialog.showModal();else alert(title+'\n\n'+detail);
 }
 document.addEventListener('click',event=>{const b=event.target.closest('[data-gu-help]');if(!b)return;event.preventDefault();openInfo(b.dataset.guTitle||'Información',b.dataset.guHelp||'');});
@@ -583,7 +709,73 @@ window.AlmendraCharts={bars,horizontal,line};
 
 </script>
 <script>
-/* Inventarios GU 3.2 · Visualizaciones pequeñas con SVG, sin dependencias.
+/* GU 3.3 · Resaltado interactivo de gráficos Canvas, sin bibliotecas externas. */
+(function(){'use strict';
+function attach(id,type,items){
+ const canvas=document.getElementById(id);
+ if(!canvas||canvas.dataset.guHoverReady==='1')return;
+ const data=(Array.isArray(items)?items:[]).filter(d=>d&&Number.isFinite(Number(d.value)));
+ if(!data.length)return;
+ canvas.dataset.guHoverReady='1';
+ const card=canvas.closest('.card');if(!card)return;
+ card.style.position='relative';
+ const tip=document.createElement('div');tip.className='metric-chart-tooltip';tip.hidden=true;tip.setAttribute('role','status');card.append(tip);
+ let active=-1;
+ const restore=()=>{if(type==='line')window.AlmendraCharts.line(id,data);else window.AlmendraCharts.horizontal(id,data);};
+ const hilite=(i)=>{
+   if(i===active)return;active=i;restore();if(i<0)return;
+   const r=canvas.getBoundingClientRect();if(!r.width||!r.height)return;
+   const ctx=canvas.getContext('2d');const scale=canvas.width/r.width;ctx.save();ctx.setTransform(scale,0,0,scale,0,0);
+   const w=r.width,h=r.height;
+   if(type==='line'){
+    const L=w<420?39:51,R=16,T=22,B=43,vals=data.map(x=>Number(x.value));
+    const min=Math.min(0,...vals),max=Math.max(0,...vals),range=Math.max(1,max-min);
+    const x=L+(w-L-R)*(data.length===1?.5:i/(data.length-1));
+    const y=T+(h-T-B)*(max-vals[i])/range;
+    ctx.beginPath();ctx.moveTo(x,T);ctx.lineTo(x,h-B);ctx.strokeStyle='rgba(120,120,120,.17)';ctx.lineWidth=1;ctx.stroke();
+    ctx.shadowBlur=12;ctx.shadowColor='rgba(224,155,62,.48)';ctx.beginPath();ctx.arc(x,y,5.8,0,2*Math.PI);ctx.fillStyle='#edb65f';ctx.fill();ctx.shadowBlur=0;
+    ctx.beginPath();ctx.arc(x,y,2.4,0,2*Math.PI);ctx.fillStyle='#fff';ctx.fill();
+   }else{
+    const L=Math.min(132,w*.34),R=55,T=14,rowH=Math.min(52,(h-T-12)/Math.max(data.length,1));
+    const max=Math.max(1,...data.map(x=>Math.abs(Number(x.value)||0)));
+    const width=Math.abs(Number(data[i].value)||0)/max*Math.max(0,w-L-R);
+    const y=T+i*rowH+5;
+    ctx.shadowBlur=12;ctx.shadowColor='rgba(214,160,71,.38)';ctx.fillStyle='rgba(244,189,97,.26)';
+    ctx.fillRect(L,y,Math.max(2,width),19);ctx.shadowBlur=0;
+   }
+   ctx.restore();
+ };
+ function mouse(event){
+  if(event.pointerType==='touch')return;
+  const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;
+  const L=rect.width<420?39:51,R=16;
+  let index=-1;
+  if(type==='line'){
+   const frac=(x-L)/Math.max(1,rect.width-L-R);
+   if(frac>=-.08&&frac<=1.08&&y>=5&&y<=rect.height-30)index=Math.max(0,Math.min(data.length-1,Math.round(frac*(data.length-1))));
+  }else{
+   const rowH=Math.min(52,(rect.height-26)/Math.max(data.length,1));
+   const i=Math.floor((y-14)/rowH);
+   if(i>=0&&i<data.length&&x>=Math.min(132,rect.width*.34)&&x<=rect.width-50)index=i;
+  }
+  hilite(index);
+  if(index<0){tip.hidden=true;canvas.style.cursor='default';return;}
+  const value=new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(Number(data[index].value));
+  tip.textContent=`${data[index].label}: ${value}`;
+  const cardRect=card.getBoundingClientRect();
+  tip.style.left=`${Math.max(75,Math.min(cardRect.width-75,event.clientX-cardRect.left))}px`;
+  tip.style.top=`${Math.max(55,event.clientY-cardRect.top-8)}px`;
+  tip.hidden=false;canvas.style.cursor='crosshair';
+ }
+ canvas.addEventListener('pointermove',mouse,{passive:true});
+ canvas.addEventListener('pointerleave',()=>{hilite(-1);tip.hidden=true;canvas.style.cursor='default';});
+}
+window.GUChartHover={attach};
+})();
+
+</script>
+<script>
+/* Inventarios GU 3.3 · Visualizaciones pequeñas con SVG, sin dependencias.
    Son lecturas de datos; no modifican saldos ni movimientos. */
 (function () {
 'use strict';
@@ -601,7 +793,7 @@ function spark(items, label='Evolución de los movimientos', opts={}) {
  const pts=vals.map((v,i)=>[pad+(w-2*pad)*(data.length===1?.5:i/(data.length-1)),pad+(h-2*pad)*(max-v)/range]);
  const zeroY=pad+(h-2*pad)*max/range;
  const points=pts.map(([x,y])=>x.toFixed(2)+','+y.toFixed(2)).join(' ');
- const dots=pts.map(([x,y])=>`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${data.length<9?2.6:1.8}" fill="var(--accent)"/>`).join('');
+ const dots=pts.map(([x,y],i)=>`<circle class="metric-point" tabindex="0" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${data.length<9?3.1:2.4}" fill="var(--accent)"><title>${esc(data[i].label??'Período')}: ${esc(fmt(data[i].value))}</title></circle>`).join('');
  const last=fmt(vals.at(-1));
  const values=data.map(d=>`${String(d.label??'Período')}: ${fmt(d.value)}`).join(' · ');
  return `<div class="metric-mini-chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="metric-spark" role="img" aria-label="${esc(label)}. ${esc(values)}"><line x1="8" y1="${zeroY.toFixed(2)}" x2="232" y2="${zeroY.toFixed(2)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${dots}</svg><div class="metric-mini-foot"><span>${esc(opts.left||'Primer período')}</span><span>${esc(opts.right||`Último: ${last}`)}</span></div></div>`;
@@ -610,14 +802,14 @@ function barRows(items,label='Comparación de valores',opts={}){
  const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value)));
  if(!rows.length)return empty(opts.empty||'Sin datos para comparar');
  const max=Math.max(1,...rows.map(i=>Math.abs(num(i.value))));
- return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(rows.map(i=>`${i.label} ${fmt(i.value)}`).join(', '))}">${rows.slice(0,5).map(i=>{const amount=num(i.value),width=clamp(Math.abs(amount)/max*100,0,100);return `<div class="metric-bar-row"><div class="metric-bar-top"><span title="${esc(i.label)}">${esc(i.label)}</span><b class="mono">${esc(fmt(amount))}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(i.color||'var(--accent)')}"></i></div></div>`}).join('')}</div>`;
+ return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(rows.map(i=>`${i.label} ${fmt(i.value)}`).join(', '))}">${rows.slice(0,5).map(i=>{const amount=num(i.value),width=clamp(Math.abs(amount)/max*100,0,100);return `<div class="metric-bar-row" tabindex="0" aria-label="${esc(i.label)}: ${esc(fmt(amount))}"><div class="metric-bar-top"><span title="${esc(i.label)}">${esc(i.label)}</span><b class="mono">${esc(fmt(amount))}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(i.color||'var(--accent)')}"></i></div></div>`}).join('')}</div>`;
 }
 function donut(items,label='Distribución',opts={}){
  const rows=(Array.isArray(items)?items:[]).map(x=>({label:String(x.label),value:Math.max(0,num(x.value)),color:x.color||'var(--accent)'}));
  const total=rows.reduce((a,b)=>a+b.value,0);
  if(!total)return empty(opts.empty||'Sin valores para distribuir');
  const circumference=2*Math.PI*34;let offset=0;
- const paths=rows.filter(r=>r.value>0).map(r=>{const len=r.value/total*circumference;const p=`<circle cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${Math.max(0,len-0.4).toFixed(2)} ${circumference.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 46 46)"/>`;offset+=len;return p;}).join('');
+ const paths=rows.filter(r=>r.value>0).map(r=>{const len=r.value/total*circumference;const p=`<circle class="metric-slice" cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${Math.max(0,len-0.4).toFixed(2)} ${circumference.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 46 46)" tabindex="0"><title>${esc(r.label)}: ${esc(fmt(r.value))}</title></circle>`;offset+=len;return p;}).join('');
  const aria=rows.map(r=>`${r.label}: ${fmt(r.value)} (${Math.round(r.value/total*100)}%)`).join('; ');
  return `<div class="metric-donut-wrap"><svg class="metric-donut" viewBox="0 0 92 92" role="img" aria-label="${esc(label)}. ${esc(aria)}"><circle cx="46" cy="46" r="34" stroke="var(--line)" fill="none" stroke-width="12"/>${paths}<text x="46" y="45" fill="var(--text)" font-size="15" font-weight="800" text-anchor="middle">${esc(opts.center||fmt(total))}</text><text x="46" y="58" fill="var(--muted)" font-size="7" text-anchor="middle">${esc(opts.sub||'total')}</text></svg><div class="metric-legend">${rows.map(r=>`<div class="metric-legend-row"><i style="background:${esc(r.color)}"></i><span>${esc(r.label)}</span><b class="mono">${fmt(r.value)}</b></div>`).join('')}</div></div>`;
 }
@@ -721,7 +913,7 @@ function mount(){
 </script>
 <script>
 /*
-  INVENTARIOS GU 3.2 — CONTROL DE INVENTARIO LOCAL
+  INVENTARIOS GU 3.3 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
   Sin servicios externos, sin envío de datos y sin librerías de terceros.
 */
@@ -819,7 +1011,20 @@ function render(){
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
 const metricLabels={volumen:'Volumen semanal',saldo:'Saldo calculado',valor:'Valorización',productos:'Productos',stock:'Unidades en stock',referencias:'Referencias con stock',bodega:'Bodega 3D',proyecciones:'Proyecciones', 'grafico-semanal':'Gráfico semanal','grafico-productos':'Productos destacados',revision:'Revisión',tendencias:'Comparativa', 'vista-rapida':'Vista rápida',actividad:'Actividad'};
 function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
-function metricBox(id,html){const collapsed=!!metricPrefs()[id];return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><button type="button" class="metric-toggle" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${collapsed?'Mostrar':'Minimizar'} ${esc(metricLabels[id]||'métrica')}" title="${collapsed?'Mostrar':'Minimizar'} ${esc(metricLabels[id]||'métrica')}">${collapsed?'+':'−'}</button><span class="metric-collapsed-name">${esc(metricLabels[id]||id)}</span><div class="metric-content">${html}</div></div>`}
+const metricIconNames={volumen:'calendar-days',saldo:'activity',valor:'trending-up',productos:'package',stock:'boxes',referencias:'archive',bodega:'boxes',proyecciones:'trending-up','grafico-semanal':'activity','grafico-productos':'bar-chart-3',revision:'shield-check',tendencias:'trending-up','vista-rapida':'layers',actividad:'history'};
+function metricButton(id,collapsed=false){
+ const title=esc(metricLabels[id]||id),verb=collapsed?'Expandir':'Contraer';
+ return `<button type="button" class="metric-toggle metric-icon-control" data-metric-toggle="${id}" aria-expanded="${!collapsed}" aria-label="${verb} ${title}" title="${verb} ${title}">${Icons.svg(metricIconNames[id]||'package')}<span class="metric-icon-mark" aria-hidden="true">${collapsed?'+':'−'}</span></button>`;
+}
+function metricBox(id,html){
+ const collapsed=!!metricPrefs()[id],icon=metricButton(id);
+ // Las tarjetas KPI usan su propio icono como botón; las demás lo colocan en el encabezado.
+ if(html.includes('class="stat-icon"'))html=html.replace(/<div class="stat-icon">[\s\S]*?<\/div>/,`<div class="stat-icon stat-icon-container">${icon}</div>`);
+ else if(/class="warehouse-heading"/.test(html))html=html.replace(/(<div class="warehouse-heading"[^>]*>)/,`$1${icon}`);
+ else if(/class="card-title/.test(html))html=html.replace(/(<div class="card-title[^"]*"[^>]*>)/,`$1${icon}`);
+ else html=`<div class="metric-inline-title">${icon}<strong>${esc(metricLabels[id]||id)}</strong></div>`+html;
+ return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><div class="metric-folded-bar">${metricButton(id,true)}<span class="metric-folded-title">${esc(metricLabels[id]||id)}</span></div><div class="metric-content">${html}</div></div>`;
+}
 function renderDashboard(){
  const all=C.totals(state,state.products);
  const open=state.periods.filter(p=>!p.locked).length;
@@ -827,7 +1032,7 @@ function renderDashboard(){
  const recent=state.audit.slice(0,5),review=Insights.analyze(state,C,all.rows);
  const weeklyValues=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
- <div class="dashboard-tools" role="group" aria-label="Personalizar indicadores"><div><strong>Panel personalizable</strong></div><div class="dashboard-tools-actions"><button type="button" class="btn btn-small" data-dashboard-panels="expand">Mostrar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="collapse">Minimizar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="reset">Restablecer vista</button><button type="button" class="btn btn-small" data-dashboard-export="csv">Exportar resumen CSV</button></div></div>
+ <div class="dashboard-tools" role="group" aria-label="Personalizar indicadores"><div><strong>Personalizar panel</strong></div><div class="dashboard-tools-actions"><button type="button" class="btn btn-small" data-dashboard-panels="expand">Mostrar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="collapse">Contraer todas</button><button type="button" class="btn btn-small" data-dashboard-panels="reset">Restablecer vista</button><button type="button" class="btn btn-small" data-dashboard-export="csv">Exportar resumen CSV</button></div></div>
  ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Añade productos para comenzar.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
@@ -905,9 +1110,9 @@ function renderProjections(){
 function statCard(label,value,foot,icon,visual=''){return `<article class="card stat-card ${visual?'visual-stat':''}"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div>${visual?`<div class="stat-visual">${visual}</div>`:''}<div class="stat-foot">${esc(foot)}</div></article>`;}
 function drawDashboard(){
  const weekly=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
- Graph.line('weekly-chart',weekly.slice(-14));
+ Graph.line('weekly-chart',weekly.slice(-14));window.GUChartHover?.attach('weekly-chart','line',weekly.slice(-14));
  const top=state.products.map(p=>({label:p.name,value:C.result(state,p).H})).sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)).slice(0,6);
- if(top.length)Graph.horizontal('top-chart',top);
+ if(top.length){Graph.horizontal('top-chart',top);window.GUChartHover?.attach('top-chart','horizontal',top);}
 }
 function activePeriod(){let p=state.periods.find(p=>p.id===periodId);if(!p){p=state.periods[0];periodId=p.id;}return p;}
 function currentSlots(){const limit=slotCount===0?state.clients.length:slotCount;return state.clients.slice(slotOffset,slotOffset+limit);}
@@ -982,7 +1187,7 @@ function renderBackup(){
 function paletteSwatch(label,key,description,a,b,c){return `<button class="theme-card ${state.settings.palette===key?'selected':''}" data-palette-change="${key}"><div class="theme-preview" style="background:${b}"><span style="background:${a}"></span><span style="background:${b}"><i style="display:block;width:48%;background:${c};border-radius:4px"></i><i style="display:block;width:48%;background:#fff6;border-radius:4px"></i></span></div><b>${label}</b><small>${description}</small></button>`;}
 function renderSettings(){return `${heading('PERSONALIZACIÓN','Configuración','Apariencia, preferencias y aplicación.')}
  <div class="settings-grid"><article class="card card-pad"><div class="card-title"><div><h3>Paletas de color</h3><p>Tres estilos que cambian toda la interfaz.</p></div></div><div class="theme-grid">${paletteSwatch('Almendra','almond','Crema y marrón','#78583e','#f3eee7','#d6b993')}${paletteSwatch('Rojo y oro','redgold','Inspiración oriental','#9b292b','#f9ead9','#dbb15e')}${paletteSwatch('Gris y plata','silver','Diseño metálico','#576878','#edf0f4','#bbc6d0')}</div><div class="section-label">Luminosidad</div><div class="mode-switch"><button class="btn ${state.settings.mode==='light'?'active':''}" data-mode-change="light">☀ Modo diurno</button><button class="btn ${state.settings.mode==='dark'?'active':''}" data-mode-change="dark">☾ Modo oscuro</button></div></article>
- <article class="card card-pad"><div class="card-title"><div><h3>Preferencias de trabajo</h3><p>Se guardan localmente con el resto de tu configuración.</p></div></div><div class="field" style="margin-bottom:16px"><label>Moneda para valorización</label><select id="setting-currency" class="form-control"><option value="COP" ${state.settings.currency==='COP'?'selected':''}>COP · Peso colombiano</option><option value="USD" ${state.settings.currency==='USD'?'selected':''}>USD · Dólar</option><option value="EUR" ${state.settings.currency==='EUR'?'selected':''}>EUR · Euro</option><option value="MXN" ${state.settings.currency==='MXN'?'selected':''}>MXN · Peso mexicano</option><option value="CNY" ${state.settings.currency==='CNY'?'selected':''}>CNY · Yuan chino</option></select></div><div class="field"><label>Productos mostrados por página</label><select id="setting-pagesize" class="form-control"><option value="10" ${state.settings.pageSize===10?'selected':''}>10</option><option value="20" ${state.settings.pageSize===20?'selected':''}>20</option><option value="40" ${state.settings.pageSize===40?'selected':''}>40</option><option value="80" ${state.settings.pageSize===80?'selected':''}>80</option></select></div><div class="section-label">Densidad de interfaz</div><div class="gu-density-options" role="group" aria-label="Densidad visual"><button type="button" class="btn btn-small" data-density-change="comfortable" aria-pressed="${state.settings.density!=='compact'}">Cómoda</button><button type="button" class="btn btn-small" data-density-change="compact" aria-pressed="${state.settings.density==='compact'}">Compacta</button></div><div class="section-label">Información de almacenamiento</div><div class="info-list"><div class="info-row"><span>Productos</span><b>${state.products.length}</b></div><div class="info-row"><span>Espacios</span><b>${state.clients.length}</b></div><div class="info-row"><span>Semanas / períodos</span><b>${state.periods.length}</b></div><div class="info-row"><span>Última modificación</span><b>${esc(stamp(state.updatedAt))}</b></div><div class="info-row"><span>Almacenamiento</span><b>IndexedDB + cookies visuales</b></div></div></article></div>
+ <article class="card card-pad"><div class="card-title"><div><h3>Preferencias de trabajo</h3><p>Se guardan localmente con el resto de tu configuración.</p></div></div><div class="field" style="margin-bottom:16px"><label>Moneda para valorización</label><select id="setting-currency" class="form-control"><option value="COP" ${state.settings.currency==='COP'?'selected':''}>COP · Peso colombiano</option><option value="USD" ${state.settings.currency==='USD'?'selected':''}>USD · Dólar</option><option value="EUR" ${state.settings.currency==='EUR'?'selected':''}>EUR · Euro</option><option value="MXN" ${state.settings.currency==='MXN'?'selected':''}>MXN · Peso mexicano</option><option value="CNY" ${state.settings.currency==='CNY'?'selected':''}>CNY · Yuan chino</option></select></div><div class="field"><label>Productos mostrados por página</label><select id="setting-pagesize" class="form-control"><option value="10" ${state.settings.pageSize===10?'selected':''}>10</option><option value="20" ${state.settings.pageSize===20?'selected':''}>20</option><option value="40" ${state.settings.pageSize===40?'selected':''}>40</option><option value="80" ${state.settings.pageSize===80?'selected':''}>80</option></select></div><div class="section-label">Densidad de interfaz</div><div class="gu-density-options" role="group" aria-label="Densidad visual"><button type="button" class="btn btn-small" data-density-change="comfortable" aria-pressed="${state.settings.density!=='compact'}">Cómoda</button><button type="button" class="btn btn-small" data-density-change="compact" aria-pressed="${state.settings.density==='compact'}">Compacta</button></div><div class="section-label">Sonidos discretos</div><div class="gu-density-options gu-sound-options" role="group" aria-label="Sonidos de interfaz"><button type="button" class="btn btn-small" data-gu-sound="on" aria-pressed="${window.GUFeedback?.isEnabled()!==false}">Activar</button><button type="button" class="btn btn-small" data-gu-sound="off" aria-pressed="${window.GUFeedback?.isEnabled()===false}">Silenciar</button><span class="gu-sound-status" id="gu-sound-state" aria-live="polite">${window.GUFeedback?.isEnabled()===false?'Silenciados':'Activados'}</span></div><div class="section-label">Información de almacenamiento</div><div class="info-list"><div class="info-row"><span>Productos</span><b>${state.products.length}</b></div><div class="info-row"><span>Espacios</span><b>${state.clients.length}</b></div><div class="info-row"><span>Semanas / períodos</span><b>${state.periods.length}</b></div><div class="info-row"><span>Última modificación</span><b>${esc(stamp(state.updatedAt))}</b></div><div class="info-row"><span>Almacenamiento</span><b>IndexedDB + cookies visuales</b></div></div></article></div>
  <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Administración rápida</h3><p>Acceso a las herramientas adicionales desde el teléfono.</p></div></div><div class="page-tools"><button class="btn" data-nav="clients">Clientes y espacios</button><button class="btn" data-nav="audit">Historial de cambios</button><button class="btn" data-nav="weekly">Semanas</button></div></div>
  <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Aplicación para PC, Android y iPhone</h3><p>Instalable desde el navegador, con modo sin conexión y datos locales.</p></div></div><button class="btn btn-primary" type="button" onclick="document.getElementById('install-open').click()">Instalar / preparar offline</button><p class="muted" style="margin-top:10px">Para usar en otro dispositivo, instala allí y transfiere los datos mediante Copias y migración.</p></div>
  <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">La demostración crea productos ficticios con cantidades de ejemplo. No debe confundirse con el Excel original.</p><button class="btn" data-action="demo">Añadir datos de demostración</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
@@ -1230,7 +1435,7 @@ document.addEventListener('click',e=>{
  if(action==='reset'){try{localStorage.removeItem(metricVisibilityKey)}catch{}}
  else document.querySelectorAll('.metric-panel[data-metric]').forEach(panel=>{prefs[panel.dataset.metric]=action==='collapse'});
  if(action!=='reset')try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}
- render();
+ window.GUFeedback?.play('tap');render();
 });
 document.addEventListener('click',e=>{if(e.target.closest('[data-dashboard-export]'))exportDashboardCSV()});
 document.addEventListener('click',e=>{const btn=e.target.closest('[data-review-filter]');if(!btn)return;reviewFilter=btn.dataset.reviewFilter;reviewShowAll=false;render();});
@@ -1238,7 +1443,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-review-more]'))
 document.addEventListener('click',e=>{const b=e.target.closest('[data-final-filter]');if(!b)return;finalFilter=b.dataset.finalFilter;page=0;render();});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-client-filter]');if(!b)return;clientFilter=b.dataset.clientFilter;render();});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-density-change]');if(!b||!state)return;const v=b.dataset.densityChange;if(!['comfortable','compact'].includes(v)||v===state.settings.density)return;mutation('Densidad de interfaz: '+v,()=>state.settings.density=v);});
-document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=panel.classList.toggle('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}btn.textContent=collapsed?'+':'−';btn.setAttribute('aria-expanded',String(!collapsed));btn.title=(collapsed?'Mostrar ':'Minimizar ')+(metricLabels[btn.dataset.metricToggle]||'métrica');btn.setAttribute('aria-label',btn.title);if(!collapsed){requestAnimationFrame(()=>{if(view==='dashboard'){drawDashboard();window.AlmendraWarehouse?.mount()}})}});
+document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=!panel.classList.contains('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}window.GUFeedback?.play(collapsed?'close':'tap');render();});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}
