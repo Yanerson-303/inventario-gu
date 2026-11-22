@@ -72,7 +72,6 @@ function mutation(label,fn,refresh=true){
 }
 function undo(){if(!undoStack.length){toast('No hay cambios para deshacer.');return;}if(storageConflict){toast('Recarga para resolver el conflicto de pestañas.');return;}state=undoStack.pop();state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('undo'),at:state.updatedAt,label:'Se deshizo el último cambio',actor:'Este dispositivo'});scheduleSave();render();toast('Última modificación deshecha.');}
 function updateHeader(){
- $('#breadcrumb-title').textContent=titleMap[view];
  $$('[data-nav]').forEach(btn=>{btn.classList.toggle('active',btn.dataset.nav===view);if(btn.classList.contains('nav-item'))btn.setAttribute('aria-current',btn.dataset.nav===view?'page':'false');});
  $('#undo-btn').disabled=undoStack.length===0;
 }
@@ -114,22 +113,16 @@ function metricBox(id,html){
 function dashboardActions(){
  return `<div class="dashboard-actions" role="group" aria-label="Acciones del Panel general" data-html2canvas-ignore>
   <button type="button" class="btn" data-dashboard-menu="inventory" aria-haspopup="dialog">${Icons.svg('package')}<span>Inventario</span></button>
-  <button type="button" class="btn" data-dashboard-menu="view" aria-haspopup="dialog">${Icons.svg('boxes')}<span>Vista 3D</span></button>
   <button type="button" class="btn" data-dashboard-menu="export" aria-haspopup="dialog">${Icons.svg('file-up')}<span>Exportar</span></button>
  </div><dialog id="dashboard-menu" class="dashboard-menu" aria-labelledby="dashboard-menu-title" data-html2canvas-ignore></dialog>`;
 }
 function openDashboardMenu(trigger){
  const dialog=$('#dashboard-menu'),kind=trigger.dataset.dashboardMenu;
- const titles={inventory:'Inventario',view:'Vista 3D y métricas',export:'Exportar panel'};
+ const titles={inventory:'Inventario',export:'Exportar panel'};
  const action=(label,attribute)=>`<button type="button" class="btn" ${attribute}>${esc(label)}</button>`;
- const controls=[['left','Girar a la izquierda'],['right','Girar a la derecha'],['in','Acercar'],['out','Alejar'],['reset','Restablecer vista']];
- const racks=$$('.dashboard-warehouse .warehouse-mini-rack');
  const prefs=metricPrefs();
  const menu={
-  inventory:()=>action('Añadir producto','data-action="new-product"')+action('Abrir registro semanal','data-nav="weekly"')+action('Ver consolidado','data-nav="final"')+action('Comparar ventas','data-nav="sales"')+(!state.products.length?action('Cargar demostración','data-action="demo"'):''),
-  view:()=>`<div class="dashboard-menu-section"><h3>Controles de la bodega</h3><div class="dashboard-menu-grid">${controls.map(([id,label])=>action(label,`data-dashboard-warehouse="${id}"`)).join('')}</div></div>
-   <div class="dashboard-menu-section"><h3>Estanterías</h3><div class="dashboard-menu-grid">${racks.map((rack,i)=>action(`Rack ${i+1} · ${rack.querySelector('strong').textContent}`,`data-dashboard-warehouse="rack${i}"`)).join('')}</div></div>
-   <details class="dashboard-menu-section"><summary>Mostrar u ocultar métricas</summary><div class="dashboard-menu-grid">${['volumen','saldo','valor'].map(id=>action(`${prefs[id]?'Mostrar':'Contraer'} ${metricLabels[id].toLowerCase()}`,`data-dashboard-metric="${id}"`)).join('')}</div></details>`,
+  inventory:()=>action('Añadir producto','data-action="new-product"')+action('Abrir registro semanal','data-nav="weekly"')+action('Ver consolidado','data-nav="final"')+action('Comparar ventas','data-nav="sales"')+(!state.products.length?action('Cargar demostración','data-action="demo"'):'')+`<details class="dashboard-menu-section"><summary>Mostrar u ocultar métricas</summary><div class="dashboard-menu-grid">${['volumen','saldo','valor'].map(id=>action(`${prefs[id]?'Mostrar':'Contraer'} ${metricLabels[id].toLowerCase()}`,`data-dashboard-metric="${id}"`)).join('')}</div></details>`,
   export:()=>action('Descargar imagen PNG','data-dashboard-export="png"')+action('Exportar resumen CSV','data-dashboard-export="csv"')
  };
  dialog.innerHTML=`<div class="modal-head"><h2 id="dashboard-menu-title">${titles[kind]}</h2><button type="button" class="icon-btn" data-dashboard-dismiss aria-label="Cerrar" autofocus>×</button></div><div class="modal-body dashboard-menu-body">${menu[kind]()}</div>`;
@@ -138,15 +131,11 @@ function openDashboardMenu(trigger){
   const button=e.target.closest('button');
   if(e.target===dialog || button?.hasAttribute('data-dashboard-dismiss')){dialog.close();return;}
   if(!button)return;
-  const {dashboardWarehouse, dashboardMetric, dashboardExport, nav, action}=button.dataset;
-  if(dashboardWarehouse){
-   dialog.close();
-   $(`[data-warehouse="${dashboardWarehouse}"]`)?.click();
-   $('.dashboard-warehouse')?.scrollIntoView({block:'nearest'});
-  }else if(dashboardMetric){
+  const {dashboardMetric, dashboardExport, nav, action}=button.dataset;
+  if(dashboardMetric){
    dialog.close();
    $(`[data-metric-toggle="${dashboardMetric}"]`)?.click();
-   $('[data-dashboard-menu="view"]')?.focus();
+   $('[data-dashboard-menu="inventory"]')?.focus();
   }else if(!dashboardExport && (nav || action)){
    dialog.close();
   }
@@ -524,7 +513,7 @@ function renderSettings(){return `${heading('PERSONALIZACIÓN','Configuración',
  <div class="settings-grid"><article class="card card-pad"><div class="card-title"><div><h3>Paletas de color</h3><p>Tres estilos que cambian toda la interfaz.</p></div></div><div class="theme-grid">${paletteSwatch('Almendra','almond','Crema y marrón','#78583e','#f3eee7','#d6b993')}${paletteSwatch('Rojo y oro','redgold','Inspiración oriental','#9b292b','#f9ead9','#dbb15e')}${paletteSwatch('Gris y plata','silver','Diseño metálico','#576878','#edf0f4','#bbc6d0')}</div><div class="section-label">Luminosidad</div><div class="mode-switch"><button class="btn ${state.settings.mode==='light'?'active':''}" data-mode-change="light">☀ Modo diurno</button><button class="btn ${state.settings.mode==='dark'?'active':''}" data-mode-change="dark">☾ Modo oscuro</button></div></article>
  <article class="card card-pad"><div class="card-title"><div><h3>Preferencias de trabajo</h3><p>Se guardan localmente con el resto de tu configuración.</p></div></div><div class="field" style="margin-bottom:16px"><label>Moneda para valorización</label><select id="setting-currency" class="form-control"><option value="COP" ${state.settings.currency==='COP'?'selected':''}>COP · Peso colombiano</option><option value="USD" ${state.settings.currency==='USD'?'selected':''}>USD · Dólar</option><option value="EUR" ${state.settings.currency==='EUR'?'selected':''}>EUR · Euro</option><option value="MXN" ${state.settings.currency==='MXN'?'selected':''}>MXN · Peso mexicano</option><option value="CNY" ${state.settings.currency==='CNY'?'selected':''}>CNY · Yuan chino</option></select></div><div class="field"><label>Productos mostrados por página</label><select id="setting-pagesize" class="form-control"><option value="10" ${state.settings.pageSize===10?'selected':''}>10</option><option value="20" ${state.settings.pageSize===20?'selected':''}>20</option><option value="40" ${state.settings.pageSize===40?'selected':''}>40</option><option value="80" ${state.settings.pageSize===80?'selected':''}>80</option></select></div><div class="section-label">Densidad de interfaz</div><div class="gu-density-options" role="group" aria-label="Densidad visual"><button type="button" class="btn btn-small" data-density-change="comfortable" aria-pressed="${state.settings.density!=='compact'}">Cómoda</button><button type="button" class="btn btn-small" data-density-change="compact" aria-pressed="${state.settings.density==='compact'}">Compacta</button></div><div class="section-label">Sonidos discretos</div><div class="gu-density-options gu-sound-options" role="group" aria-label="Sonidos de interfaz"><button type="button" class="btn btn-small" data-gu-sound="on" aria-pressed="${window.GUFeedback?.isEnabled()!==false}">Activar</button><button type="button" class="btn btn-small" data-gu-sound="off" aria-pressed="${window.GUFeedback?.isEnabled()===false}">Silenciar</button><span class="gu-sound-status" id="gu-sound-state" aria-live="polite">${window.GUFeedback?.isEnabled()===false?'Silenciados':'Activados'}</span></div><div class="section-label">Información de almacenamiento</div><div class="info-list"><div class="info-row"><span>Productos</span><b>${state.products.length}</b></div><div class="info-row"><span>Espacios</span><b>${state.clients.length}</b></div><div class="info-row"><span>Semanas / períodos</span><b>${state.periods.length}</b></div><div class="info-row"><span>Última modificación</span><b>${esc(stamp(state.updatedAt))}</b></div><div class="info-row"><span>Almacenamiento</span><b>IndexedDB + cookies visuales</b></div></div></article></div>
  <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Administración rápida</h3><p>Acceso a las herramientas adicionales desde el teléfono.</p></div></div><div class="page-tools"><button class="btn" data-nav="clients">Clientes y espacios</button><button class="btn" data-nav="audit">Historial de cambios</button><button class="btn" data-nav="weekly">Semanas</button></div></div>
- <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Aplicación para PC, Android y iPhone</h3><p>Instalable desde el navegador, con modo sin conexión y datos locales.</p></div></div><button class="btn btn-primary" type="button" onclick="document.getElementById('install-open').click()">Instalar / preparar offline</button><p class="muted" style="margin-top:10px">Para usar en otro dispositivo, instala allí y transfiere los datos mediante Copias y migración.</p></div>
+ ${window.GUInstall?`<div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Aplicación para PC, Android y iPhone</h3><p>Instalable desde el navegador, con modo sin conexión y datos locales.</p></div></div><button class="btn btn-primary" type="button" data-action="install-app">Instalar / preparar offline</button><p class="muted" style="margin-top:10px">Para usar en otro dispositivo, instala allí y transfiere los datos mediante Copias y migración.</p></div>`:''}
  <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">La demostración crea productos ficticios con cantidades de ejemplo. No debe confundirse con el Excel original.</p><button class="btn" data-action="demo">Añadir datos de demostración</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
 // Formularios de edición.
 function showModal(title,body,foot=''){const root=$('#modal-root');root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;setTimeout(()=>root.querySelector('input:not([type="hidden"]),select')?.focus(),10);}
@@ -858,6 +847,7 @@ document.addEventListener('click',async e=>{
   case 'confirm-import':await applyImport();break;
   case 'csv-review':exportReviewCSV();break;
   case 'csv-audit':csvDownload([['Fecha','Acción','Origen'],...state.audit.filter(e=>(auditWindow==='all'||new Date(e.at).getTime()>=Date.now()-7*86400000)&&`${e.label} ${e.actor||''}`.toLocaleLowerCase('es').includes(auditQuery.toLocaleLowerCase('es').trim())).map(e=>[e.at,e.label,e.actor||'Este dispositivo'])],'Historial_3_1');break;
+  case 'install-app':window.GUInstall?.open();break;
   case 'global-search':openPalette();break;
   case 'csv-final':csvFinal();break;
   case 'csv-movements':csvMovements();break;

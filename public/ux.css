@@ -261,8 +261,6 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 
 /* Acciones flotantes del Panel general. */
 .dashboard-warehouse.dashboard-visual-row { grid-template-columns: minmax(0,1fr); }
-.dashboard-warehouse .warehouse-controls,
-.dashboard-warehouse .warehouse-mini-racks,
 .stats-grid:has(~ .dashboard-actions) .metric-toggle { display: none; }
 .dashboard-actions {
   position: fixed;
@@ -340,3 +338,13 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .trace-client-button { margin-top: 8px; }
 .catalog-actions:has([data-action="product-trace"]) { flex-wrap: wrap; }
 .trace-warehouse.dashboard-visual-row { grid-template-columns: minmax(0,1fr); }
+
+/* Controles de bodega dentro de su tarjeta y barra superior compacta. */
+.topbar { justify-content: flex-end; }
+#global-search { padding: 0; }
+#global-search .gu-icon { width: 19px; height: 19px; }
+.warehouse-settings { margin: 0 16px 12px; }
+.warehouse-settings summary { cursor: pointer; color: var(--accent); font-weight: 700; padding: 8px 0; }
+.warehouse-settings .warehouse-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.warehouse-settings .warehouse-controls button { width: 38px; min-height: 36px; color: var(--text); background: var(--surface2); border: 1px solid var(--line); }
+.warehouse-settings .warehouse-mini-racks { margin: 0; }
