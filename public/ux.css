@@ -348,3 +348,23 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .warehouse-settings .warehouse-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .warehouse-settings .warehouse-controls button { width: 38px; min-height: 36px; color: var(--text); background: var(--surface2); border: 1px solid var(--line); }
 .warehouse-settings .warehouse-mini-racks { margin: 0; }
+
+/* Comparación de ventas desde la tarjeta Unidades registradas. */
+.unit-report-card { display: grid; gap: 8px; min-width: 0; }
+.unit-report-card .btn { justify-self: start; }
+.unit-report-chart { width: 100%; min-width: 0; }
+.unit-report-chart svg { display: block; width: 100%; max-height: 260px; }
+.unit-report-chart text { font: 11px system-ui, sans-serif; }
+.unit-report-compact text { font-size: 13px; }
+.unit-report-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; list-style: none; padding: 0; margin: 6px 0 10px; }
+.unit-report-legend li { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.unit-report-legend i, .unit-report-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.modal:has(.unit-report-body) { width: min(100%, 1050px); }
+.unit-report-body .unit-report-filters { margin-top: 0; }
+.unit-report-table .data-table { min-width: 100%; }
+.unit-report-table caption { text-align: left; margin-bottom: 7px; font-weight: 700; }
+.unit-report-table td, .unit-report-table th { white-space: nowrap; text-align: right; }
+.unit-report-table tr > :first-child { position: sticky; left: 0; min-width: 135px; max-width: 220px; background: var(--surface); text-align: left; white-space: normal; }
+.unit-report-table th label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.unit-report-table th input { accent-color: var(--accent); flex: none; }
+.unit-report-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
