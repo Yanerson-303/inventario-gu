@@ -1,11 +1,11 @@
 /*
   INVENTARIOS GU 4.1 — CONTROL DE INVENTARIO LOCAL
   Basado en la documentación de Software.xlsx. El PDF no contiene el inventario original.
-  Sin servicios externos, sin envío de datos y sin librerías de terceros.
+  El inventario y la exportación de imágenes se procesan en el dispositivo.
 */
 (function(){
 'use strict';
-const DB=window.AlmendraDB, C=window.AlmendraCalc, Graph=window.AlmendraCharts, Insights=window.GUIInsights, Icons=window.GUIcons, Help=window.GUIHelp, M=window.GUMetricVisuals, GU4=window.GU4Core, G4Views=window.GU4Views;
+const DB=window.AlmendraDB, C=window.AlmendraCalc, Insights=window.GUIInsights, Icons=window.GUIcons, Help=window.GUIHelp, M=window.GUMetricVisuals, GU4=window.GU4Core;
 const $=(q,root=document)=>root.querySelector(q);
 const $$=(q,root=document)=>Array.from(root.querySelectorAll(q));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,9 +19,8 @@ const getCookie=k=>document.cookie.split('; ').find(x=>x.startsWith(k+'='))?.spl
 const cookie=(k,v)=>{try{document.cookie=`${k}=${encodeURIComponent(v)}; max-age=31536000; path=/; SameSite=Lax`;}catch{}};
 const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null;};
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
-let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',reviewFilter='all',reviewShowAll=false,finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
+let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false,weeklyFocusNext=null;
-let gu4LayoutEditing=false;
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración'};
 function newState(){
@@ -91,13 +90,11 @@ function render(){
  if(!state)return;updateHeader();syncTheme();
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
- if(view==='dashboard')G4Views?.layoutDashboard($('#main-content'),state,gu4LayoutEditing);
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
- if(view==='dashboard')requestAnimationFrame(()=>{drawDashboard();window.AlmendraWarehouse?.mount();});
  if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
-const metricLabels={volumen:'Volumen semanal',saldo:'Saldo calculado',valor:'Valorización',productos:'Productos',stock:'Unidades en stock',referencias:'Referencias con stock',bodega:'Bodega 3D',proyecciones:'Proyecciones', 'grafico-semanal':'Gráfico semanal','grafico-productos':'Productos destacados',revision:'Revisión',tendencias:'Comparativa', 'vista-rapida':'Vista rápida',actividad:'Actividad'};
+const metricLabels={volumen:'Unidades registradas',saldo:'Saldo neto de unidades',valor:'Valor total del inventario',productos:'Productos',stock:'Unidades en stock',referencias:'Referencias con stock',bodega:'Bodega 3D',proyecciones:'Proyecciones', 'grafico-semanal':'Gráfico semanal','grafico-productos':'Productos destacados',revision:'Revisión',tendencias:'Comparativa', 'vista-rapida':'Vista rápida',actividad:'Actividad'};
 function metricPrefs(){try{return JSON.parse(localStorage.getItem(metricVisibilityKey)||'{}')||{}}catch{return {}}}
 const metricIconNames={volumen:'calendar-days',saldo:'activity',valor:'trending-up',productos:'package',stock:'boxes',referencias:'archive',bodega:'boxes',proyecciones:'trending-up','grafico-semanal':'activity','grafico-productos':'bar-chart-3',revision:'shield-check',tendencias:'trending-up','vista-rapida':'layers',actividad:'history'};
 function metricButton(id,collapsed=false){
@@ -115,47 +112,16 @@ function metricBox(id,html){
 }
 function renderDashboard(){
  const all=C.totals(state,state.products);
- const open=state.periods.filter(p=>!p.locked).length;
- const top=all.rows.slice().sort((a,b)=>Math.abs(b.H)-Math.abs(a.H)).slice(0,6);
- const recent=state.audit.slice(0,5),review=Insights.analyze(state,C,all.rows);
- const weeklyValues=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
- return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button>`)}
- <div class="dashboard-tools" role="group" aria-label="Personalizar indicadores"><div><strong>Personalizar panel</strong></div><div class="dashboard-tools-actions"><button type="button" class="btn btn-small" data-dashboard-panels="expand">Mostrar todas</button><button type="button" class="btn btn-small" data-dashboard-panels="collapse">Contraer todas</button><button type="button" class="btn btn-small" data-dashboard-panels="reset">Restablecer vista</button><button type="button" class="btn btn-small" data-dashboard-export="csv">Exportar resumen CSV</button></div></div>
+ const weeklyValues=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,pr.id,p.id),0)}));
+ return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button><button class="btn" data-dashboard-export="csv">Exportar resumen CSV</button><button class="btn" data-dashboard-export="png">Descargar imagen PNG</button>`)}
  ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Añade productos para comenzar.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
- ${metricBox('volumen',statCard('Volumen de las semanas',format(all.quantity),'Suma de todas las entradas · H','▦',M.spark(weeklyValues.slice(-12),'Volumen por período',{left:'Por semanas',right:'Últimos registros',emptyWhenZero:true})))}
- ${metricBox('saldo',statCard('Saldo calculado',format(all.balance),'H − (Cantidad.N + Cantidad.V)','◎',M.balances(all.rows)))}
- ${metricBox('valor',statCard('Valorización total',money(all.value),'Suma de saldo × valor unitario · P','◈',M.valueMix(all.rows)))}
- ${metricBox('productos',statCard('Productos registrados',format(state.products.length,0),`${open} períodos abiertos · ${state.clients.length} espacios`,'◇',M.catalogue(all.rows)))}
- ${metricBox('stock',statCard('Unidades en stock',format(all.rows.reduce((sum,r)=>sum+Math.max(0,r.N),0)),'Suma de saldos positivos disponibles · N','▣',M.stockTop(all.rows)))}
- ${metricBox('referencias',statCard('Referencias con stock',format(all.rows.filter(r=>r.N>0).length,0),`${all.rows.filter(r=>r.N===0).length} sin saldo · ${all.negative} con saldo negativo`,'◉',M.references(all.rows)))}
- </section>
- <div class="dashboard-visual-row">
- ${metricBox('bodega',window.AlmendraWarehouse?.render(state,C)||'')}
- ${metricBox('proyecciones',renderProjections())}
- </div>
- <div class="dashboard-grid">${metricBox('grafico-semanal',`<article class="card card-pad"><div class="card-title"><div><h3>Movimiento por semana</h3><p>Unidades registradas, incluyendo las columnas ocultas.</p></div><span class="badge">TODAS</span></div><canvas class="chart" id="weekly-chart" role="img" aria-label="Línea temporal de cantidades registradas por período"></canvas><details class="chart-data-summary"><summary>Ver cifras por semana</summary><div class="table-scroll"><table class="data-table"><thead><tr><th>Período</th><th class="num">Unidades</th></tr></thead><tbody>${weeklyValues.map(x=>`<tr><td>${esc(x.label)}</td><td class="num">${format(x.value)}</td></tr>`).join('')}</tbody></table></div></details></article>`)}
- ${metricBox('grafico-productos',`<article class="card card-pad"><div class="card-title"><div><h3>Productos con mayor registro</h3><p>Volumen absoluto acumulado.</p></div><span class="badge">TOP 6</span></div>${top.length?`<canvas class="chart" id="top-chart" role="img" aria-label="Barras de productos con mayor registro"></canvas><details class="chart-data-summary"><summary>Ver cifras</summary><div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Unidades</th></tr></thead><tbody>${top.map(r=>`<tr><td>${esc(r.product.name)}</td><td class="num">${format(r.H)}</td></tr>`).join('')}</tbody></table></div></details>`:empty('Sin movimientos','Añade tu primer producto y registra cantidades.')}</article>`)}</div>
- <div class="dashboard-v3-row">${metricBox('revision',renderReviewCenter(review))}${metricBox('tendencias',renderPeriodComparison(review))}</div>
- <div class="dashboard-bottom">${metricBox('vista-rapida',`<article class="card card-pad"><div class="card-title"><div><h3>Vista rápida del inventario</h3><p>Resumen de los productos que contienen más registros.</p></div><button class="btn btn-small" data-nav="final">Ver consolidado</button></div>${top.length?`<div class="table-scroll"><table class="data-table"><thead><tr><th>Producto</th><th class="num">Registrado</th><th class="num">Saldo</th><th class="num">Valor total</th></tr></thead><tbody>${top.map(r=>`<tr><td>${productButton(r.product)}</td><td class="num">${format(r.H)}</td><td class="num">${statusBalance(r.N)}</td><td class="num">${money(r.P)}</td></tr>`).join('')}</tbody></table></div>`:empty('Aún no hay productos','Agrega un producto para visualizarlo aquí.','new-product','Crear producto')}</article>`)}
- ${metricBox('actividad',`<article class="card card-pad"><div class="card-title"><div><h3>Actividad reciente</h3><p>Últimas modificaciones guardadas en este equipo.</p></div><button class="btn btn-small" data-nav="audit">Historial</button></div>${recent.length?recent.map(r=>`<div class="activity-item"><div class="activity-icon">✎</div><div class="activity-body"><b>${esc(r.label)}</b><p>Registro local</p></div><span class="activity-time">${esc(stamp(r.at))}</span></div>`).join(''):empty('Sin actividad','Tus cambios aparecerán aquí.')}</article>`)}</div>`;
-}
-function renderReviewCenter(info){
- const active=info.categories.find(c=>c.id===reviewFilter);
- const filtered=active?info.issues.filter(x=>x.id===active.id):info.issues;
- const n=Math.min(filtered.length,reviewShowAll?500:6);
- return `<section class="card card-pad control-center" aria-label="Centro de revisión del inventario"><div class="card-title gu-control-head"><div><span class="eyebrow">CONTROL Y CALIDAD DE DATOS</span><h3>Centro de revisión</h3><p>Observaciones para verificar, sin modificar tus registros.</p></div><button class="btn btn-small" data-action="csv-review">Exportar revisión</button></div>
- <div class="health-strip"><div><span>Referencias con registros</span><strong>${info.referenced} / ${info.productCount}</strong><div class="health-meter"><i style="width:${info.productCount?Math.round(info.referenced/info.productCount*100):0}%"></i></div></div><div><span>Períodos con fechas válidas</span><strong>${info.dated} / ${info.periodCount}</strong><div class="health-meter"><i style="width:${info.periodCount?Math.round(info.dated/info.periodCount*100):0}%"></i></div></div><div><span>Saldos negativos</span><strong class="${info.critical?'text-danger':''}">${info.critical}</strong><small>Requieren revisión</small></div></div>
- <div class="gu-review-chart"><h4>Observaciones por tipo</h4>${M.issueBars(info)}</div>
- <div class="review-filters" role="group" aria-label="Filtrar observaciones"><button type="button" data-review-filter="all" aria-pressed="${reviewFilter==='all'}" class="${reviewFilter==='all'?'active':''}">Todas <b>${info.issues.length}</b></button>${info.categories.map(c=>`<button type="button" data-review-filter="${c.id}" aria-pressed="${reviewFilter===c.id}" class="${reviewFilter===c.id?'active':''}">${esc(c.name)} <b>${info.counts[c.id]}</b></button>`).join('')}</div>
- <div class="review-list">${filtered.length?filtered.slice(0,n).map(i=>`<div class="review-row"><span class="review-state ${i.id==='negative'?'risk':i.id==='zero'?'caution':''}">${esc(info.categories.find(c=>c.id===i.id)?.name||i.id)}</span><div class="review-row-info"><b>${esc(i.name)}</b><small>${esc(i.detail)}</small></div><button type="button" class="btn btn-small" data-action="edit-product" data-id="${esc(i.productId)}">Revisar</button></div>`).join(''):`<div class="review-empty">No hay observaciones con este filtro.</div>`}</div>
- <div class="review-actions"><small class="muted">${filtered.length>n?`${n} / ${filtered.length}`:`${filtered.length} casos`}</small>${filtered.length>6?`<button type="button" class="btn btn-small" data-review-more="1" aria-expanded="${reviewShowAll}">${reviewShowAll?'Ver menos':'Ver más'}</button>`:''}</div></section>`;
-}
-function renderPeriodComparison(info){
- const comp=Insights.comparison(state,C);
- return `<section class="card card-pad trend-card" aria-label="Comparativa de períodos"><div class="card-title"><div><span class="eyebrow">EVOLUCIÓN DE LOS REGISTROS</span><h3>Comparativa de períodos</h3><p>Últimos dos períodos según el orden de registro.</p></div><span class="badge">DESCRIPTIVO</span></div>${comp?`<div class="trend-pair"><div><span>${esc(comp.previousLabel)}</span><strong>${format(comp.previous)}</strong></div><div><span>${esc(comp.currentLabel)}</span><strong>${format(comp.current)}</strong></div></div><div class="trend-change"><span class="${comp.difference<0?'text-danger':comp.difference>0?'text-good':''}">${comp.difference>0?'+':''}${format(comp.difference)} unidades</span><small>${comp.percent===null?'Sin base anterior para calcular porcentaje':(comp.percent>0?'+':'')+format(comp.percent)+'% frente al período anterior'}</small></div>`:'<div class="review-empty">Se necesitan al menos dos períodos para comparar sus movimientos.</div>'}${comp?`<div class="gu-trend-visual">${M.barRows([{label:comp.previousLabel,value:comp.previous},{label:comp.currentLabel,value:comp.current}],'Comparativa entre los últimos dos períodos')}</div>`:''}<div class="trend-info"><div><span class="trend-dot"></span><b>${format(info.productCount,0)}</b><small>Productos en el catálogo</small></div><div><span class="trend-dot success"></span><b>${format(info.referenced,0)}</b><small>Con movimientos registrados</small></div></div><p class="review-foot">Una variación de registros no demuestra ventas, ganancias ni demanda futura. Usa las fechas y el contexto de tus operaciones.</p><button class="btn btn-small trend-open" data-nav="weekly">Consultar semanas</button></section>`;
+ ${metricBox('volumen',statCard(metricLabels.volumen,format(all.quantity),'Suma de unidades registradas en todas las semanas','▦',M.spark(weeklyValues.slice(-12),'Unidades por semana',{left:'Por semanas',right:'Últimos registros',emptyWhenZero:true})))}
+ ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',M.balances(all.rows)))}
+ ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',M.valueMix(all.rows)))}
+ </section>`;
 }
 function exportReviewCSV(){
  const info=Insights.analyze(state,C);
@@ -177,31 +143,33 @@ function exportDashboardCSV(){
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
  const link=document.createElement('a');link.href=url;link.download='Inventarios_GU_resumen_3_0.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
-function renderProjections(){
- // Proyección lineal de movimiento registrado: solo semanas con fechas válidas.
- // No se asume que los movimientos equivalgan a ventas ni se pronostica stock futuro.
- const observations=state.periods.map(p=>{
-  const start=p.start?new Date(p.start+'T12:00:00'):null;
-  const end=p.end?new Date(p.end+'T12:00:00'):null;
-  if(!start||!end||!Number.isFinite(+start)||!Number.isFinite(+end)||end<start)return null;
-  const days=Math.floor((end-start)/86400000)+1;
-  if(days<1||days>366)return null;
-  return {label:p.label,start:p.start,days,quantity:state.products.reduce((sum,pr)=>sum+C.qty(state,p.id,pr.id),0)};
- }).filter(Boolean);
- const days=observations.reduce((sum,p)=>sum+p.days,0);
- const quantity=observations.reduce((sum,p)=>sum+p.quantity,0);
- const daily=days?quantity/days:null;
- const periods=[['Diaria',1],['Semanal',7],['Mensual',30],['Anual',365]];
- const ready=daily!==null&&observations.length>0;
- return `<section class="card forecast-card" aria-label="Proyección de movimiento"><div class="card-title"><div><h3>Proyección de movimiento</h3><p>Estimación según los registros y fechas de los períodos.</p></div><span class="badge">ESTIMACIÓN</span></div><div class="forecast-grid">${periods.map(([label,span])=>`<div class="forecast-item"><span>${label}</span><strong class="mono">${ready?format(daily*span):'—'}</strong><small>${ready?'unidades estimadas':'Sin datos fechados'}</small></div>`).join('')}</div><div class="forecast-chart">${ready?M.spark(observations.slice().sort((a,b)=>a.start.localeCompare(b.start)).map(o=>({label:o.label,value:o.quantity/o.days})),'Ritmo diario registrado por período',{left:'Ritmo por período',right:'Unid./día'}):M.spark([],'Sin fechas')}</div><p class="forecast-note">${ready?`Base: ${format(days,0)} días con fechas válidas · ${observations.length} períodos · Mes 30 días · Año 365 · No equivale a ventas.`:'Para calcular proyecciones, registra las fechas de inicio y fin de al menos un período semanal. No se inventan datos.'}</p></section>`;
+async function exportDashboardImage(button){
+ button.disabled=true;
+ try{
+  const panel=$('#main-content');
+  const canvas=await window.html2canvas(panel,{
+   backgroundColor:getComputedStyle(panel).getPropertyValue('--bg').trim()||null,
+   logging:false,
+   scale:Math.min(2,window.devicePixelRatio||1),
+   onclone(doc,copy){
+    copy.querySelectorAll('.metric-collapsed').forEach(card=>card.classList.remove('metric-collapsed'));
+    copy.querySelector('[data-dashboard-export="png"]').disabled=false;
+    // Los SVG se rasterizan fuera del árbol y necesitan colores explícitos.
+    copy.querySelectorAll('svg [fill^="var("],svg [stroke^="var("]').forEach(node=>{
+     for(const attribute of ['fill','stroke']){
+      const token=node.getAttribute(attribute)?.match(/^var\((--[\w-]+)\)$/)?.[1];
+      if(token)node.setAttribute(attribute,doc.defaultView.getComputedStyle(node).getPropertyValue(token).trim());
+     }
+    });
+   }
+  });
+  const png=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+  if(!png)throw new Error('No se pudo generar el archivo PNG.');
+  downloadBlob(png,'Inventarios_GU_metricas.png');
+ }catch(error){toast('No se pudo descargar la imagen: '+error.message);}
+ finally{button.disabled=false;}
 }
 function statCard(label,value,foot,icon,visual=''){return `<article class="card stat-card ${visual?'visual-stat':''}"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div>${visual?`<div class="stat-visual">${visual}</div>`:''}<div class="stat-foot">${esc(foot)}</div></article>`;}
-function drawDashboard(){
- const weekly=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
- Graph.line('weekly-chart',weekly.slice(-14));window.GUChartHover?.attach('weekly-chart','line',weekly.slice(-14));
- const top=state.products.map(p=>({label:p.name,value:C.result(state,p).H})).sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)).slice(0,6);
- if(top.length){Graph.horizontal('top-chart',top);window.GUChartHover?.attach('top-chart','horizontal',top);}
-}
 function activePeriod(){let p=state.periods.find(p=>p.id===periodId);if(!p){p=state.periods[0];periodId=p.id;}return p;}
 function currentSlots(){const limit=slotCount===0?state.clients.length:slotCount;return state.clients.slice(slotOffset,slotOffset+limit);}
 function slotSelect(){const total=state.clients.length;const block=Math.min(slotCount||total,total);let ranges='';for(let i=0;i<total;i+=Math.max(block,1)){const end=Math.min(i+block,total);ranges+=`<option value="${i}" ${slotOffset===i?'selected':''}>A-${i+1} a A-${end}</option>`;}
@@ -519,30 +487,15 @@ document.addEventListener('click',e=>{
 document.addEventListener('input',e=>{if(e.target.id==='palette-input')paletteOptions();});
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
 document.addEventListener('click',e=>{
- const btn=e.target.closest('[data-dashboard-panels]');if(!btn)return;
- const action=btn.dataset.dashboardPanels;
- const prefs=metricPrefs();
- if(action==='reset'){try{localStorage.removeItem(metricVisibilityKey)}catch{}}
- else document.querySelectorAll('.metric-panel[data-metric]').forEach(panel=>{prefs[panel.dataset.metric]=action==='collapse'});
- if(action!=='reset')try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}
- window.GUFeedback?.play('tap');render();
+ const button=e.target.closest('[data-dashboard-export]');
+ if(!button||view!=='dashboard')return;
+ if(button.dataset.dashboardExport==='png')exportDashboardImage(button);
+ else exportDashboardCSV();
 });
-document.addEventListener('click',e=>{if(e.target.closest('[data-dashboard-export]'))exportDashboardCSV()});
-document.addEventListener('click',e=>{const btn=e.target.closest('[data-review-filter]');if(!btn)return;reviewFilter=btn.dataset.reviewFilter;reviewShowAll=false;render();});
-document.addEventListener('click',e=>{if(e.target.closest('[data-review-more]')){reviewShowAll=!reviewShowAll;render();}});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-final-filter]');if(!b)return;finalFilter=b.dataset.finalFilter;page=0;render();});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-client-filter]');if(!b)return;clientFilter=b.dataset.clientFilter;render();});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-density-change]');if(!b||!state)return;const v=b.dataset.densityChange;if(!['comfortable','compact'].includes(v)||v===state.settings.density)return;mutation('Densidad de interfaz: '+v,()=>state.settings.density=v);});
 document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-toggle]');if(!btn)return;const panel=btn.closest('.metric-panel');if(!panel)return;const collapsed=!panel.classList.contains('metric-collapsed');const prefs=metricPrefs();prefs[btn.dataset.metricToggle]=collapsed;try{localStorage.setItem(metricVisibilityKey,JSON.stringify(prefs))}catch{}window.GUFeedback?.play(collapsed?'close':'tap');render();});
-// Configuración de las tarjetas del panel.
-document.addEventListener('click',e=>{
- const layoutReset=e.target.closest('[data-gu4-reset-layout]');if(layoutReset){if(!confirm('¿Restablecer tamaños y orden del panel? Las métricas no se eliminan.'))return;mutation('Distribución del panel restablecida',()=>{state.gu4.panelOrder=[];state.gu4.panelSizes={};});return;}
-
- const layout=e.target.closest('[data-gu4-layout]');if(layout){gu4LayoutEditing=!gu4LayoutEditing;render();return;}
- const move=e.target.closest('[data-gu4-move]');if(move){const ids=$$('.metric-panel[data-metric]').map(x=>x.dataset.metric),ix=ids.indexOf(move.dataset.gu4Move),dest=ix+Number(move.dataset.gu4Direction);
-  if(ix<0||dest<0||dest>=ids.length)return;[ids[ix],ids[dest]]=[ids[dest],ids[ix]];mutation('Distribución del panel reorganizada',()=>{state.gu4.panelOrder=ids;});return;}
- const resize=e.target.closest('[data-gu4-resize]');if(resize){const name=resize.dataset.gu4Resize,element=$(`.metric-panel[data-metric="${name}"]`);const currentlyWide=!!element?.classList.contains('gu4-wide-card');mutation('Tamaño de tarjeta actualizado',()=>state.gu4.panelSizes[name]=currentlyWide?'normal':'wide');return;}
-});
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}
@@ -639,7 +592,6 @@ $('#quick-theme').addEventListener('click',()=>{if(!state)return;mutation('Cambi
 $('#quick-backup').addEventListener('click',()=>{if(state)exportJSON().catch(e=>toast(e.message));});
 $('#backup-file').addEventListener('change',async e=>{const file=e.target.files?.[0];e.target.value='';await handleFile(file);});
 window.addEventListener('storage',e=>{if(e.key!=='almendra-last-revision'||!state)return;try{const note=JSON.parse(e.newValue);if(note.tabId!==tabId){storageConflict=true;indicator('Otra pestaña modificó los datos','error');render();}}catch{}});
-let chartResizeTimer;window.addEventListener('resize',()=>{if(view!=='dashboard')return;clearTimeout(chartResizeTimer);chartResizeTimer=setTimeout(()=>drawDashboard(),150);});
 async function init(){
  try{
   const loaded=await DB.load();
