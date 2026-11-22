@@ -1,28 +1,12 @@
 /* Bodega isométrica interactiva, sin dependencias externas ni datos duplicados. */
 (function(){'use strict';
-const fmt=n=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(n);
+const fmt=n=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:6}).format(n);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let scene=null,raf=0,idleTimer=0;let lastFrame=0;
-function render(state,C){
- // A partir de 4.0 los paquetes se dibujan únicamente en posiciones asignadas.
- // Unidades sin ubicación continúan en el consolidado, pero no se inventa un rack.
- const physical=Array.isArray(state.gu4?.locations);
- const racks=[[],[],[]],positions=[[],[],[]];
- if(physical){
-  (state.gu4.locations||[]).forEach(loc=>{
-   const k=Number(loc.rack)-1;
-   if(k<0||k>2||!Number.isFinite(Number(loc.qty))||Number(loc.qty)<=0)return;
-   const prod=state.products.find(p=>p.id===loc.productId);if(!prod)return;
-   racks[k].push({name:prod.name,qty:Number(loc.qty),level:Number(loc.level),position:Number(loc.position)});
-   positions[k].push({level:Number(loc.level),position:Number(loc.position),qty:Number(loc.qty)});
-  });
- }else{
-  const products=(state.products||[]).map(p=>({name:p.name,qty:Math.max(0,Number(C.result(state,p).N)||0)}));
-  products.forEach((p,i)=>racks[i%3].push(p));
- }
- const totals=racks.map(a=>a.reduce((total,p)=>total+p.qty,0));
- scene={racks,positions,physical,totals,angle:-.72,zoom:1,selected:-1,paused:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false,frame:0};
- return `<section class="card warehouse-card" aria-label="Bodega virtual interactiva"><div class="warehouse-heading"><div><span class="eyebrow">ALMACÉN DIGITAL · VISTA 3D</span><h2>Bodega virtual</h2></div><div class="warehouse-total"><strong>${fmt(totals.reduce((a,b)=>a+b,0))}</strong><span>unidades disponibles</span></div></div><div class="warehouse-viewport"><canvas id="warehouse-canvas" role="img" aria-label="Bodega isométrica interactiva con tres racks, oficina, trabajador y zona de preparación"></canvas><div class="warehouse-overlay"><span class="warehouse-live"><i></i> INVENTARIO SINCRONIZADO</span><div class="warehouse-controls"><button type="button" data-warehouse="left" title="Girar a la izquierda" aria-label="Girar a la izquierda">↶</button><button type="button" data-warehouse="right" title="Girar a la derecha" aria-label="Girar a la derecha">↷</button><button type="button" data-warehouse="in" title="Acercar" aria-label="Acercar">+</button><button type="button" data-warehouse="out" title="Alejar" aria-label="Alejar">−</button><button type="button" data-warehouse="reset" title="Restablecer vista" aria-label="Restablecer vista">⌂</button></div></div><span class="warehouse-hint">Girar · Zoom · Racks</span></div><div class="warehouse-mini-racks">${totals.map((n,i)=>`<button type="button" class="warehouse-mini-rack" data-warehouse="rack${i}" aria-label="Ver rack ${i+1}"><span class="warehouse-mini-dot"></span><span>Rack ${i+1}</span><strong>${fmt(n)}</strong></button>`).join('')}</div><div id="warehouse-detail" class="warehouse-detail" aria-live="polite">Toca un rack para consultar sus ubicaciones. Las cajas solo aparecen cuando se asignan físicamente.</div></section>`;
+function render(state){
+ const {racks,positions,totals}=window.GUTrace.warehouse(state);
+ scene={racks,positions,totals,angle:-.72,zoom:1,selected:-1,paused:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false};
+ return `<section class="card warehouse-card" aria-label="Bodega virtual interactiva"><div class="warehouse-heading"><div><span class="eyebrow">ALMACÉN DIGITAL · VISTA 3D</span><h2>Bodega virtual</h2></div><div class="warehouse-total"><strong>${fmt(totals.reduce((a,b)=>a+b,0))}</strong><span>unidades disponibles</span></div></div><div class="warehouse-viewport"><canvas id="warehouse-canvas" role="img" aria-label="Bodega isométrica interactiva con tres racks, oficina, trabajador y zona de preparación"></canvas><div class="warehouse-overlay"><span class="warehouse-live"><i></i> INVENTARIO SINCRONIZADO</span><div class="warehouse-controls"><button type="button" data-warehouse="left" title="Girar a la izquierda" aria-label="Girar a la izquierda">↶</button><button type="button" data-warehouse="right" title="Girar a la derecha" aria-label="Girar a la derecha">↷</button><button type="button" data-warehouse="in" title="Acercar" aria-label="Acercar">+</button><button type="button" data-warehouse="out" title="Alejar" aria-label="Alejar">−</button><button type="button" data-warehouse="reset" title="Restablecer vista" aria-label="Restablecer vista">⌂</button></div></div><span class="warehouse-hint">Girar · Zoom · Racks</span></div><div class="warehouse-mini-racks">${totals.map((n,i)=>`<button type="button" class="warehouse-mini-rack" data-warehouse="rack${i}" aria-label="Ver rack ${i+1}"><span class="warehouse-mini-dot"></span><span>Rack ${i+1}</span><strong>${fmt(n)}</strong></button>`).join('')}</div><div id="warehouse-detail" class="warehouse-detail" aria-live="polite">Toca un rack para ver sus productos, lotes y unidades disponibles.</div></section>`;
 }
 function mount(){
  cancelAnimationFrame(raf);clearTimeout(idleTimer);const canvas=document.getElementById('warehouse-canvas');if(!canvas||!scene)return;
@@ -57,7 +41,7 @@ function mount(){
  polygon([[x-9,y-10,1],[x+w+9,y-10,1],[x+w+9,y+d+10,1],[x-9,y+d+10,1]],s.selected===k?'#b3aa79':'#788991',s.selected===k?'#ffe082':'#d1ad40',2);
  for(const z of [4,48]){cube(x,y,z,w,d,5,['#f0a13b','#c47827','#d98c2f']);}
  for(const xx of [x,x+w])for(const yy of [y,y+d])cube(xx-3,yy-3,0,6,6,101,['#3983b5','#225b88','#276da0']);
- const displayed=s.physical?s.positions[k].filter(l=>l.level===1||l.level===2).filter(l=>l.position>=1&&l.position<=8):Array.from({length:count},(_,j)=>({level:j>=8?2:1,position:j%8+1}));
+ const displayed=s.positions[k];
  for(const pos of displayed){const slot=pos.position-1,level=pos.level-1,col=slot%2,row=Math.floor(slot/2);cube(x+9+col*43,y+9+row*43,level?54:10,34,32,29,['#edc08a','#bb8151','#d79d65']);}
  for(const z of [4,48]){line([x,y,z],[x+w,y,z],'#ffc36a',2);line([x,y+d,z],[x+w,y+d,z],'#ffc36a',2);}
  text(fmt(n),x+w/2,y+d/2,119,'#ffffff',19);text(`RACK ${k+1}`,x+w/2,y+d/2,137,'#ffdb83',11);
@@ -68,7 +52,7 @@ function mount(){
  text('ENTRADA',0,183,2,'#fff',12);
  if(!s.paused)s.frame++;raf=requestAnimationFrame(draw);
  }
- function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${p.level?`N${p.level} · P${p.position} · `:''}${esc(p.name)}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;document.dispatchEvent(new CustomEvent('gu:warehouse-rack-select',{detail:{rack:k+1}}));}
+ function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${p.level?`N${p.level} · P${p.position} · `:''}${esc(p.name)}${p.lot?` · Lote ${esc(p.lot)} · Contenedor ${esc(p.container)} · ${esc(p.area)}`:''}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;document.dispatchEvent(new CustomEvent('gu:warehouse-rack-select',{detail:{rack:k+1}}));}
  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);canvas._drag={x:e.clientX,y:e.clientY,angle:s.angle,moved:false};});
  canvas.addEventListener('pointermove',e=>{if(!canvas._drag)return;const dx=e.clientX-canvas._drag.x;if(Math.abs(dx)>4)canvas._drag.moved=true;s.angle=canvas._drag.angle+dx*.007;});
  canvas.addEventListener('pointerup',e=>{const d=canvas._drag;canvas._drag=null;if(!d||d.moved)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let best=null,dist=Infinity;for(const h of hit){const dd=Math.hypot(x-h.p[0],y-h.p[1]);if(dd<dist){dist=dd;best=h.k;}}if(dist<85*scale&&best!==null)detail(best);});

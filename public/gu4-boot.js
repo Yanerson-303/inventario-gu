@@ -5,7 +5,7 @@
  const status=entry.querySelector('[data-entry-status]'),progress=entry.querySelector('[data-entry-progress]'),meta=entry.querySelector('[data-entry-meta]');
  const MIN=3000,start=performance.now(),reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
  let ready=false,failed=false,finished=false,raf=0,angle=-.59,target=-.59,zoom=1,drag=null,last=0,size={w:0,h:0,dpr:1};
- let boxes=[0,0,0],totals=[0,0,0],records=0;
+ let positions=[[],[],[]],totals=[0,0,0],records=0;
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
  const finish=()=>{if(finished||!ready||performance.now()-start<MIN)return;finished=true;entry.classList.add('gu-entry-exit');entry.setAttribute('aria-hidden','true');document.body.classList.remove('gu-entry-active');setTimeout(()=>{cancelAnimationFrame(raf);entry.remove();},550);};
  function resized(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;const dpr=clamp(window.devicePixelRatio||1,1,2);if(Math.abs(rect.width-size.w)>.5||Math.abs(rect.height-size.h)>.5||dpr!==size.dpr){size={w:rect.width,h:rect.height,dpr};canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}}
@@ -39,9 +39,8 @@
    poly([[x-12,y-12,0],[x+dx+12,y-12,0],[x+dx+12,y+dy+12,0],[x-12,y+dy+12,0]],'#788f9c','#efbb46',2);
    for(const level of [7,63])cube(x,y,level,dx,dy,6,'#ed9f3b','#bb7226','#c57a2b');
    for(const px of [x,x+dx])for(const py of [y,y+dy])cube(px-4,py-4,0,8,8,131,'#3f92c4','#18567f','#236b9a');
-   const displayed=Math.min(16,boxes[r]);
-   for(let j=0;j<displayed;j++){
-    const level=j>=8?1:0,cell=j%8,col=cell%2,row=Math.floor(cell/2);
+   for(const slot of positions[r]){
+    const level=slot.level-1,cell=slot.position-1,col=cell%2,row=Math.floor(cell/2);
     const xx=x+9+col*47,yy=y+10+row*53,zz=level?69:14;
     cube(xx,yy,zz,37,39,37,'#ebc69c','#b27c52','#d99c68');line([xx+18,yy,zz+37],[xx+18,yy+39,zz+37],'#bd956e',2);
    }
@@ -55,7 +54,7 @@
   if(ready){status.textContent=failed?'Revisa el estado de la aplicación':'Inventario preparado';meta.textContent=failed?'Se mostrará la información de recuperación.':`${records} productos · ${totals.reduce((a,b)=>a+b,0)} unidades ubicadas`;finish();}
  }
  function complete(detail){if(ready)return;ready=true;failed=!detail?.ok;
-  if(detail?.ok){records=Number(detail.products)||0;const next=detail.racks||[];totals=[0,1,2].map(i=>Math.max(0,Number(next[i])||0));boxes=totals.map(v=>Math.min(16,Math.floor(v)));}
+  if(detail?.ok){records=Number(detail.products)||0;const next=detail.racks||[];totals=[0,1,2].map(i=>Math.max(0,Number(next[i])||0));positions=[0,1,2].map(i=>(detail.positions?.[i]||[]).filter(slot=>[1,2].includes(slot.level)&&slot.position>=1&&slot.position<=8));}
   if(!ctx){setTimeout(()=>{entry.remove();document.body.classList.remove('gu-entry-active');},Math.max(0,MIN-(performance.now()-start)));return;}
   finish();}
  window.addEventListener('gu:app-ready',event=>complete(event.detail));

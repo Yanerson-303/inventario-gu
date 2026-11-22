@@ -24,7 +24,7 @@ let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,st
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],lots:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -91,7 +91,7 @@ function render(){
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,sales:renderSales};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
- if(view==='dashboard')requestAnimationFrame(()=>window.AlmendraWarehouse?.mount());
+ if(view==='dashboard'||view==='sales')window.AlmendraWarehouse?.mount();
  if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
@@ -165,8 +165,101 @@ function renderDashboard(){
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',M.balances(all.rows)))}
  ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',M.valueMix(all.rows)))}
  </section>
- <div class="dashboard-visual-row dashboard-warehouse">${window.AlmendraWarehouse?.render(state,C)||''}</div>
+ <section class="card card-pad dashboard-sales" aria-labelledby="dashboard-sales-title">
+  <h2 id="dashboard-sales-title">Métricas de ventas</h2>
+  <div class="dashboard-sales-actions">
+   <button type="button" class="btn" data-action="sales-section" data-id="sales-monthly">Ventas por mes</button>
+   <button type="button" class="btn" data-action="sales-section" data-id="sales-clients">Comparar clientes</button>
+   <button type="button" class="btn" data-action="sales-section" data-id="sales-turnover">Comparar velocidad de venta</button>
+   ${state.products.length?`<button type="button" class="btn btn-primary" data-action="record-sale">Registrar venta</button>`:''}
+  </div>
+ </section>
+ <div class="dashboard-visual-row dashboard-warehouse">${window.AlmendraWarehouse?.render(state)||''}</div>
  ${dashboardActions()}`;
+}
+const Trace=window.GUTrace;
+const traceQuantity=units=>format(units,6);
+function traceTable(headings,rows){
+ return `<div class="table-scroll trace-table"><table class="data-table"><thead><tr>${headings.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells=>`<tr>${cells.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function traceProductName(lot){return state.products.find(p=>p.id===lot.productId)?.name||lot.productName;}
+function traceLotLabel(lot){return `${traceProductName(lot)} · Lote ${lot.code} · Contenedor ${lot.container}`;}
+function traceMoney(sale,amount){return new Intl.NumberFormat('es-CO',{style:'currency',currency:sale.currency||'COP'}).format(amount);}
+function tracePurchases(sales,entity){
+ if(!sales.length)return '<p class="muted">Todavía no hay compras registradas.</p>';
+ const lots=new Map((state.lots||[]).map(lot=>[lot.id,lot]));
+ return traceTable(['Fecha',entity==='client'?'Producto':'Cliente','Lote / contenedor','Ubicación de salida','Unidades','Precio unitario','Total','Referencia'],sales.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(sale=>{
+  const lot=lots.get(sale.lotId);
+  const name=entity==='client'?(state.products.find(p=>p.id===sale.productId)?.name||sale.productName):(state.clients.find(c=>c.id===sale.clientId)?.name||sale.clientName);
+  return [sale.date,esc(name),lot?esc(`${lot.code} / ${lot.container}`):'Sin lote registrado',esc(sale.location||'—'),traceQuantity(sale.units),sale.price==null?'—':traceMoney(sale,sale.price),sale.price==null?'—':traceMoney(sale,sale.price*sale.units),esc(sale.reference||'—')];
+ }));
+}
+function productTrace(productId){
+ const product=state.products.find(p=>p.id===productId);if(!product)return;
+ const remaining=Trace.balance(state),lots=(state.lots||[]).filter(lot=>lot.productId===productId);
+ const sales=(state.sales||[]).filter(sale=>sale.productId===productId&&!sale.voided);
+ const body=lots.map(lot=>{
+  const available=remaining.get(lot.id);
+  return `<details class="trace-lot"><summary><strong>Lote ${esc(lot.code)}</strong> · Contenedor ${esc(lot.container)} · ${traceQuantity(available)} disponibles</summary>
+   <p>Recibido el ${lot.receipt.date} · ${traceQuantity(lot.units)} unidades<br>Ubicación actual: ${esc(Trace.label(Trace.location(lot)))}</p>
+   ${traceTable(['Fecha','Movimiento','Ubicación'],[lot.receipt,...lot.moves].map((place,i)=>[place.date,i?'Traslado':'Recepción',esc(Trace.label(place))]))}
+   ${available>0?`<button type="button" class="btn btn-small" data-action="move-lot" data-id="${esc(lot.id)}">Trasladar lote</button>`:''}</details>`;
+ }).join('');
+ showModal(`Seguimiento · ${product.name}`,`<div class="modal-body trace-body"><h3>Recepciones y ubicaciones</h3>${body||'<p class="muted">Aún no hay lotes recibidos para este producto.</p>'}<h3>Ventas por cliente</h3>${tracePurchases(sales,'product')}</div>`,`<button type="button" class="btn" data-action="close-modal">Cerrar</button><button type="button" class="btn btn-primary" data-action="receive-lot" data-id="${esc(productId)}">Registrar llegada</button>`);
+}
+function clientTrace(clientId,month=''){
+ const client=state.clients.find(c=>c.id===clientId);if(!client)return;
+ const sales=(state.sales||[]).filter(sale=>sale.clientId===clientId&&!sale.voided);
+ const months=[...new Set(sales.map(sale=>sale.date.slice(0,7)))].sort().reverse();
+ const visible=month?sales.filter(sale=>sale.date.startsWith(month)):sales;
+ showModal(`Compras · ${salesClientLabel(client)}`,`<div class="modal-body trace-body">${months.length?`<label class="field">Mes <select class="form-control" id="trace-client-month" data-id="${esc(clientId)}"><option value="">Todos los meses</option>${months.map(key=>`<option value="${key}"${key===month?' selected':''}>${key}</option>`).join('')}</select></label><p><strong>${traceQuantity(sumSales(visible))} unidades compradas</strong></p>`:''}${tracePurchases(visible,'client')}</div>`,`<button type="button" class="btn" data-action="close-modal">Cerrar</button>`);
+}
+function locationFields(place={}){
+ const numbers=(name,label,max)=>`<label class="field">${label}<select class="form-control" name="${name}">${Array.from({length:max},(_,i)=>i+1).map(n=>`<option value="${n}"${place[name]===n?' selected':''}>${n}</option>`).join('')}</select></label>`;
+ return `<label class="field full">Lugar de llegada o destino <input class="form-control" name="area" maxlength="120" value="${esc(place.area||'')}" placeholder="Ej. Bodega principal" required></label>
+ <label class="field">Estantería <select class="form-control" name="rack"><option value="0">Sin estantería</option>${[1,2,3].map(n=>`<option value="${n}"${place.rack===n?' selected':''}>Rack ${n}</option>`).join('')}</select></label>${numbers('level','Nivel',2)}${numbers('position','Posición',8)}`;
+}
+function lotModal(key,moving=false){
+ const lot=moving?(state.lots||[]).find(item=>item.id===key):null;
+ const product=state.products.find(p=>p.id===(moving?lot?.productId:key));if(!product)return;
+ const min=lot?Trace.location(lot).date:'';
+ showModal(moving?`Trasladar lote ${lot.code}`:`Registrar llegada · ${product.name}`,`<form id="lot-form" class="modal-body" data-id="${esc(key)}" data-mode="${moving?'move':'receive'}"><div class="modal-grid">
+ ${moving?'':`<label class="field">Contenedor <input class="form-control" name="container" maxlength="80" required></label>
+ <label class="field">Código de lote <input class="form-control" name="code" maxlength="80" required></label>
+ <label class="field">Unidades recibidas <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="0.000001" required></label>`}
+ <label class="field">Fecha ${moving?'del traslado':'de llegada'} <input class="form-control" type="date" name="date" value="${localSaleDate()}" min="${min||'0001-02-01'}" max="${localSaleDate()}" required></label>
+ ${locationFields(lot?Trace.location(lot):{})}</div><p>Selecciona rack, nivel y posición para mostrar el lote en la bodega 3D.</p></form>`,`<button type="button" class="btn" data-action="product-trace" data-id="${esc(product.id)}">Volver al seguimiento</button><button type="submit" form="lot-form" class="btn btn-primary">${moving?'Guardar traslado':'Guardar llegada'}</button>`);
+}
+function normalizePlace(input){
+ const area=String(input?.area??'').trim().slice(0,120),rack=Number(input?.rack);
+ const level=rack?Number(input?.level):0,position=rack?Number(input?.position):0;
+ if(!Trace.calendarDate(input?.date)||!area||![0,1,2,3].includes(rack)||(rack&&(![1,2].includes(level)||!Number.isInteger(position)||position<1||position>8)))throw new Error('Revisa la fecha, el lugar y la posición.');
+ return {date:input.date,area,rack,level,position,at:typeof input.at==='string'&&Number.isFinite(Date.parse(input.at))?new Date(input.at).toISOString():''};
+}
+function submitLot(form){
+ const data=Object.fromEntries(new FormData(form));
+ let place;
+ try{place=normalizePlace(data);}catch(error){return toast(error.message);}
+ if(place.date>localSaleDate())return toast('La fecha no puede ser futura.');
+ place.at=new Date().toISOString();
+ if(form.dataset.mode==='move'){
+  const lot=(state.lots||[]).find(item=>item.id===form.dataset.id);
+  if(!lot||Trace.balance(state).get(lot.id)<=0||place.date<Trace.location(lot).date)return toast('Revisa el lote, sus existencias y la fecha.');
+  if(['area','rack','level','position'].every(key=>Trace.location(lot)[key]===place[key]))return toast('Elige una ubicación distinta.');
+  if(mutation(`Traslado de lote: ${lot.code}`,()=>lot.moves.push(place)))productTrace(lot.productId);
+  return;
+ }
+ const product=state.products.find(p=>p.id===form.dataset.id);
+ const units=Number(data.units),code=data.code.trim(),container=data.container.trim();
+ if(!product||!code||!container||!Number.isFinite(units)||units<0.000001||units>1e12)return toast('Completa el contenedor, el lote y las unidades recibidas.');
+ const lot={id:id('lot'),productId:product.id,productName:product.name,code,container,units,receipt:place,moves:[]};
+ if((state.lots||[]).some(item=>Trace.lotKey(item)===Trace.lotKey(lot)))return toast('Este lote ya fue registrado para el producto y contenedor.');
+ if(mutation(`Llegada de lote: ${lot.code} · ${product.name}`,()=>{(state.lots??=[]).push(lot);}))productTrace(product.id);
+}
+function saleLotChoices(product,date=''){
+ const remaining=Trace.balance(state);
+ const lots=(state.lots||[]).filter(lot=>lot.productId===product&&remaining.get(lot.id)>0&&(!date||lot.receipt.date<=date));
+ return '<option value="">Seleccionar lote</option>'+salesOptions(lots,'',lot=>`${lot.code} · Contenedor ${lot.container} · ${traceQuantity(remaining.get(lot.id))} disponibles`);
 }
 const salesFilters={month:'',product:'',firstClient:'',secondClient:''};
 let speedQuery=null;
@@ -187,24 +280,12 @@ function previousSalesMonth(month){
 function sumSales(records){return C.round(records.reduce((total,sale)=>total+sale.units,0));}
 function compareSales(current,previous){
  const change=C.round(current-previous);
- return `${change>0?'+':''}${format(change)} unidades${previous?` (${change>0?'+':''}${format(change/previous*100)} %)`:' · sin base porcentual'}`;
+ return `${change>0?'+':''}${traceQuantity(change)} unidades${previous?` (${change>0?'+':''}${format(change/previous*100)} %)`:' · sin base porcentual'}`;
 }
 function salesOptions(items,selected,label){
  return items.map(item=>`<option value="${esc(item.id)}"${item.id===selected?' selected':''}>${esc(label(item))}</option>`).join('');
 }
 const salesClientLabel=client=>client.name?`${client.name} · ${client.code}`:client.code;
-function batchSpeed(records,product,start,quantity){
- const days=new Map();
- for(const sale of records){
-  if(sale.productId===product&&sale.date>=start)days.set(sale.date,(days.get(sale.date)||0)+sale.units);
- }
- let sold=0;
- for(const date of [...days.keys()].sort()){
-  sold=C.round(sold+days.get(date));
-  if(sold>=quantity)return {date,days:(Date.parse(date)-Date.parse(start))/86400000,sold};
- }
- return {date:'',days:null,sold};
-}
 function renderSales(){
  const month=salesFilters.month||localSaleDate().slice(0,7),previous=previousSalesMonth(month);
  const products=state.products,clients=state.clients;
@@ -225,31 +306,33 @@ function renderSales(){
  const previousTotal=monthly.get(previous),currentTotal=monthly.get(month);
  const clientRows=[first,second].filter(Boolean).map(client=>{
   const total=sumSales(current.filter(s=>s.clientId===client.id)), prior=sumSales(old.filter(s=>s.clientId===client.id));
-  return `<tr><th scope="row">${esc(salesClientLabel(client))}</th><td>${format(prior)}</td><td>${format(total)}</td><td>${compareSales(total,prior)}</td></tr>`;
+  return `<tr><th scope="row">${esc(salesClientLabel(client))}</th><td>${traceQuantity(prior)}</td><td>${traceQuantity(total)}</td><td>${compareSales(total,prior)}</td></tr>`;
  });
  const priorByProduct=new Map();
  for(const sale of old)priorByProduct.set(sale.productId,C.round((priorByProduct.get(sale.productId)||0)+sale.units));
  const ranking=[...leaders.entries()].sort(([,a],[,b])=>b.units-a.units||a.name.localeCompare(b.name,'es'));
  const table=(labels,rows)=>`<div class="table-scroll sales-table"><table class="data-table"><thead><tr>${labels.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+ const lots=state.lots||[],remaining=Trace.balance(state);
+ const received=lots.reduce((total,lot)=>total+lot.units,0);
+ const available=[...remaining.values()].reduce((total,units)=>total+units,0);
+ const unplaced=lots.reduce((total,lot)=>total+(Trace.location(lot).rack?0:remaining.get(lot.id)),0);
+ const lotA=lots.find(lot=>lot.id===speedQuery?.a);
+ const lotB=lots.find(lot=>lot.id===speedQuery?.b);
  let speedResult='';
- if(speedQuery){
-  const {a,b,date,units}=speedQuery,names=[productNames.get(a),productNames.get(b)];
-  if(names.every(Boolean)){
-   const results=[a,b].map(id=>batchSpeed(records,id,date,units));
-   const [left,right]=results;
-   let outcome='Ninguno alcanzó la cantidad inicial con las ventas registradas.';
-   if(left.date||right.date){
-    outcome=left.date&&left.date===right.date?'Ambos alcanzaron la cantidad inicial el mismo día.':`${left.date&&(!right.date||left.date<right.date)?names[0]:names[1]} alcanzó primero la cantidad inicial.`;
-   }
-   speedResult=`<p role="status"><strong>${esc(outcome)}</strong></p>${table(['Producto','Tiempo para vender la cantidad inicial','Unidades vendidas'],results.map((r,i)=>`<tr><th scope="row">${esc(names[i])}</th><td>${r.date?`${r.days===0?'Mismo día':format(r.days,0)+' días'} · ${r.date}`:'Aún no alcanza la cantidad'}</td><td>${format(r.sold)}</td></tr>`))}`;
-  }
+ if(lotA&&lotB){
+  const a=Trace.soldOut(lotA,records),b=Trace.soldOut(lotB,records);
+  let outcome='Los dos lotes tienen unidades pendientes.';
+  if(a&&b)outcome=a.days===b.days?'Los dos lotes se agotaron en el mismo número de días.':`${traceLotLabel(a.days<b.days?lotA:lotB)} se agotó más rápido.`;
+  else if(a||b)outcome=`${traceLotLabel(a?lotA:lotB)} se agotó. El otro lote aún tiene existencias.`;
+  speedResult=`<p role="status"><strong>${esc(outcome)}</strong></p>${table(['Lote','Llegada','Unidades recibidas','Unidades disponibles','Fecha de agotamiento','Días desde la llegada'],[[lotA,a],[lotB,b]].map(([lot,result])=>`<tr><th scope="row">${esc(traceLotLabel(lot))}</th><td>${lot.receipt.date}</td><td>${traceQuantity(lot.units)}</td><td>${traceQuantity(remaining.get(lot.id))}</td><td>${result?.date||'Pendiente'}</td><td>${result?format(result.days,0):'—'}</td></tr>`))}`;
  }
  const visible=[...current].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
  const salesPage=selection(visible);
+ const lotsById=new Map(lots.map(lot=>[lot.id,lot]));
  return `${heading('MÉTRICAS','Comparar ventas','Consulta ventas por producto y cliente, y compara el tiempo de salida de dos productos.',products.length?`<button type="button" class="btn btn-primary" data-action="record-sale">Registrar venta</button>`:'')}
  <p class="sales-note">El análisis usa ventas fechadas. Puedes registrar ventas anteriores. Las cantidades del Registro semanal se consultan por separado.</p>
  ${!products.length?empty('Agrega un producto para empezar','Después podrás registrar ventas y comparar resultados.','new-product','Añadir producto'):''}
- <section class="card card-pad sales-section"><h2>Productos y clientes por mes</h2>
+ <section class="card card-pad sales-section"><h2 id="sales-monthly" tabindex="-1">Productos y clientes por mes</h2>
  <form id="sales-filters" class="sales-fields">
  <label class="field">Mes <input class="form-control" type="month" name="month" value="${month}" max="${localSaleDate().slice(0,7)}" required></label>
  <label class="field">Producto <select class="form-control" name="product">${salesOptions(products,product?.id,p=>p.name)}</select></label>
@@ -257,30 +340,41 @@ function renderSales(){
  <label class="field">Cliente externo 2 <select class="form-control" name="secondClient"><option value="">Seleccionar</option>${salesOptions(clients,second?.id,salesClientLabel)}</select></label>
  <button class="btn" type="submit">Comparar</button></form>
  <h3>Productos más vendidos · ${month}</h3>
- ${ranking.length?table(['Producto',previous,month,'Variación mensual'],ranking.map(([id,row])=>{const prior=priorByProduct.get(id)||0;return `<tr><th scope="row">${esc(row.name)}</th><td>${format(prior)}</td><td>${format(row.units)}</td><td>${compareSales(row.units,prior)}</td></tr>`;})):'<p class="muted">Sin ventas registradas en este mes.</p>'}
- ${product?`<h3>Historial mensual · ${esc(product.name)}</h3><p>${previous}: <strong>${format(previousTotal)}</strong> · ${month}: <strong>${format(currentTotal)}</strong> · Variación: ${compareSales(currentTotal,previousTotal)}</p>${table(['Mes','Unidades vendidas'],[...monthly].sort(([a],[b])=>b.localeCompare(a)).map(([key,total])=>`<tr><th scope="row">${key}</th><td>${format(total)}</td></tr>`))}`:''}
- <h3>Comparación de clientes externos</h3>
+ ${ranking.length?table(['Producto',previous,month,'Variación mensual'],ranking.map(([id,row])=>{const prior=priorByProduct.get(id)||0;return `<tr><th scope="row">${esc(row.name)}</th><td>${traceQuantity(prior)}</td><td>${traceQuantity(row.units)}</td><td>${compareSales(row.units,prior)}</td></tr>`;})):'<p class="muted">Sin ventas registradas en este mes.</p>'}
+ ${product?`<h3>Historial mensual · ${esc(product.name)}</h3><p>${previous}: <strong>${traceQuantity(previousTotal)}</strong> · ${month}: <strong>${traceQuantity(currentTotal)}</strong> · Variación: ${compareSales(currentTotal,previousTotal)}</p>${table(['Mes','Unidades vendidas'],[...monthly].sort(([a],[b])=>b.localeCompare(a)).map(([key,total])=>`<tr><th scope="row">${key}</th><td>${traceQuantity(total)}</td></tr>`))}`:''}
+ <h3 id="sales-clients" tabindex="-1">Comparación de clientes externos</h3>
  ${clientRows.length?table(['Cliente',previous,month,'Variación mensual'],clientRows):''}
- ${!second?'<p class="muted">Selecciona dos clientes distintos para compararlos.</p>':`<p class="muted">Diferencia en ${month}: ${format(Math.abs(sumSales(current.filter(s=>s.clientId===first.id))-sumSales(current.filter(s=>s.clientId===second.id))))} unidades entre los dos clientes.</p>`}
+ ${!second?'<p class="muted">Selecciona dos clientes distintos para compararlos.</p>':`<p class="muted">Diferencia en ${month}: ${traceQuantity(Math.abs(sumSales(current.filter(s=>s.clientId===first.id))-sumSales(current.filter(s=>s.clientId===second.id))))} unidades entre los dos clientes.</p>`}
  </section>
- <section class="card card-pad sales-section"><h2>¿Cuál se vendió primero?</h2><p>Compara dos productos que llegaron el mismo día y con la misma cantidad. El cálculo acumula ventas desde esa fecha. Usa un lote sin existencias previas ni reposiciones durante la comparación.</p>
- ${products.length>=2?`<form id="sales-speed" class="sales-fields">
- <label class="field">Producto 1 <select class="form-control" name="a">${salesOptions(products,speedQuery?.a||products[0].id,p=>p.name)}</select></label>
- <label class="field">Producto 2 <select class="form-control" name="b">${salesOptions(products,speedQuery?.b||products[1].id,p=>p.name)}</select></label>
- <label class="field">Fecha de llegada <input class="form-control" type="date" name="date" value="${speedQuery?.date||localSaleDate()}" max="${localSaleDate()}" required></label>
- <label class="field">Cantidad por producto <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="any" value="${speedQuery?.units||''}" required></label>
- <button class="btn" type="submit">Comparar velocidad</button></form>${speedResult}`:'<p class="muted">Agrega al menos dos productos para comparar.</p>'}</section>
+ <section class="card card-pad sales-section"><h2 id="sales-turnover" tabindex="-1">Velocidad de venta por lote</h2><p>Compara los días reales entre la recepción y la venta de la última unidad de cada lote.</p>
+ ${lots.length>=2?`<form id="sales-speed" class="sales-fields">
+ <label class="field">Lote 1 <select class="form-control" name="a">${salesOptions(lots,lotA?.id||lots[0].id,traceLotLabel)}</select></label>
+ <label class="field">Lote 2 <select class="form-control" name="b">${salesOptions(lots,lotB?.id||lots[1].id,traceLotLabel)}</select></label>
+ <button class="btn" type="submit">Comparar velocidad</button></form>${speedResult}`:'<p class="muted">Registra al menos dos lotes para comparar.</p>'}</section>
+ <section class="card card-pad sales-section"><h2>Existencias por lote</h2><p><strong>${traceQuantity(received)}</strong> recibidas · <strong>${traceQuantity(received-available)}</strong> vendidas · <strong>${traceQuantity(available)}</strong> disponibles · <strong>${traceQuantity(unplaced)}</strong> sin rack.</p><p class="muted">Las ventas históricas sin lote siguen en los totales por mes y cliente. Las existencias por lote se calculan desde las recepciones y las ventas vinculadas.</p></section>
+ <section class="sales-section dashboard-visual-row trace-warehouse" aria-label="Ubicaciones de los lotes">${window.AlmendraWarehouse?.render(state)||''}</section>
  <section class="card card-pad sales-section"><h2>Ventas registradas · ${month}</h2>
- ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${format(s.units)}</td><td><button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button></td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
+ ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Lote','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${esc(lotsById.get(s.lotId)?.code||'Sin lote registrado')}</td><td>${traceQuantity(s.units)}</td><td><button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button></td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
 }
 function saleModal(){
  if(!state.products.length)return;
+ const remaining=Trace.balance(state);
+ const availableProducts=new Set((state.lots||[]).filter(lot=>remaining.get(lot.id)>0).map(lot=>lot.productId));
+ const products=state.products.filter(p=>availableProducts.has(p.id));
+ const product=products.find(item=>item.id===salesFilters.product)||products[0];
+ if(!product){
+  showModal('Registrar venta','<div class="modal-body"><p>Para registrar una venta, primero registra la llegada de un lote con existencias desde el seguimiento del producto.</p></div>', '<button class="btn" data-action="close-modal">Cerrar</button><button class="btn btn-primary" data-action="sale-products">Ir a Productos</button>');
+  return;
+ }
  showModal('Registrar venta',`<form id="sale-form" class="modal-body"><div class="modal-grid">
- <label class="field">Producto <select class="form-control" name="productId" required>${salesOptions(state.products,salesFilters.product,p=>p.name)}</select></label>
+ <label class="field">Producto <select class="form-control" name="productId" required>${salesOptions(products,product.id,p=>p.name)}</select></label>
+ <label class="field">Lote <select class="form-control" name="lotId" required>${saleLotChoices(product.id,localSaleDate())}</select></label>
  <label class="field">Cliente externo <select class="form-control" name="clientId" required>${salesOptions(state.clients,salesFilters.firstClient,salesClientLabel)}</select></label>
- <label class="field">Fecha de venta <input class="form-control" type="date" name="date" value="${localSaleDate()}" max="${localSaleDate()}" required></label>
- <label class="field">Unidades vendidas <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="any" required></label>
- </div><p>Esta venta se usa en las comparaciones. Registra los cambios de existencias en el flujo habitual del inventario.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="sale-form" class="btn btn-primary">Guardar venta</button>`);
+ <label class="field">Fecha de venta <input class="form-control" type="date" name="date" value="${localSaleDate()}" min="0001-02-01" max="${localSaleDate()}" required></label>
+ <label class="field">Unidades vendidas <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="0.000001" required></label>
+ <label class="field">Precio unitario (${esc(state.settings.currency||'COP')}) <input class="form-control" type="number" name="price" min="0" max="1000000000000" step="any" placeholder="Opcional"></label>
+ <label class="field full">Factura o referencia <input class="form-control" name="reference" maxlength="120" placeholder="Opcional"></label>
+ </div><p>Las unidades se descontarán del lote seleccionado.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="sale-form" class="btn btn-primary">Guardar venta</button>`);
 }
 function submitSales(form){
  const data=Object.fromEntries(new FormData(form));
@@ -289,16 +383,21 @@ function submitSales(form){
   if(data.firstClient===data.secondClient)return toast('Selecciona dos clientes distintos.');
   Object.assign(salesFilters,data);page=0;render();return;
  }
+ if(form.id==='sales-speed'){
+  if(data.a===data.b||![data.a,data.b].every(id=>(state.lots||[]).some(lot=>lot.id===id)))return toast('Selecciona dos lotes distintos.');
+  speedQuery={a:data.a,b:data.b};render();return;
+ }
  const units=Number(data.units);
  if(!calendarDate(data.date)||data.date<'0001-02-01'||data.date>localSaleDate()||!Number.isFinite(units)||units<0.000001||units>1e12)return toast('Revisa la fecha y la cantidad.');
- if(form.id==='sales-speed'){
-  if(data.a===data.b||![data.a,data.b].every(id=>state.products.some(p=>p.id===id)))return toast('Selecciona dos productos distintos.');
-  speedQuery={...data,units};render();return;
- }
  const product=state.products.find(p=>p.id===data.productId),client=state.clients.find(c=>c.id===data.clientId);
- if(!product||!client)return toast('Selecciona un producto y un cliente válidos.');
- const sale={id:id('sale'),date:data.date,productId:product.id,productName:product.name,clientId:client.id,clientName:salesClientLabel(client),units,voided:false};
- if(mutation(`Venta registrada: ${product.name}`,()=>{(state.sales??=[]).push(sale);salesFilters.month=sale.date.slice(0,7);page=0;}))closeModal();
+ const lot=(state.lots||[]).find(item=>item.id===data.lotId&&item.productId===data.productId);
+ if(!product||!client||!lot||data.date<lot.receipt.date)return toast('Selecciona un producto, un cliente y un lote recibido para esa fecha.');
+ if(units>Trace.balance(state).get(lot.id)||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Revisa la cantidad disponible del lote. Se admiten hasta seis decimales.');
+ const price=data.price===''?null:Number(data.price);
+ if(price!==null&&(!Number.isFinite(price)||price<0||price>1e12))return toast('Revisa el precio de venta.');
+ const place=[lot.receipt,...lot.moves].findLast(item=>item.date<=data.date);
+ const sale={id:id('sale'),date:data.date,productId:product.id,productName:product.name,clientId:client.id,clientName:salesClientLabel(client),units,lotId:lot.id,location:Trace.label(place),price,currency:state.settings.currency||'COP',reference:data.reference.trim().slice(0,120),voided:false};
+ if(mutation(`Venta registrada: ${product.name} · Lote ${lot.code}`,()=>{(state.sales??=[]).push(sale);salesFilters.month=sale.date.slice(0,7);page=0;}))closeModal();
 }
 function voidSale(saleId){
  const sale=(state.sales||[]).find(item=>item.id===saleId&&!item.voided);
@@ -389,7 +488,7 @@ function renderProducts(){
  const sel=selection(all);
  return `${heading('CATÁLOGO MAESTRO','Productos','Catálogo y parámetros por referencia.',`<button class="btn btn-primary" data-action="new-product">+ Añadir producto</button>`)}
  <div class="tool-strip"><div class="left">${searchBar('Buscar en el catálogo…')}</div><div class="right"><label class="gu-sort-label"><span class="muted">Ordenar</span><select class="form-control" id="product-sort"><option value="original" ${productSort==='original'?'selected':''}>Registro</option><option value="name" ${productSort==='name'?'selected':''}>Nombre</option><option value="stock" ${productSort==='stock'?'selected':''}>Menor stock</option><option value="value" ${productSort==='value'?'selected':''}>Mayor valor</option></select></label><span class="muted">${all.length} / ${state.products.length}</span></div></div>
- ${sel.rows.length?`<div class="list-cards">${sel.rows.map(p=>{const r=C.result(state,p);return `<article class="card catalog-row"><div><div class="catalog-name">${esc(p.name)}</div><div class="catalog-meta">${esc(p.category||'Sin categoría')} · ${esc(p.unit||'unidad')} · ${esc(p.id.slice(0,13))}</div></div><div class="catalog-value">Registrado <b>${format(r.H)}</b></div><div class="catalog-value">Saldo <b class="${r.N<0?'text-danger':''}">${format(r.N)}</b></div><div class="catalog-value">Valorización <b>${money(r.P)}</b></div><div class="catalog-actions"><button class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" title="Editar producto">✎</button><button class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" title="Eliminar producto">×</button></div></article>`;}).join('')}</div>${pageFoot(sel,'productos')}`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con la búsqueda.':'No se incorporaron nombres porque el PDF no contiene el inventario real.','new-product','Crear mi primer producto')}`;
+ ${sel.rows.length?`<div class="list-cards">${sel.rows.map(p=>{const r=C.result(state,p);return `<article class="card catalog-row"><div><div class="catalog-name">${esc(p.name)}</div><div class="catalog-meta">${esc(p.category||'Sin categoría')} · ${esc(p.unit||'unidad')} · ${esc(p.id.slice(0,13))}</div></div><div class="catalog-value">Registrado <b>${format(r.H)}</b></div><div class="catalog-value">Saldo <b class="${r.N<0?'text-danger':''}">${format(r.N)}</b></div><div class="catalog-value">Valorización <b>${money(r.P)}</b></div><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" title="Editar producto">✎</button><button class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" title="Eliminar producto">×</button></div></article>`;}).join('')}</div>${pageFoot(sel,'productos')}`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con la búsqueda.':'No se incorporaron nombres porque el PDF no contiene el inventario real.','new-product','Crear mi primer producto')}`;
 }
 function renderClients(){
  const q=clientQuery.toLocaleLowerCase('es').trim();const all=state.clients.filter(c=>(clientFilter==='all'||(clientFilter==='named'?!!c.name?.trim():!c.name?.trim()))&&`${c.code} ${c.name||''}`.toLocaleLowerCase('es').includes(q));
@@ -397,7 +496,7 @@ function renderClients(){
  <div class="banner"><div><h3>${state.clients.length} espacios disponibles</h3><p>Los primeros 100 son equivalentes a las columnas A-1 hasta A-100 del Excel. Puedes agregar más sin modificar tus registros anteriores.</p></div><button class="btn" data-nav="weekly">Abrir registro</button></div>
  <div class="tool-strip"><div class="left"><label class="search"><input id="client-search" type="search" class="form-control" placeholder="Buscar A-1, nombre…" value="${esc(clientQuery)}"></label></div></div>
  <div class="gu-filterbar" role="group" aria-label="Filtrar espacios"><span class="gu-filter-label">Ver</span>${[['all','Todos'],['named','Con alias'],['unnamed','Sin alias']].map(([k,label])=>`<button type="button" data-client-filter="${k}" aria-pressed="${clientFilter===k}">${label}</button>`).join('')}<span class="muted">${all.length} / ${state.clients.length}</span></div>
- <div class="client-grid">${all.map(c=>`<div class="card client-cell"><label for="client-${esc(c.id)}">${esc(c.code)} <span class="muted">· Identificador fijo</span></label><input id="client-${esc(c.id)}" data-edit="client-name" data-id="${esc(c.id)}" class="form-control" maxlength="90" value="${esc(c.name||'')}" placeholder="Nombre o alias"></div>`).join('')}</div>${!all.length?empty('Sin coincidencias','Prueba con otro código o nombre.'):''}`;
+ <div class="client-grid">${all.map(c=>`<div class="card client-cell"><label for="client-${esc(c.id)}">${esc(c.code)} <span class="muted">· Identificador fijo</span></label><input id="client-${esc(c.id)}" data-edit="client-name" data-id="${esc(c.id)}" class="form-control" maxlength="90" value="${esc(c.name||'')}" placeholder="Nombre o alias"><button type="button" class="btn btn-small trace-client-button" data-action="client-trace" data-id="${esc(c.id)}">Ver compras</button></div>`).join('')}</div>${!all.length?empty('Sin coincidencias','Prueba con otro código o nombre.'):''}`;
 }
 function renderAudit(){
  const cutoff=Date.now()-7*86400000,search=auditQuery.toLocaleLowerCase('es').trim();
@@ -467,6 +566,7 @@ async function removalCheckpoint(label){
  await DB.backup(snapshot);await refreshBackups();
 }
 async function removeProduct(productId){
+ if(state.lots?.some(lot=>lot.productId===productId)){toast('Este producto tiene historial de lotes y se conserva para mantener la trazabilidad.');return;}
  const p=state.products.find(x=>x.id===productId);if(!p)return;
  if(!confirm(`¿Eliminar «${p.name}»? Se borrarán sus cantidades, precios y totales semanales. Se creará una copia interna preventiva.`))return;
  await removalCheckpoint('antes de eliminar producto');
@@ -585,11 +685,23 @@ function normalizeImported(raw){
  const audit=Array.isArray(raw.audit)?raw.audit.slice(0,350).map(e=>({id:safeid(e.id)?e.id:id('evt'),label:string(e.label,240),actor:'Este dispositivo',at:string(e.at,50)})):[];
  const clean={version:1,createdAt:string(raw.createdAt,40)||new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette,mode,currency,pageSize,density:['compact','comfortable'].includes(settings.density)?settings.density:'comfortable',lastAutoBackup:0},products,clients,periods,movements:normalizeMatrix(raw.movements,true),prices:normalizeMatrix(raw.prices,false),weekTotals:normalizeMatrix(raw.weekTotals,false),audit};
  if(raw.sales!==undefined&&(!Array.isArray(raw.sales)||raw.sales.length>500000))throw new Error('Registro de ventas no válido.');
+ if(raw.lots!==undefined&&(!Array.isArray(raw.lots)||raw.lots.length>100000))throw new Error('Registro de lotes no válido.');
+ clean.lots=makeUnique(raw.lots||[],'Lote',lot=>{
+  const code=string(lot.code,80).trim(),container=string(lot.container,80).trim(),units=decimal(lot.units);
+  if(typeof lot.productId!=='string'||!safeid(lot.productId)||!code||!container||units<0.000001||units>1e12||!Array.isArray(lot.moves)||lot.moves.length>10000)throw new Error('Lote con datos de recepción no válidos.');
+  const receipt=normalizePlace(lot.receipt),moves=lot.moves.map(normalizePlace);
+  if(moves.some((place,i)=>place.date<(moves[i-1]||receipt).date))throw new Error('Los traslados deben estar en orden cronológico.');
+  return {id:lot.id,productId:lot.productId,productName:string(lot.productName,110),code,container,units,receipt,moves};
+ });
  clean.sales=makeUnique(raw.sales||[],'Venta',sale=>{
   const units=decimal(sale.units);
-  if(!safeid(sale.productId)||!safeid(sale.clientId)||!calendarDate(sale.date)||sale.date<'0001-02-01'||units<0.000001||units>1e12)throw new Error('Venta con fecha o cantidad no válida.');
-  return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,voided:sale.voided===true};
+  if(typeof sale.productId!=='string'||typeof sale.clientId!=='string'||!safeid(sale.productId)||!safeid(sale.clientId)||!calendarDate(sale.date)||sale.date<'0001-02-01'||units<0.000001||units>1e12)throw new Error('Venta con fecha o cantidad no válida.');
+  const price=sale.price==null?null:decimal(sale.price);
+  const lotId=sale.lotId??'';
+  if((lotId&&(typeof lotId!=='string'||!safeid(lotId)))||(price!==null&&(price<0||price>1e12)))throw new Error('Una venta tiene precio o lote no válido.');
+  return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,lotId,location:string(sale.location,220),price,currency:['COP','USD','EUR','MXN','CNY'].includes(sale.currency)?sale.currency:'COP',reference:string(sale.reference,120),voided:sale.voided===true};
  });
+ Trace?.validate(clean);
  clean.gu4=GU4?.normalizeGu4(raw.gu4,clean)||newState().gu4;return clean;
 }
 function mergeStates(local,remote){
@@ -611,6 +723,16 @@ function mergeStates(local,remote){
   salesById.set(sale.id,{...sale,voided:sale.voided||matching?.voided||false});
  }
  out.sales=[...salesById.values()];
+ const lotsById=new Map((local.lots||[]).map(lot=>[lot.id,lot]));
+ for(const lot of remote.lots||[]){
+  const previous=lotsById.get(lot.id);
+  if(!previous){lotsById.set(lot.id,lot);continue;}
+  if(Trace.lotKey(previous)!==Trace.lotKey(lot)||previous.units!==lot.units||JSON.stringify(previous.receipt)!==JSON.stringify(lot.receipt))throw new Error('El respaldo contiene cambios incompatibles en la recepción de un lote.');
+  const unique=new Map([...previous.moves,...lot.moves].map(place=>[JSON.stringify(place),place]));
+  lotsById.set(lot.id,{...lot,moves:[...unique.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.at.localeCompare(b.at))});
+ }
+ out.lots=[...lotsById.values()];
+ Trace?.validate(out);
  const byAudit=new Map([...remote.audit,...local.audit].map(e=>[e.id,e]));out.audit=[...byAudit.values()].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,350);
  if(GU4){const l=local.gu4||newState().gu4,r=remote.gu4||newState().gu4;out.gu4=GU4.normalizeGu4({...l,locations:[...(r.locations||[]),...(l.locations||[])],counts:[...(r.counts||[]),...(l.counts||[])]},out);}
  return out;
@@ -632,7 +754,8 @@ async function applyImport(){
  if(!pendingImport)return;
  const mode=$('input[name="import-mode"]:checked')?.value||'replace',incoming=pendingImport;
  try{await DB.backup({id:id('before'),type:'manual',createdAt:new Date().toISOString(),label:'Antes de importar',data:clone(state)});
-  undoStack.push(clone(state));state=mode==='merge'?mergeStates(state,incoming):incoming;
+  const merged=mode==='merge'?mergeStates(state,incoming):incoming;
+  undoStack.push(clone(state));state=merged;
   state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),label:`Migración ${mode==='merge'?'fusionada':'restaurada'} desde JSON`,actor:'Este dispositivo',at:state.updatedAt});
   periodId=state.periods[0].id;slotOffset=0;page=0;query='';pendingImport=null;closeModal();scheduleSave();await refreshBackups();navigate('dashboard');toast('Migración realizada. Los datos se han recuperado.');
  }catch(e){toast('No se pudo completar la migración: '+e.message);}
@@ -702,6 +825,18 @@ document.addEventListener('click',async e=>{
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
   case 'new-product':productModal();break;
+  case 'sales-section':{
+   navigate('sales');
+   const section=document.getElementById(targetId);
+   section?.focus({preventScroll:true});
+   section?.scrollIntoView({block:'start'});
+   break;
+  }
+  case 'product-trace':productTrace(targetId);break;
+  case 'client-trace':clientTrace(targetId);break;
+  case 'receive-lot':lotModal(targetId);break;
+  case 'move-lot':lotModal(targetId,true);break;
+  case 'sale-products':closeModal();navigate('products');break;
   case 'record-sale':saleModal();break;
   case 'void-sale':voidSale(targetId);break;
   case 'edit-product':productModal(targetId);break;
@@ -737,7 +872,8 @@ document.addEventListener('click',async e=>{
  }}catch(err){toast('No se pudo completar la acción: '+err.message);}
 });
 document.addEventListener('submit',e=>{
- const form=e.target;if(['sales-filters','sales-speed','sale-form'].includes(form.id)){e.preventDefault();submitSales(form);return;}
+ const form=e.target;if(form.id==='lot-form'){e.preventDefault();submitLot(form);return;}
+ if(['sales-filters','sales-speed','sale-form'].includes(form.id)){e.preventDefault();submitSales(form);return;}
  if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
  if(form.id==='product-form')submitProduct(form);
  if(form.id==='period-form')submitPeriod(form);
@@ -749,6 +885,10 @@ document.addEventListener('submit',e=>{
 });
 document.addEventListener('change',e=>{
  const el=e.target;
+ if(el.id==='trace-client-month'){clientTrace(el.dataset.id,el.value);return;}
+ if(el.form?.id==='sale-form'&&['productId','date'].includes(el.name)){
+  el.form.elements.lotId.innerHTML=saleLotChoices(el.form.elements.productId.value,el.form.elements.date.value);return;
+ }
  if(el.matches('[data-edit]')){editValue(el);return;}
  if(el.id==='slot-count'){slotCount=Number(el.value);slotOffset=0;page=0;render();return;}
    if(el.id==='product-sort'){productSort=el.value;page=0;render();return;}
@@ -802,7 +942,10 @@ async function init(){
  if(!loaded||!loaded.gu4)await DB.save(state);
   periodId=state.periods[0].id;
   await refreshBackups();render();savedStatus();
-  try{const summary=GU4.allocations(state,C);typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:summary.racks.map(x=>x.units)}}));}catch{typeof CustomEvent!=='undefined'&&window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:[0,0,0]}}));}
+  if(typeof CustomEvent!=='undefined'){
+   const view=Trace?.warehouse(state);
+   window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:view?.totals||[0,0,0],positions:view?.positions||[[],[],[]]}}));
+  }
 
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
  }catch(error){

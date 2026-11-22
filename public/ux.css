@@ -322,3 +322,21 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .sales-fields .btn { flex: 0 1 auto; min-height: 40px; }
 .sales-table .data-table { min-width: 380px; }
 .sales-table tbody th { text-align: left; white-space: normal; }
+
+.dashboard-sales { margin-block: 14px 18px; }
+.dashboard-sales h2 { margin: 0 0 10px; }
+.dashboard-sales-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dashboard-sales-actions .btn { min-height: 44px; }
+#sales-monthly, #sales-clients, #sales-turnover { scroll-margin-top: 88px; }
+
+/* Ventanas de trazabilidad y ubicación de lotes. */
+.modal:has(.trace-body) { width: min(100%, 920px); }
+.trace-body h3 { margin-block: 4px 10px; }
+.trace-lot { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.trace-lot summary { cursor: pointer; }
+.trace-lot .btn { margin-top: 10px; }
+.trace-table { margin-block: 8px 14px; }
+.trace-table .data-table { min-width: 540px; }
+.trace-client-button { margin-top: 8px; }
+.catalog-actions:has([data-action="product-trace"]) { flex-wrap: wrap; }
+.trace-warehouse.dashboard-visual-row { grid-template-columns: minmax(0,1fr); }
