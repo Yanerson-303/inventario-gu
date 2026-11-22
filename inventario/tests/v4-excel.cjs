@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(__dirname,'..'),window={JSZip:require(path.join(root,'jszip.min.js'))};
+const root=path.resolve(__dirname,'..','..','public'),window={JSZip:require(path.join(root,'jszip.min.js'))};
 vm.runInNewContext(fs.readFileSync(path.join(root,'gu4-excel.js'),'utf8'),{window,Number,String,Array,Math,Intl});
 (async()=>{
  const X=window.GU4Excel,parsed=X.csvParse('Producto;Categoría;Valor\n"Caja A";Almacén;10\n"Caja; B";Especial;20\n');

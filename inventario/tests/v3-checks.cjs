@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
-const folder=path.resolve(__dirname,'..');
+const folder=path.resolve(__dirname,'..','..','public');
 const win={};
 const scope={window:win,Date,Number,Math,Intl};
 for(const f of ['calc.js','insights.js'])vm.runInNewContext(fs.readFileSync(path.join(folder,f),'utf8'),scope);

@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const dir=path.resolve(__dirname,'..'),win={},ctx={window:win,Math,Number,String,Intl,Array,Object};
+const dir=path.resolve(__dirname,'..','..','public'),win={},ctx={window:win,Math,Number,String,Intl,Array,Object};
 vm.runInNewContext(fs.readFileSync(path.join(dir,'metric-visuals.js'),'utf8'),ctx);
 const M=win.GUMetricVisuals;
 const products=[{id:'a',name:'A'},{id:'b',name:'B'},{id:'c',name:'C'}];

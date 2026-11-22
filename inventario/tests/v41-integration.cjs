@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const base=path.resolve(__dirname,'..'),w={},ctx={window:w,Number,String,Math,Object,Array,Set,Map,Date,RegExp};
+const base=path.resolve(__dirname,'..','..','public'),w={},ctx={window:w,Number,String,Math,Object,Array,Set,Map,Date,RegExp};
 for(const f of ['calc.js','gu4-core.js'])vm.runInNewContext(fs.readFileSync(path.join(base,f),'utf8'),ctx);
 const C=w.AlmendraCalc,G=w.GU4Core;
 const s={products:[{id:'a',name:'Artículo A',quantityN:0,quantityV:0,value:30,boxes:12}],periods:[{id:'w1',start:'2026-09-01',end:'2026-09-07'},{id:'w2',start:'2026-09-08',end:'2026-09-14'},{id:'w3',start:'2026-09-15',end:'2026-09-21'}],movements:{w1:{a:{c1:4}},w2:{a:{c1:5}},w3:{a:{c1:9}}}};

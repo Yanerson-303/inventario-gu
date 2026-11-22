@@ -5,7 +5,7 @@ Aplicación **100 % estática** construida con HTML, CSS y JavaScript separados.
 ## Abrir la aplicación
 
 1. Descomprime el ZIP sin cambiar la estructura.
-2. Para uso fiable en computadores y celulares, publica la carpeta en un servidor **HTTPS** o ejecútala localmente con `python -m http.server 8000` y visita `http://localhost:8000` desde el PC.
+2. Para uso fiable en computadores y celulares, publica la carpeta `public/` en un servidor **HTTPS** o ejecútala localmente con `python -m http.server 8000 --directory public` y visita `http://localhost:8000` desde el PC.
 3. En un iPhone o Android, abre la URL HTTPS desde Safari/Chrome y opcionalmente usa «Añadir a pantalla de inicio» para instalarla como aplicación web. Algunos navegadores no garantizan IndexedDB si se abre `index.html` directamente como `file://`.
 4. Añade productos y registra cantidades en «Registro semanal».
 5. En «Copias y migración», descarga un JSON para llevar los datos a otro dispositivo. En el segundo dispositivo usa «Seleccionar archivo» y elige «Reemplazar» o «Fusionar».
@@ -14,7 +14,7 @@ Aplicación **100 % estática** construida con HTML, CSS y JavaScript separados.
 
 **No hay sincronización automática entre dispositivos:** cada uno tiene su propia base local. Para transferir, exporta e importa el JSON. El sistema funciona sin Internet una vez instalado mediante el service worker (requiere HTTPS o localhost).
 
-## Archivos
+## Archivos en `public/`
 
 - `index.html`: estructura y navegación.
 - `styles.css`: interfaz adaptable, modo claro/oscuro y tres skins: Almendra, Rojo y Oro, Gris y Plata.
@@ -71,11 +71,8 @@ Uso recomendado: **index.html** servido desde HTTPS; abrir el HTML descargable e
 Edición 3.1: detalles en `README_3_1.md`.
 
 
-Edición 3.1: detalles en `README_3_1.md`.
-
-
 Versión 3.2: ver `CAMBIOS_3_2.md`.
 
 ## Novedades 4.0
 
-Consulta [`CAMBIOS_4_0.md`](CAMBIOS_4_0.md). Los módulos nuevos son Bodega física, Conteos físicos, Predicciones y alertas, Excel e informes y organización del Panel. El código continúa en archivos independientes, las versiones descargables están en `descargas/` y los datos siguen siendo locales.
+Consulta [`CAMBIOS_4_0.md`](CAMBIOS_4_0.md). Los módulos nuevos son Bodega física, Conteos físicos, Predicciones y alertas, Excel e informes y organización del Panel. El código continúa en archivos independientes, el HTML descargable está en `public/descargas/` y los datos siguen siendo locales.

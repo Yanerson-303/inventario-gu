@@ -2,7 +2,7 @@
 
 ## Publicar una sola vez
 
-Sube **todos** los archivos de esta carpeta a un alojamiento HTTPS (por ejemplo, GitHub Pages, Netlify o tu servidor). No abras `index.html` como `file://` para instalar la PWA: los service workers requieren HTTPS o localhost.
+Sube **todos** los archivos de la carpeta `public/` a un alojamiento HTTPS (por ejemplo, GitHub Pages, Netlify o tu servidor). No abras `index.html` como `file://` para instalar la PWA: los service workers requieren HTTPS o localhost.
 
 ## Instalar en PC
 

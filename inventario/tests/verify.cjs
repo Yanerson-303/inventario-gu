@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const {webcrypto}=require('node:crypto');
-const folder=path.resolve(__dirname,'..');
+const folder=path.resolve(__dirname,'..','..','public');
 const main={};
 const context={window:main, console,Number,Math,Object,Array,String,Intl};
 vm.runInNewContext(fs.readFileSync(path.join(folder,'calc.js'),'utf8'),context);

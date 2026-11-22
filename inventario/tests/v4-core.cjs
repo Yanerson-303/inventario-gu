@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const dir=path.resolve(__dirname,'..'),w={},ctx={window:w,Number,String,Math,Object,Array,Set,Map,Date,RegExp};
+const dir=path.resolve(__dirname,'..','..','public'),w={},ctx={window:w,Number,String,Math,Object,Array,Set,Map,Date,RegExp};
 vm.runInNewContext(fs.readFileSync(path.join(dir,'calc.js'),'utf8'),ctx);
 vm.runInNewContext(fs.readFileSync(path.join(dir,'gu4-core.js'),'utf8'),ctx);
 const C=w.AlmendraCalc,G=w.GU4Core;

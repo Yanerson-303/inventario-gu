@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const root=path.resolve(__dirname,'..');const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const root=path.resolve(__dirname,'..','..','public');const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
 const moduleSource=app.slice(app.indexOf('const metricVisibilityKey='),app.indexOf('function renderDashboard(){'));
 const store=new Map();const ctx={localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},Icons:{svg:name=>'<svg>'+name+'</svg>'},esc:v=>String(v).replace(/</g,'&lt;')};
 vm.runInNewContext(moduleSource+'\nwindowOut={metricBox,metricPrefs};',ctx);

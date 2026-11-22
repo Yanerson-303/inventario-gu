@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "redirects": [
+    {
+      "source": "/preview.html",
+      "destination": "/descargas/Inventarios_GU_PC.html",
+      "permanent": true
+    },
+    {
+      "source": "/descargas/Inventarios_GU_Movil_iPhone_Android.html",
+      "destination": "/descargas/Inventarios_GU_PC.html",
+      "permanent": true
+    }
+  ]
+}

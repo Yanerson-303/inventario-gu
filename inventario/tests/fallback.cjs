@@ -1,6 +1,6 @@
 // Prueba del problema original: Web Preview bloquea IndexedDB con SecurityError.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const source=fs.readFileSync(require('node:path').join(__dirname,'../db.js'),'utf8');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../../public/db.js'),'utf8');
 
 async function check(mode){
  const records=new Map();
