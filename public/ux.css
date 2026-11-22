@@ -364,3 +364,17 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .unit-report-table th label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .unit-report-table th input { accent-color: var(--accent); flex: none; }
 .unit-report-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+
+/* Categorías y etiquetas del catálogo. */
+.catalog-group-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.catalog-group-filters label { display: flex; align-items: center; gap: 6px; }
+.catalog-tag-list, .catalog-tag-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.catalog-tag-list { margin-top: 6px; }
+.catalog-tag-fields { border: 1px solid var(--line); border-radius: 9px; padding: 10px; }
+.catalog-tag-fields label { display: inline-flex; align-items: center; gap: 5px; }
+.catalog-tag-fields details { flex-basis: 100%; }
+.catalog-tag-fields summary { cursor: pointer; }
+.catalog-tag { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 12px; padding: 2px 8px; font-size: 12px; }
+.catalog-tag i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.catalog-tag-create { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+#new-category-field[hidden] { display: none; }
