@@ -22,9 +22,9 @@ const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&N
 let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false,weeklyFocusNext=null;
 const tabId=id('tab');
-const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración'};
+const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -88,9 +88,10 @@ function productButton(p){return `<button class="product-link" title="Editar ${e
 function statusBalance(n){return `<span class="${n<0?'text-danger':n>0?'text-good':''} mono">${format(n)}</span>`;}
 function render(){
  if(!state)return;updateHeader();syncTheme();
- const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings};
+ const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,sales:renderSales};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
+ if(view==='dashboard')requestAnimationFrame(()=>window.AlmendraWarehouse?.mount());
  if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
@@ -110,18 +111,198 @@ function metricBox(id,html){
  else html=`<div class="metric-inline-title">${icon}<strong>${esc(metricLabels[id]||id)}</strong></div>`+html;
  return `<div class="metric-panel ${collapsed?'metric-collapsed':''}" data-metric="${id}"><div class="metric-folded-bar">${metricButton(id,true)}<span class="metric-folded-title">${esc(metricLabels[id]||id)}</span></div><div class="metric-content">${html}</div></div>`;
 }
+function dashboardActions(){
+ return `<div class="dashboard-actions" role="group" aria-label="Acciones del Panel general" data-html2canvas-ignore>
+  <button type="button" class="btn" data-dashboard-menu="inventory" aria-haspopup="dialog">${Icons.svg('package')}<span>Inventario</span></button>
+  <button type="button" class="btn" data-dashboard-menu="view" aria-haspopup="dialog">${Icons.svg('boxes')}<span>Vista 3D</span></button>
+  <button type="button" class="btn" data-dashboard-menu="export" aria-haspopup="dialog">${Icons.svg('file-up')}<span>Exportar</span></button>
+ </div><dialog id="dashboard-menu" class="dashboard-menu" aria-labelledby="dashboard-menu-title" data-html2canvas-ignore></dialog>`;
+}
+function openDashboardMenu(trigger){
+ const dialog=$('#dashboard-menu'),kind=trigger.dataset.dashboardMenu;
+ const titles={inventory:'Inventario',view:'Vista 3D y métricas',export:'Exportar panel'};
+ const action=(label,attribute)=>`<button type="button" class="btn" ${attribute}>${esc(label)}</button>`;
+ const controls=[['left','Girar a la izquierda'],['right','Girar a la derecha'],['in','Acercar'],['out','Alejar'],['reset','Restablecer vista']];
+ const racks=$$('.dashboard-warehouse .warehouse-mini-rack');
+ const prefs=metricPrefs();
+ const menu={
+  inventory:()=>action('Añadir producto','data-action="new-product"')+action('Abrir registro semanal','data-nav="weekly"')+action('Ver consolidado','data-nav="final"')+action('Comparar ventas','data-nav="sales"')+(!state.products.length?action('Cargar demostración','data-action="demo"'):''),
+  view:()=>`<div class="dashboard-menu-section"><h3>Controles de la bodega</h3><div class="dashboard-menu-grid">${controls.map(([id,label])=>action(label,`data-dashboard-warehouse="${id}"`)).join('')}</div></div>
+   <div class="dashboard-menu-section"><h3>Estanterías</h3><div class="dashboard-menu-grid">${racks.map((rack,i)=>action(`Rack ${i+1} · ${rack.querySelector('strong').textContent}`,`data-dashboard-warehouse="rack${i}"`)).join('')}</div></div>
+   <details class="dashboard-menu-section"><summary>Mostrar u ocultar métricas</summary><div class="dashboard-menu-grid">${['volumen','saldo','valor'].map(id=>action(`${prefs[id]?'Mostrar':'Contraer'} ${metricLabels[id].toLowerCase()}`,`data-dashboard-metric="${id}"`)).join('')}</div></details>`,
+  export:()=>action('Descargar imagen PNG','data-dashboard-export="png"')+action('Exportar resumen CSV','data-dashboard-export="csv"')
+ };
+ dialog.innerHTML=`<div class="modal-head"><h2 id="dashboard-menu-title">${titles[kind]}</h2><button type="button" class="icon-btn" data-dashboard-dismiss aria-label="Cerrar" autofocus>×</button></div><div class="modal-body dashboard-menu-body">${menu[kind]()}</div>`;
+ // Los controles modales reutilizan las acciones del panel y de la bodega.
+ dialog.onclick=e=>{
+  const button=e.target.closest('button');
+  if(e.target===dialog || button?.hasAttribute('data-dashboard-dismiss')){dialog.close();return;}
+  if(!button)return;
+  const {dashboardWarehouse, dashboardMetric, dashboardExport, nav, action}=button.dataset;
+  if(dashboardWarehouse){
+   dialog.close();
+   $(`[data-warehouse="${dashboardWarehouse}"]`)?.click();
+   $('.dashboard-warehouse')?.scrollIntoView({block:'nearest'});
+  }else if(dashboardMetric){
+   dialog.close();
+   $(`[data-metric-toggle="${dashboardMetric}"]`)?.click();
+   $('[data-dashboard-menu="view"]')?.focus();
+  }else if(!dashboardExport && (nav || action)){
+   dialog.close();
+  }
+ };
+ dialog.showModal();
+}
 function renderDashboard(){
  const all=C.totals(state,state.products);
- const weeklyValues=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,pr.id,p.id),0)}));
- return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.',`<button class="btn" data-nav="weekly">Abrir semanas</button><button class="btn btn-primary" data-action="new-product">+ Nuevo producto</button><button class="btn" data-dashboard-export="csv">Exportar resumen CSV</button><button class="btn" data-dashboard-export="png">Descargar imagen PNG</button>`)}
+ const weeklyValues=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
+ return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.')}
  ${renderStockAlerts(all)}
- ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Añade productos para comenzar.</p></div><button class="btn btn-primary" data-action="demo">Ver demostración</button></div>`:''}
- ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div><button class="btn" data-nav="final">Revisar saldos</button></div>`:''}
+ ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Abre Inventario para añadir productos o cargar la demostración.</p></div></div>`:''}
+ ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
  ${metricBox('volumen',statCard(metricLabels.volumen,format(all.quantity),'Suma de unidades registradas en todas las semanas','▦',M.spark(weeklyValues.slice(-12),'Unidades por semana',{left:'Por semanas',right:'Últimos registros',emptyWhenZero:true})))}
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',M.balances(all.rows)))}
  ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',M.valueMix(all.rows)))}
- </section>`;
+ </section>
+ <div class="dashboard-visual-row dashboard-warehouse">${window.AlmendraWarehouse?.render(state,C)||''}</div>
+ ${dashboardActions()}`;
+}
+const salesFilters={month:'',product:'',firstClient:'',secondClient:''};
+let speedQuery=null;
+function calendarDate(value){
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
+ const date=new Date(value+'T00:00:00Z');
+ return Number.isFinite(+date)&&date.toISOString().slice(0,10)===value;
+}
+function localSaleDate(){
+ const now=new Date();
+ return new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+function previousSalesMonth(month){
+ const date=new Date(month+'-01T00:00:00Z');
+ date.setUTCMonth(date.getUTCMonth()-1);
+ return date.toISOString().slice(0,7);
+}
+function sumSales(records){return C.round(records.reduce((total,sale)=>total+sale.units,0));}
+function compareSales(current,previous){
+ const change=C.round(current-previous);
+ return `${change>0?'+':''}${format(change)} unidades${previous?` (${change>0?'+':''}${format(change/previous*100)} %)`:' · sin base porcentual'}`;
+}
+function salesOptions(items,selected,label){
+ return items.map(item=>`<option value="${esc(item.id)}"${item.id===selected?' selected':''}>${esc(label(item))}</option>`).join('');
+}
+const salesClientLabel=client=>client.name?`${client.name} · ${client.code}`:client.code;
+function batchSpeed(records,product,start,quantity){
+ const days=new Map();
+ for(const sale of records){
+  if(sale.productId===product&&sale.date>=start)days.set(sale.date,(days.get(sale.date)||0)+sale.units);
+ }
+ let sold=0;
+ for(const date of [...days.keys()].sort()){
+  sold=C.round(sold+days.get(date));
+  if(sold>=quantity)return {date,days:(Date.parse(date)-Date.parse(start))/86400000,sold};
+ }
+ return {date:'',days:null,sold};
+}
+function renderSales(){
+ const month=salesFilters.month||localSaleDate().slice(0,7),previous=previousSalesMonth(month);
+ const products=state.products,clients=state.clients;
+ const product=products.find(p=>p.id===salesFilters.product)||products[0];
+ const first=clients.find(c=>c.id===salesFilters.firstClient)||clients[0];
+ const second=clients.find(c=>c.id===salesFilters.secondClient&&c.id!==first?.id)||clients.find(c=>c.id!==first?.id);
+ const records=(state.sales||[]).filter(sale=>!sale.voided);
+ const productNames=new Map(products.map(p=>[p.id,p.name]));
+ const clientNames=new Map(clients.map(c=>[c.id,salesClientLabel(c)]));
+ const current=records.filter(sale=>sale.date.startsWith(month));
+ const old=records.filter(sale=>sale.date.startsWith(previous));
+ const monthly=new Map([[month,0],[previous,0]]);
+ const leaders=new Map();
+ for(const sale of current){const entry=leaders.get(sale.productId)||{name:productNames.get(sale.productId)||sale.productName,units:0};entry.units=C.round(entry.units+sale.units);leaders.set(sale.productId,entry);}
+ for(const sale of records){
+  if(sale.productId===product?.id){const key=sale.date.slice(0,7);monthly.set(key,C.round((monthly.get(key)||0)+sale.units));}
+ }
+ const previousTotal=monthly.get(previous),currentTotal=monthly.get(month);
+ const clientRows=[first,second].filter(Boolean).map(client=>{
+  const total=sumSales(current.filter(s=>s.clientId===client.id)), prior=sumSales(old.filter(s=>s.clientId===client.id));
+  return `<tr><th scope="row">${esc(salesClientLabel(client))}</th><td>${format(prior)}</td><td>${format(total)}</td><td>${compareSales(total,prior)}</td></tr>`;
+ });
+ const priorByProduct=new Map();
+ for(const sale of old)priorByProduct.set(sale.productId,C.round((priorByProduct.get(sale.productId)||0)+sale.units));
+ const ranking=[...leaders.entries()].sort(([,a],[,b])=>b.units-a.units||a.name.localeCompare(b.name,'es'));
+ const table=(labels,rows)=>`<div class="table-scroll sales-table"><table class="data-table"><thead><tr>${labels.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+ let speedResult='';
+ if(speedQuery){
+  const {a,b,date,units}=speedQuery,names=[productNames.get(a),productNames.get(b)];
+  if(names.every(Boolean)){
+   const results=[a,b].map(id=>batchSpeed(records,id,date,units));
+   const [left,right]=results;
+   let outcome='Ninguno alcanzó la cantidad inicial con las ventas registradas.';
+   if(left.date||right.date){
+    outcome=left.date&&left.date===right.date?'Ambos alcanzaron la cantidad inicial el mismo día.':`${left.date&&(!right.date||left.date<right.date)?names[0]:names[1]} alcanzó primero la cantidad inicial.`;
+   }
+   speedResult=`<p role="status"><strong>${esc(outcome)}</strong></p>${table(['Producto','Tiempo para vender la cantidad inicial','Unidades vendidas'],results.map((r,i)=>`<tr><th scope="row">${esc(names[i])}</th><td>${r.date?`${r.days===0?'Mismo día':format(r.days,0)+' días'} · ${r.date}`:'Aún no alcanza la cantidad'}</td><td>${format(r.sold)}</td></tr>`))}`;
+  }
+ }
+ const visible=[...current].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+ const salesPage=selection(visible);
+ return `${heading('MÉTRICAS','Comparar ventas','Consulta ventas por producto y cliente, y compara el tiempo de salida de dos productos.',products.length?`<button type="button" class="btn btn-primary" data-action="record-sale">Registrar venta</button>`:'')}
+ <p class="sales-note">El análisis usa ventas fechadas. Puedes registrar ventas anteriores. Las cantidades del Registro semanal se consultan por separado.</p>
+ ${!products.length?empty('Agrega un producto para empezar','Después podrás registrar ventas y comparar resultados.','new-product','Añadir producto'):''}
+ <section class="card card-pad sales-section"><h2>Productos y clientes por mes</h2>
+ <form id="sales-filters" class="sales-fields">
+ <label class="field">Mes <input class="form-control" type="month" name="month" value="${month}" max="${localSaleDate().slice(0,7)}" required></label>
+ <label class="field">Producto <select class="form-control" name="product">${salesOptions(products,product?.id,p=>p.name)}</select></label>
+ <label class="field">Cliente externo 1 <select class="form-control" name="firstClient">${salesOptions(clients,first?.id,salesClientLabel)}</select></label>
+ <label class="field">Cliente externo 2 <select class="form-control" name="secondClient"><option value="">Seleccionar</option>${salesOptions(clients,second?.id,salesClientLabel)}</select></label>
+ <button class="btn" type="submit">Comparar</button></form>
+ <h3>Productos más vendidos · ${month}</h3>
+ ${ranking.length?table(['Producto',previous,month,'Variación mensual'],ranking.map(([id,row])=>{const prior=priorByProduct.get(id)||0;return `<tr><th scope="row">${esc(row.name)}</th><td>${format(prior)}</td><td>${format(row.units)}</td><td>${compareSales(row.units,prior)}</td></tr>`;})):'<p class="muted">Sin ventas registradas en este mes.</p>'}
+ ${product?`<h3>Historial mensual · ${esc(product.name)}</h3><p>${previous}: <strong>${format(previousTotal)}</strong> · ${month}: <strong>${format(currentTotal)}</strong> · Variación: ${compareSales(currentTotal,previousTotal)}</p>${table(['Mes','Unidades vendidas'],[...monthly].sort(([a],[b])=>b.localeCompare(a)).map(([key,total])=>`<tr><th scope="row">${key}</th><td>${format(total)}</td></tr>`))}`:''}
+ <h3>Comparación de clientes externos</h3>
+ ${clientRows.length?table(['Cliente',previous,month,'Variación mensual'],clientRows):''}
+ ${!second?'<p class="muted">Selecciona dos clientes distintos para compararlos.</p>':`<p class="muted">Diferencia en ${month}: ${format(Math.abs(sumSales(current.filter(s=>s.clientId===first.id))-sumSales(current.filter(s=>s.clientId===second.id))))} unidades entre los dos clientes.</p>`}
+ </section>
+ <section class="card card-pad sales-section"><h2>¿Cuál se vendió primero?</h2><p>Compara dos productos que llegaron el mismo día y con la misma cantidad. El cálculo acumula ventas desde esa fecha. Usa un lote sin existencias previas ni reposiciones durante la comparación.</p>
+ ${products.length>=2?`<form id="sales-speed" class="sales-fields">
+ <label class="field">Producto 1 <select class="form-control" name="a">${salesOptions(products,speedQuery?.a||products[0].id,p=>p.name)}</select></label>
+ <label class="field">Producto 2 <select class="form-control" name="b">${salesOptions(products,speedQuery?.b||products[1].id,p=>p.name)}</select></label>
+ <label class="field">Fecha de llegada <input class="form-control" type="date" name="date" value="${speedQuery?.date||localSaleDate()}" max="${localSaleDate()}" required></label>
+ <label class="field">Cantidad por producto <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="any" value="${speedQuery?.units||''}" required></label>
+ <button class="btn" type="submit">Comparar velocidad</button></form>${speedResult}`:'<p class="muted">Agrega al menos dos productos para comparar.</p>'}</section>
+ <section class="card card-pad sales-section"><h2>Ventas registradas · ${month}</h2>
+ ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${format(s.units)}</td><td><button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button></td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
+}
+function saleModal(){
+ if(!state.products.length)return;
+ showModal('Registrar venta',`<form id="sale-form" class="modal-body"><div class="modal-grid">
+ <label class="field">Producto <select class="form-control" name="productId" required>${salesOptions(state.products,salesFilters.product,p=>p.name)}</select></label>
+ <label class="field">Cliente externo <select class="form-control" name="clientId" required>${salesOptions(state.clients,salesFilters.firstClient,salesClientLabel)}</select></label>
+ <label class="field">Fecha de venta <input class="form-control" type="date" name="date" value="${localSaleDate()}" max="${localSaleDate()}" required></label>
+ <label class="field">Unidades vendidas <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="any" required></label>
+ </div><p>Esta venta se usa en las comparaciones. Registra los cambios de existencias en el flujo habitual del inventario.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="sale-form" class="btn btn-primary">Guardar venta</button>`);
+}
+function submitSales(form){
+ const data=Object.fromEntries(new FormData(form));
+ if(form.id==='sales-filters'){
+  if(!calendarDate(data.month+'-01')||data.month<'0001-02'||data.month>localSaleDate().slice(0,7))return toast('Selecciona un mes válido.');
+  if(data.firstClient===data.secondClient)return toast('Selecciona dos clientes distintos.');
+  Object.assign(salesFilters,data);page=0;render();return;
+ }
+ const units=Number(data.units);
+ if(!calendarDate(data.date)||data.date<'0001-02-01'||data.date>localSaleDate()||!Number.isFinite(units)||units<0.000001||units>1e12)return toast('Revisa la fecha y la cantidad.');
+ if(form.id==='sales-speed'){
+  if(data.a===data.b||![data.a,data.b].every(id=>state.products.some(p=>p.id===id)))return toast('Selecciona dos productos distintos.');
+  speedQuery={...data,units};render();return;
+ }
+ const product=state.products.find(p=>p.id===data.productId),client=state.clients.find(c=>c.id===data.clientId);
+ if(!product||!client)return toast('Selecciona un producto y un cliente válidos.');
+ const sale={id:id('sale'),date:data.date,productId:product.id,productName:product.name,clientId:client.id,clientName:salesClientLabel(client),units,voided:false};
+ if(mutation(`Venta registrada: ${product.name}`,()=>{(state.sales??=[]).push(sale);salesFilters.month=sale.date.slice(0,7);page=0;}))closeModal();
+}
+function voidSale(saleId){
+ const sale=(state.sales||[]).find(item=>item.id===saleId&&!item.voided);
+ if(sale&&confirm('¿Anular la venta seleccionada?'))mutation(`Venta anulada: ${sale.productName}`,()=>{sale.voided=true;});
 }
 function exportReviewCSV(){
  const info=Insights.analyze(state,C);
@@ -132,7 +313,7 @@ function renderStockAlerts(all){
  const negative=all.rows.filter(r=>Number(r.N)<0);
  if(!zero.length&&!negative.length)return '';
  const examples=[...negative,...zero].slice(0,4).map(r=>esc(r.product.name)).join(', ');
- return `<div class="stock-alert-summary" role="status"><span class="stock-alert-dot" aria-hidden="true"></span><div><strong>Revisión de existencias: ${negative.length} negativas · ${zero.length} en cero</strong><p>${examples}${negative.length+zero.length>4?' y otros productos':''}. Consulta el consolidado para verificar cantidades.</p></div><button class="btn btn-small" data-nav="final">Revisar</button></div>`;
+ return `<div class="stock-alert-summary" role="status"><span class="stock-alert-dot" aria-hidden="true"></span><div><strong>Revisión de existencias: ${negative.length} negativas · ${zero.length} en cero</strong><p>${examples}${negative.length+zero.length>4?' y otros productos':''}. Consulta el consolidado para verificar cantidades.</p></div></div>`;
 }
 function exportDashboardCSV(){
  const totals=C.totals(state,state.products);
@@ -153,7 +334,6 @@ async function exportDashboardImage(button){
    scale:Math.min(2,window.devicePixelRatio||1),
    onclone(doc,copy){
     copy.querySelectorAll('.metric-collapsed').forEach(card=>card.classList.remove('metric-collapsed'));
-    copy.querySelector('[data-dashboard-export="png"]').disabled=false;
     // Los SVG se rasterizan fuera del árbol y necesitan colores explícitos.
     copy.querySelectorAll('svg [fill^="var("],svg [stroke^="var("]').forEach(node=>{
      for(const attribute of ['fill','stroke']){
@@ -404,6 +584,12 @@ function normalizeImported(raw){
  const pageSize=[10,20,40,80].includes(settings.pageSize)?settings.pageSize:20;
  const audit=Array.isArray(raw.audit)?raw.audit.slice(0,350).map(e=>({id:safeid(e.id)?e.id:id('evt'),label:string(e.label,240),actor:'Este dispositivo',at:string(e.at,50)})):[];
  const clean={version:1,createdAt:string(raw.createdAt,40)||new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette,mode,currency,pageSize,density:['compact','comfortable'].includes(settings.density)?settings.density:'comfortable',lastAutoBackup:0},products,clients,periods,movements:normalizeMatrix(raw.movements,true),prices:normalizeMatrix(raw.prices,false),weekTotals:normalizeMatrix(raw.weekTotals,false),audit};
+ if(raw.sales!==undefined&&(!Array.isArray(raw.sales)||raw.sales.length>500000))throw new Error('Registro de ventas no válido.');
+ clean.sales=makeUnique(raw.sales||[],'Venta',sale=>{
+  const units=decimal(sale.units);
+  if(!safeid(sale.productId)||!safeid(sale.clientId)||!calendarDate(sale.date)||sale.date<'0001-02-01'||units<0.000001||units>1e12)throw new Error('Venta con fecha o cantidad no válida.');
+  return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,voided:sale.voided===true};
+ });
  clean.gu4=GU4?.normalizeGu4(raw.gu4,clean)||newState().gu4;return clean;
 }
 function mergeStates(local,remote){
@@ -419,6 +605,12 @@ function mergeStates(local,remote){
    }
   }
  }
+ const salesById=new Map((local.sales||[]).map(sale=>[sale.id,sale]));
+ for(const sale of remote.sales||[]){
+  const matching=salesById.get(sale.id);
+  salesById.set(sale.id,{...sale,voided:sale.voided||matching?.voided||false});
+ }
+ out.sales=[...salesById.values()];
  const byAudit=new Map([...remote.audit,...local.audit].map(e=>[e.id,e]));out.audit=[...byAudit.values()].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,350);
  if(GU4){const l=local.gu4||newState().gu4,r=remote.gu4||newState().gu4;out.gu4=GU4.normalizeGu4({...l,locations:[...(r.locations||[]),...(l.locations||[])],counts:[...(r.counts||[]),...(l.counts||[])]},out);}
  return out;
@@ -467,7 +659,7 @@ function csvMovements(){
  csvDownload(rows,'Registros');
 }
 // Buscador global: navegación y acceso a productos con Ctrl/Cmd+K.
-const searchTargets=[['dashboard','Panel general'],['weekly','Registro semanal'],['final','Consolidado'],['products','Productos'],['clients','Clientes / espacios'],['audit','Historial'],['backup','Copias y migración'],['settings','Configuración']];
+const searchTargets=[['dashboard','Panel general'],['weekly','Registro semanal'],['final','Consolidado'],['products','Productos'],['clients','Clientes / espacios'],['audit','Historial'],['backup','Copias y migración'],['settings','Configuración'],['sales','Comparar ventas']];
 function closePalette(){const dialog=$('#command-palette');if(dialog)dialog.hidden=true;}
 function paletteOptions(){
  const input=$('#palette-input');if(!input||!state)return;
@@ -487,6 +679,8 @@ document.addEventListener('click',e=>{
 document.addEventListener('input',e=>{if(e.target.id==='palette-input')paletteOptions();});
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
 document.addEventListener('click',e=>{
+ const trigger=e.target.closest('[data-dashboard-menu]');
+ if(trigger){openDashboardMenu(trigger);return;}
  const button=e.target.closest('[data-dashboard-export]');
  if(!button||view!=='dashboard')return;
  if(button.dataset.dashboardExport==='png')exportDashboardImage(button);
@@ -508,6 +702,8 @@ document.addEventListener('click',async e=>{
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
   case 'new-product':productModal();break;
+  case 'record-sale':saleModal();break;
+  case 'void-sale':voidSale(targetId);break;
   case 'edit-product':productModal(targetId);break;
   case 'remove-product':await removeProduct(targetId);break;
   case 'new-period':periodModal();break;
@@ -541,7 +737,8 @@ document.addEventListener('click',async e=>{
  }}catch(err){toast('No se pudo completar la acción: '+err.message);}
 });
 document.addEventListener('submit',e=>{
- const form=e.target;if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
+ const form=e.target;if(['sales-filters','sales-speed','sale-form'].includes(form.id)){e.preventDefault();submitSales(form);return;}
+ if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
  if(form.id==='product-form')submitProduct(form);
  if(form.id==='period-form')submitPeriod(form);
  if(form.id==='password-form'){
@@ -567,6 +764,7 @@ document.addEventListener('input',e=>{
  if(el.id==='audit-search'){const pos=el.selectionStart;auditQuery=el.value;render();const next=$('#audit-search');if(next){next.focus();try{next.setSelectionRange(pos,pos);}catch{}}}
 });
 document.addEventListener('keydown',e=>{
+ if(document.getElementById('dashboard-menu')?.open)return;
  const cell=e.target.closest?.('.week-scroll-2d td');
  if(cell&&e.target.matches('input[data-edit]')&&(e.key==='Enter'||(e.altKey&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)))){
   const tr=cell.closest('tr'), tbody=tr?.parentElement, rows=tbody?.querySelectorAll('tr');
