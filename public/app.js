@@ -154,15 +154,6 @@ function renderDashboard(){
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows))))}
  ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',M.valueMix(all.rows)))}
  </section>
- <section class="card card-pad dashboard-sales" aria-labelledby="dashboard-sales-title">
-  <h2 id="dashboard-sales-title">Métricas de ventas</h2>
-  <div class="dashboard-sales-actions">
-   <button type="button" class="btn" data-action="sales-section" data-id="sales-monthly">Ventas por mes</button>
-   <button type="button" class="btn" data-action="sales-section" data-id="sales-clients">Comparar clientes</button>
-   <button type="button" class="btn" data-action="sales-section" data-id="sales-turnover">Comparar velocidad de venta</button>
-   ${state.products.length?`<button type="button" class="btn btn-primary" data-action="record-sale">Registrar venta</button>`:''}
-  </div>
- </section>
  <div class="dashboard-visual-row dashboard-warehouse">${window.AlmendraWarehouse?.render(state)||''}</div>
  ${dashboardActions()}`;
 }
@@ -1004,13 +995,6 @@ document.addEventListener('click',async e=>{
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
   case 'new-product':productModal();break;
-  case 'sales-section':{
-   navigate('sales');
-   const section=document.getElementById(targetId);
-   section?.focus({preventScroll:true});
-   section?.scrollIntoView({block:'start'});
-   break;
-  }
   case 'product-trace':productTrace(targetId);break;
   case 'client-trace':clientTrace(targetId);break;
   case 'receive-lot':lotModal(targetId);break;

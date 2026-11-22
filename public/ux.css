@@ -321,10 +321,6 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .sales-table .data-table { min-width: 380px; }
 .sales-table tbody th { text-align: left; white-space: normal; }
 
-.dashboard-sales { margin-block: 14px 18px; }
-.dashboard-sales h2 { margin: 0 0 10px; }
-.dashboard-sales-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.dashboard-sales-actions .btn { min-height: 44px; }
 #sales-monthly, #sales-clients, #sales-turnover { scroll-margin-top: 88px; }
 
 /* Ventanas de trazabilidad y ubicación de lotes. */
