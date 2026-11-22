@@ -152,20 +152,21 @@ function renderDashboard(){
  <section class="stats-grid" aria-label="Indicadores generales">
  ${metricBox('volumen',statCard(metricLabels.volumen,format(all.quantity),'Suma de unidades registradas en todas las semanas','▦',unitReportCard('sales',M.spark(weeklyValues.slice(-12),'Unidades por semana',{left:'Por semanas',right:'Últimos registros',emptyWhenZero:true}))))}
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows))))}
- ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',M.valueMix(all.rows)))}
+ ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',unitReportCard('value',M.valueMix(all.rows))))}
  </section>
  <div class="dashboard-visual-row dashboard-warehouse">${window.AlmendraWarehouse?.render(state)||''}</div>
  ${dashboardActions()}`;
 }
 const unitReportSources={
  sales:{title:'Filtrar ventas · Unidades registradas',button:'Filtrar ventas',caption:'Unidades vendidas',description:'Marca las filas que quieras comparar. Cada fila tiene un color en el gráfico.'},
+ value:{title:'Filtrar valor · Inventario',button:'Filtrar valor',caption:'Valor registrado',description:'Multiplica las unidades del Registro semanal por el valor unitario actual de cada producto. El saldo total del inventario aplica además los ajustes globales del producto. Los grupos mensuales y anuales usan la fecha de inicio de cada semana.'},
  stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro semanal. Para agrupar por mes o año se usa la fecha de inicio de cada semana. Las semanas sin fecha aparecen en la vista semanal cuando dejas el rango vacío.'}
 };
 const newUnitReport=source=>({
  source,group:'product',period:'week',from:'',to:'',cross:'',query:'',page:0,customDates:false,active:false,
  selected:{product:new Map(),client:new Map()}
 });
-const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock')};
+const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock'),value:newUnitReport('value')};
 const reportColors=['#2369d0','#b43e1e','#07815e','#8b46bc','#a46c00','#007e93','#c72c67','#627420'];
 function reportDate(date){return date.toISOString().slice(0,10);}
 function reportPeriod(date,period){
@@ -181,9 +182,9 @@ function shiftReportPeriod(day,period,offset){
  return day;
 }
 function setDefaultReportDates(report){
- const stock=report.source==='stock',period=report.period;
- if(stock&&period==='week'){report.from='';report.to='';return;}
- const latest=(stock
+ const weekly=report.source!=='sales',period=report.period;
+ if(weekly&&period==='week'){report.from='';report.to='';return;}
+ const latest=(weekly
   ?state.periods.reduce((date,item)=>calendarDate(item.start)&&item.start>date?item.start:date,'')
   :(state.sales||[]).reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,''))||localSaleDate();
  report.from=reportDate(shiftReportPeriod(reportPeriod(latest,period),period,period==='year'?-4:-11));
@@ -200,10 +201,10 @@ function reportEntities(group,source){
  return [...items].map(([id,label])=>({id,label})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));
 }
 function unitReportModel(report){
- const {source,group,period,from,to,cross}=report,stock=source==='stock';
+ const {source,group,period,from,to,cross}=report,weekly=source!=='sales';
  const entities=reportEntities(group,source),periods=[],byId=new Map();
  const validRange=(!from||calendarDate(from))&&(!to||calendarDate(to))&&(!from||!to||from<=to);
- const nativeWeeks=stock&&period==='week';
+ const nativeWeeks=weekly&&period==='week';
  if(!validRange||(!nativeWeeks&&(!from||!to)))return {entities,periods,byId,error:'Selecciona un rango de fechas válido.'};
  const withinDate=date=>(!from||date>=from)&&(!to||date<=to);
  if(nativeWeeks){
@@ -226,13 +227,15 @@ function unitReportModel(report){
   row.total=C.round(row.total+units);
   row.values.set(key,C.round((row.values.get(key)||0)+units));
  };
- if(stock){
+ if(weekly){
+  const unitValues=source==='value'?new Map(state.products.map(product=>[product.id,C.num(product.value)])):null;
   const nativeIds=new Set(nativeWeeks?periods.map(item=>item.key):[]);
   for(const week of state.periods){
    if(nativeWeeks?!nativeIds.has(week.id):(!calendarDate(week.start)||!withinDate(week.start)))continue;
    const key=nativeWeeks?week.id:reportDate(reportPeriod(week.start,period));
    for(const [productId,clients] of Object.entries(state.movements?.[week.id]||{})){
-    for(const [clientId,quantity] of Object.entries(clients))add(productId,clientId,key,C.num(quantity));
+    const multiplier=unitValues?(unitValues.get(productId)||0):1;
+    for(const [clientId,quantity] of Object.entries(clients))add(productId,clientId,key,C.num(quantity)*multiplier);
    }
   }
  }else{
@@ -248,6 +251,10 @@ function reportSeries(model,report){
   ...item,color:selected.get(item.id),values:model.periods.map(period=>model.byId.get(item.id)?.values.get(period.key)||0)
  }));
 }
+function reportAmount(report,amount){
+ if(report.source!=='value')return traceQuantity(amount);
+ return new Intl.NumberFormat('es-CO',{style:'currency',currency:state.settings.currency||'COP'}).format(amount);
+}
 function reportChart(model,report,compact=false){
  const series=reportSeries(model,report);
  if(model.error||!series.length||!model.periods.length)return `<div class="metric-vis-empty">${esc(model.error||'Selecciona filas de la tabla para graficar.')}</div>`;
@@ -258,10 +265,10 @@ function reportChart(model,report,compact=false){
  const x=i=>left+(right-left)*(model.periods.length===1?.5:i/(model.periods.length-1));
  const y=value=>bottom-(bottom-top)*((value-min)/range);
  const tickGap=Math.max(1,Math.ceil((model.periods.length-1)/(compact?2:5)));
- const chart=`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(unitReportSources[report.source].caption)} por período"><title>Unidades de las filas seleccionadas. Las cifras exactas aparecen en la tabla.</title>
+ const chart=`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(unitReportSources[report.source].caption)} por período"><title>Datos de las filas seleccionadas. Las cifras exactas aparecen en la tabla.</title>
  ${[0,.5,1].map(r=>`<line x1="${left}" x2="${right}" y1="${y(min+range*r)}" y2="${y(min+range*r)}" stroke="var(--line)"/><text x="${left-5}" y="${y(min+range*r)+4}" text-anchor="end" fill="var(--muted)">${esc(new Intl.NumberFormat('es-CO',{notation:'compact',maximumFractionDigits:2}).format(min+range*r))}</text>`).join('')}
  ${model.periods.map(({label},i)=>i%tickGap===0||i===model.periods.length-1?`<text x="${x(i)}" y="${bottom+21}" text-anchor="${i===0?'start':i===model.periods.length-1?'end':'middle'}" fill="var(--muted)">${esc(compact&&/^\d{4}-\d{2}-\d{2}$/.test(label)?label.slice(5):label)}</text>`:'').join('')}
- ${series.map((entry,index)=>`<polyline points="${entry.values.map((value,i)=>x(i).toFixed(2)+','+y(value).toFixed(2)).join(' ')}" stroke="${entry.color}" fill="none" stroke-width="2.5" stroke-linejoin="round"${index?` stroke-dasharray="${4+index%6} ${3+index%3}"`:''}/>${entry.values.length<=20?entry.values.map((value,i)=>`<circle cx="${x(i)}" cy="${y(value)}" r="3" fill="${entry.color}"><title>${esc(entry.label)} · ${esc(model.periods[i].label)} · ${traceQuantity(value)} unidades</title></circle>`).join(''):''}`).join('')}</svg>`;
+ ${series.map((entry,index)=>`<polyline points="${entry.values.map((value,i)=>x(i).toFixed(2)+','+y(value).toFixed(2)).join(' ')}" stroke="${entry.color}" fill="none" stroke-width="2.5" stroke-linejoin="round"${index?` stroke-dasharray="${4+index%6} ${3+index%3}"`:''}/>${entry.values.length<=20?entry.values.map((value,i)=>`<circle cx="${x(i)}" cy="${y(value)}" r="3" fill="${entry.color}"><title>${esc(entry.label)} · ${esc(model.periods[i].label)} · ${reportAmount(report,value)}</title></circle>`).join(''):''}`).join('')}</svg>`;
  return `<div class="unit-report-chart${compact?' unit-report-compact':''}">${chart}<ul class="unit-report-legend">${series.map(item=>`<li><i style="background-color:${item.color}"></i>${esc(item.label)}</li>`).join('')}</ul></div>`;
 }
 function unitReportRows(model,report){
@@ -273,7 +280,7 @@ function unitReportRows(model,report){
  if(!rows.length)return '<p class="muted" role="status">Sin resultados para este filtro.</p>';
  return `<div class="table-scroll unit-report-table"><table class="data-table"><caption>${esc(unitReportSources[report.source].caption)}${report.source==='sales'&&report.period==='week'?' por semana (desde el lunes)':''}</caption><thead><tr><th scope="col">${report.group==='product'?'Producto':'Cliente'}</th>${model.periods.map(period=>`<th scope="col">${esc(period.label)}</th>`).join('')}<th scope="col">Total</th></tr></thead><tbody>${rows.slice(start,start+size).map(item=>{
   const result=model.byId.get(item.id),color=selected.get(item.id);
-  return `<tr><th scope="row"><label><input type="checkbox" data-unit-series value="${esc(item.id)}" ${color?'checked':''}>${color?`<i class="unit-report-dot" style="background-color:${color}"></i>`:''}<span>${esc(item.label)}</span></label></th>${model.periods.map(period=>`<td>${traceQuantity(result?.values.get(period.key)||0)}</td>`).join('')}<td><strong>${traceQuantity(result?.total||0)}</strong></td></tr>`;
+  return `<tr><th scope="row"><label><input type="checkbox" data-unit-series value="${esc(item.id)}" ${color?'checked':''}>${color?`<i class="unit-report-dot" style="background-color:${color}"></i>`:''}<span>${esc(item.label)}</span></label></th>${model.periods.map(period=>`<td>${reportAmount(report,result?.values.get(period.key)||0)}</td>`).join('')}<td><strong>${reportAmount(report,result?.total||0)}</strong></td></tr>`;
  }).join('')}</tbody></table></div><div class="unit-report-pages"><span>${start+1}–${Math.min(start+size,rows.length)} de ${rows.length}</span><button class="btn btn-small" type="button" data-unit-page="-1" ${start===0?'disabled':''}>Anterior</button><button class="btn btn-small" type="button" data-unit-page="1" ${start/size>=last?'disabled':''}>Siguiente</button></div>`;
 }
 function unitReportCard(source,originalChart){
