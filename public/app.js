@@ -75,8 +75,8 @@ function updateHeader(){
  $$('[data-nav]').forEach(btn=>{btn.classList.toggle('active',btn.dataset.nav===view);if(btn.classList.contains('nav-item'))btn.setAttribute('aria-current',btn.dataset.nav===view?'page':'false');});
  $('#undo-btn').disabled=undoStack.length===0;
 }
-function navigate(destination){if(!titleMap[destination])return;view=destination;query='';page=0;render();window.scrollTo({top:0,behavior:'instant'});}
-function switchPeriod(next){if(!state.periods.some(p=>p.id===next))return;periodId=next;page=0;render();}
+function navigate(destination){if(!titleMap[destination])return;weeklyPreviewProduct='';view=destination;query='';page=0;render();window.scrollTo({top:0,behavior:'instant'});}
+function switchPeriod(next){if(!state.periods.some(p=>p.id===next))return;if(weeklyPreviewProduct)query='';weeklyPreviewProduct='';periodId=next;page=0;render();}
 function productsFiltered(){const q=query.toLocaleLowerCase('es').trim();return state.products.filter(p=>`${p.name} ${p.category||''} ${p.productNumber||''} ${p.vesselNumber||''} ${p.boxNumber||''} ${p.unit||''}`.toLocaleLowerCase('es').includes(q));}
 function selection(items){const limit=state.settings.pageSize||20;const last=Math.max(0,Math.ceil(items.length/limit)-1);page=Math.min(page,last);return {rows:items.slice(page*limit,(page+1)*limit),total:items.length,last};}
 function pageFoot(sel,label){return `<div class="table-footer"><span><b>${sel.total}</b> ${esc(label)} · página ${page+1} de ${sel.last+1}</span><div class="pager"><button data-page="prev" ${page<=0?'disabled':''}>Anterior</button><button data-page="next" ${page>=sel.last?'disabled':''}>Siguiente</button></div></div>`;}
@@ -698,18 +698,89 @@ function activePeriod(){let p=state.periods.find(p=>p.id===periodId);if(!p){p=st
 function currentSlots(){const limit=slotCount===0?state.clients.length:slotCount;return state.clients.slice(slotOffset,slotOffset+limit);}
 function slotSelect(){const total=state.clients.length;const block=Math.min(slotCount||total,total);let ranges='';for(let i=0;i<total;i+=Math.max(block,1)){const end=Math.min(i+block,total);ranges+=`<option value="${i}" ${slotOffset===i?'selected':''}>A-${i+1} a A-${end}</option>`;}
  return `<div class="field"><label>Espacios visibles</label><select class="form-control" id="slot-count"><option value="10" ${slotCount===10?'selected':''}>10 espacios</option><option value="20" ${slotCount===20?'selected':''}>20 espacios</option><option value="50" ${slotCount===50?'selected':''}>50 espacios</option><option value="0" ${slotCount===0?'selected':''}>Todos (${total})</option></select></div><div class="field"><label>Ir al bloque</label><select class="form-control" id="slot-offset" ${slotCount===0?'disabled':''}>${ranges}</select></div>`;}
+let weeklyPreviewProduct='';
+function weeklyProductIds(period){
+ const ids=new Set(period.productIds||[]);
+ for(const [id,movements] of Object.entries(state.movements[period.id]||{})){
+  if(Object.keys(movements||{}).length)ids.add(id);
+ }
+ for(const id of Object.keys(state.prices[period.id]||{}))ids.add(id);
+ for(const id of Object.keys(state.weekTotals[period.id]||{}))ids.add(id);
+ return ids;
+}
+function weeklyCatalogPicker(){
+ const period=activePeriod();
+ if(period.locked)return toast('Reabre el período para añadir productos.');
+ if(!state.products.length){
+  showModal('Productos del catálogo','<div class="modal-body"><p>Añade primero los productos al catálogo y luego selecciónalos aquí para la semana.</p></div>',
+   '<button type="button" class="btn" data-action="close-modal">Cerrar</button><button type="button" class="btn btn-primary" data-action="weekly-catalog">Ir a Productos</button>');
+  return;
+ }
+ const attached=weeklyProductIds(period),chosen=new Set();
+ let pickerPage=0;
+ showModal(`Añadir productos · ${period.label}`,`<div class="modal-body weekly-picker">
+ <label class="field">Buscar en Productos <input type="search" class="form-control" id="weekly-picker-search" placeholder="Nombre, número, caja o embarcación"></label>
+ <p>Marca los productos que quieres registrar en esta semana.</p>
+ <div id="weekly-picker-results"></div></div>`,`<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="button" class="btn btn-primary" id="weekly-picker-add" disabled>Añadir seleccionados</button>`);
+ const search=$('#weekly-picker-search'),results=$('#weekly-picker-results'),add=$('#weekly-picker-add');
+ const syncButton=()=>{
+  add.disabled=chosen.size===0;
+  add.textContent=chosen.size?`Añadir seleccionados (${chosen.size})`:'Añadir seleccionados';
+ };
+ const draw=()=>{
+  const keyword=search.value.trim().toLocaleLowerCase('es');
+  const products=state.products.filter(p=>[p.name,p.productNumber,p.boxNumber,p.vesselNumber].join(' ').toLocaleLowerCase('es').includes(keyword));
+  const size=25,last=Math.max(0,Math.ceil(products.length/size)-1);
+  pickerPage=Math.min(pickerPage,last);
+  if(!products.length){results.innerHTML='<p class="muted">Ningún producto coincide con la búsqueda.</p>';return;}
+  results.innerHTML=`<div class="table-scroll weekly-picker-scroll"><table class="data-table"><thead><tr><th scope="col">Añadir</th><th scope="col">Producto</th><th scope="col">Número de producto</th><th scope="col">Caja</th><th scope="col">Embarcación</th><th scope="col" class="num">Unidades por caja</th></tr></thead>
+   <tbody>${products.slice(pickerPage*size,(pickerPage+1)*size).map(p=>`<tr>
+    <td>${attached.has(p.id)?'<span class="muted">Ya añadido</span>':`<input type="checkbox" data-weekly-pick value="${esc(p.id)}" aria-label="Añadir ${esc(p.name)}"${chosen.has(p.id)?' checked':''}>`}</td>
+    <th scope="row">${esc(p.name)}</th><td>${esc(p.productNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td>${esc(p.vesselNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td>
+   </tr>`).join('')}</tbody></table></div>
+   ${last?`<div class="unit-report-pages"><span>Página ${pickerPage+1} de ${last+1}</span><button type="button" class="btn btn-small" data-weekly-picker-page="-1"${pickerPage===0?' disabled':''}>Anterior</button><button type="button" class="btn btn-small" data-weekly-picker-page="1"${pickerPage===last?' disabled':''}>Siguiente</button></div>`:''}`;
+ };
+ search.addEventListener('input',()=>{pickerPage=0;draw();});
+ results.addEventListener('change',event=>{
+  const input=event.target;if(!input.matches('[data-weekly-pick]'))return;
+  if(input.checked)chosen.add(input.value);else chosen.delete(input.value);
+  syncButton();
+ });
+ results.addEventListener('click',event=>{
+  const button=event.target.closest('[data-weekly-picker-page]');if(!button)return;
+  pickerPage+=Number(button.dataset.weeklyPickerPage);draw();
+  (results.querySelector(`[data-weekly-picker-page="${button.dataset.weeklyPickerPage}"]:not(:disabled)`)||results.querySelector('[data-weekly-pick]'))?.focus();
+ });
+ add.addEventListener('click',()=>{
+  const current=state.periods.find(item=>item.id===period.id);
+  if(view!=='weekly'||periodId!==period.id||!current||current.locked)return toast('La semana ya no está disponible para editar.');
+  const known=weeklyProductIds(current);
+  const selected=state.products.filter(p=>chosen.has(p.id)&&!known.has(p.id)).map(p=>p.id);
+  if(!selected.length)return;
+  if(mutation(`Productos añadidos a ${current.label}: ${selected.length}`,()=>{
+   current.productIds=[...new Set([...(current.productIds||[]),...selected])];
+   weeklyPreviewProduct='';query='';
+   const ids=weeklyProductIds(current),ordered=state.products.filter(p=>ids.has(p.id));
+   page=Math.floor(ordered.findIndex(p=>p.id===selected[0])/(state.settings.pageSize||20));
+  }))closeModal();
+ });
+ draw();
+}
 function renderWeekly(){
- const period=activePeriod(),slots=currentSlots(),all=productsFiltered(),sel=selection(all),locked=period.locked,weekQty=state.products.reduce((s,p)=>s+C.qty(state,period.id,p.id),0);
+ const period=activePeriod(),slots=currentSlots(),ids=weeklyProductIds(period),locked=period.locked;
+ const all=productsFiltered().filter(p=>ids.has(p.id)||p.id===weeklyPreviewProduct),sel=selection(all);
+ const count=state.products.filter(p=>ids.has(p.id)).length;
+ const weekQty=state.products.reduce((s,p)=>s+C.qty(state,period.id,p.id),0);
  const cols=slots.map(cl=>`<th class="slot-col" title="${esc(cl.name||cl.code)}">${esc(cl.name||cl.code)}</th>`).join('');
  const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal con desplazamiento horizontal y vertical"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
   return `<tr><td class="sticky-first">${productButton(pr)}</td>${slots.map(cl=>`<td class="week-cell">${numInput('movement',state.movements[period.id]?.[pr.id]?.[cl.id]??'',`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" aria-label="${esc(pr.name)} / ${esc(cl.name||cl.code)}" ${locked?'disabled':''}`)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="week-cell">${numInput('price',prc,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Precio ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="week-cell">${numInput('week-total',total,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Total manual ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
- }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',state.products.length?'No hay coincidencias para tu búsqueda.':'Crea un producto para comenzar a registrar cantidades.','new-product','Añadir producto');
+ }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona productos del catálogo para registrarlos en esta semana.':'El catálogo está vacío.',locked?'':'weekly-picker','Añadir productos');
  const mobile=sel.rows.length?`<div class="week-mobile">${sel.rows.map(pr=>{const qty=C.qty(state,period.id,pr.id);return `<article class="card week-product"><div class="week-product-head"><h3>${productButton(pr)}</h3><span class="badge ${qty<0?'danger':qty>0?'good':''}">Total ${format(qty)}</span></div><div class="week-product-grid">${slots.map(cl=>`<div class="field"><label>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</label><input class="form-control" type="number" inputmode="decimal" step="any" placeholder="0" data-edit="movement" value="${esc(state.movements[period.id]?.[pr.id]?.[cl.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" ${locked?'disabled':''}></div>`).join('')}</div><div class="week-product-grid" style="margin-top:13px"><div class="field"><label>Precio unitario (CY)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="price" value="${esc(state.prices[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div><div class="field"><label>Total manual (CZ)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="week-total" value="${esc(state.weekTotals[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div></div><div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${money(qty*(state.prices[period.id]?.[pr.id]||0))}</strong></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:'';
  return `${heading('CAPTURA DE DATOS','Registro semanal','Registra cantidades por espacio. Enter avanza una fila; Alt + flechas navega entre celdas.',`<button class="btn" data-action="edit-period">Editar período</button><button class="btn btn-primary" data-action="new-period">+ Semana</button>`)}
  <div class="week-tabs" role="tablist" aria-label="Períodos">${state.periods.map(p=>`<button class="week-tab ${p.id===period.id?'active':''}" data-period-tab="${esc(p.id)}" role="tab" aria-selected="${p.id===period.id}">${esc(p.label)}${p.locked?' · 🔒':''}</button>`).join('')}</div>
- <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos: <strong>${state.products.length}</strong></span></div></div>
- <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button class="btn btn-small" data-action="new-product">+ Producto</button></div></div>
+ <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos de la semana: <strong>${count}</strong></span></div></div>
+ <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-picker"${locked?' disabled':''}>+ Añadir productos</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
  <p class="table-hint">Desplazamiento horizontal y vertical. Enter ↓ · Alt + flechas para navegar. En móvil: tarjetas.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
 }
@@ -957,7 +1028,7 @@ async function removeProduct(productId){
  const p=state.products.find(x=>x.id===productId);if(!p)return;
  if(!confirm(`¿Eliminar «${p.name}»? Se borrarán sus cantidades, precios y totales semanales. Se creará una copia interna preventiva.`))return;
  await removalCheckpoint('antes de eliminar producto');
- mutation(`Producto eliminado: ${p.name}`,()=>{state.products=state.products.filter(x=>x.id!==productId);if(state.gu4?.locations)state.gu4.locations=state.gu4.locations.filter(x=>x.productId!==productId);for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];});
+ mutation(`Producto eliminado: ${p.name}`,()=>{state.products=state.products.filter(x=>x.id!==productId);for(const period of state.periods)if(period.productIds)period.productIds=period.productIds.filter(id=>id!==productId);if(state.gu4?.locations)state.gu4.locations=state.gu4.locations.filter(x=>x.productId!==productId);for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];});
 }
 async function removePeriod(pId){
  const p=state.periods.find(x=>x.id===pId);if(!p||state.periods.length<=1)return;
@@ -1060,8 +1131,9 @@ function normalizeImported(raw){
  });
  const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupIds:Array.isArray(p.groupIds)?p.groupIds.filter(id=>typeof id==='string'&&safeid(id)):undefined,groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),catalogRack:p.catalogRack===undefined?undefined:([1,2,3].includes(Number(p.catalogRack))?Number(p.catalogRack):0),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
  const clients=makeUnique(raw.clients,'Cliente',c=>({id:c.id,code:string(c.code,35)||c.id,name:string(c.name,90),active:c.active!==false}));
- const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked}));
+ const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked,productIds:Array.isArray(p.productIds)?[...new Set(p.productIds.filter(id=>typeof id==='string'&&safeid(id)))]:undefined}));
  const periodIDs=new Set(periods.map(p=>p.id)),productIDs=new Set(products.map(p=>p.id)),clientIDs=new Set(clients.map(c=>c.id));
+ for(const period of periods)if(period.productIds)period.productIds=period.productIds.filter(id=>productIDs.has(id));
  let counter=0;
  function normalizeMatrix(source,withClient){const output=Object.create(null);if(source===undefined||source===null)return output;if(!source||typeof source!=='object'||Array.isArray(source))throw new Error('Estructura de registros no válida.');
   for(const [wid,productsMap] of Object.entries(source)){if(!periodIDs.has(wid))continue;if(!productsMap||typeof productsMap!=='object'||Array.isArray(productsMap))throw new Error('Registros de período no válidos.');
@@ -1117,7 +1189,13 @@ function mergeStates(local,remote){
   if(!prior)return product;
   return {...product,groupIds:product.groupIds??prior.groupIds,catalogRack:product.catalogRack??prior.catalogRack,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
  });
- out.clients=mergeList(local.clients,remote.clients);out.periods=mergeList(local.periods,remote.periods);
+ out.clients=mergeList(local.clients,remote.clients);
+ const localPeriods=new Map(local.periods.map(period=>[period.id,period]));
+ out.periods=mergeList(local.periods,remote.periods).map(period=>{
+  const prior=localPeriods.get(period.id);
+  if(!prior?.productIds&&!period.productIds)return period;
+  return {...period,productIds:[...new Set([...(prior?.productIds||[]),...(period.productIds||[])])]};
+ });
  const groupsById=new Map((local.catalogGroups||[]).map(group=>[group.id,group]));
  for(const group of remote.catalogGroups||[]){
   const previous=groupsById.get(group.id);
@@ -1241,6 +1319,8 @@ document.addEventListener('click',async e=>{
  const action=btn.dataset.action,targetId=btn.dataset.id;
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
+  case 'weekly-picker':weeklyCatalogPicker();break;
+  case 'weekly-catalog':closeModal();navigate('products');break;
   case 'new-product':productModal();break;
   case 'product-trace':productTrace(targetId);break;
   case 'client-trace':clientTrace(targetId);break;
@@ -1260,7 +1340,7 @@ document.addEventListener('click',async e=>{
   case 'remove-period':await removePeriod(targetId);break;
   case 'clients':navigate('clients');break;
   case 'add-client':{const count=state.clients.length+1;mutation(`Espacio A-${count} creado`,()=>state.clients.push({id:id('client'),code:'A-'+count,name:'',active:true}));toast('Nuevo espacio A-'+count+' disponible en todas las semanas.');break;}
-  case 'jump-week':periodId=btn.dataset.period||state.periods[0].id;query=state.products.find(p=>p.id===targetId)?.name||'';page=0;view='weekly';render();break;
+  case 'jump-week':weeklyPreviewProduct=targetId;periodId=btn.dataset.period||state.periods[0].id;query=state.products.find(p=>p.id===targetId)?.name||'';page=0;view='weekly';render();break;
   case 'demo':sampleData();break;
   case 'export-json':await exportJSON();break;
   case 'export-encrypted':await encryptedExport();break;
