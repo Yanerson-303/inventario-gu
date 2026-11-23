@@ -461,3 +461,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .product-provenance h3 { margin: 0 0 5px; }
 .product-provenance .data-table { min-width: 0; }
 #catalog-provenance-review { margin-top: 12px; scroll-margin: 12px; }
+
+/* Acceso a la revisión de cantidades desde el registro semanal. */
+.weekly-quantity-link { min-width: 38px; min-height: 34px; padding: 3px 8px; color: var(--accent); background: transparent; border: 0; border-radius: 6px; font: inherit; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.weekly-quantity-link:hover, .weekly-quantity-link:focus-visible { background: var(--accent-soft); }

@@ -668,6 +668,12 @@ function saveWeeklyValues(form){
   }
  }))closeModal();
 }
+function weeklyQuantityCell(period,client,product){
+ const units=state.movements[period.id]?.[product.id]?.[client.id];
+ if(units==null||period.locked)return weeklyNumber(units);
+ const label=`Revisar cantidad de ${product.name} para ${salesClientLabel(client)}: ${weeklyNumber(units)}`;
+ return `<button type="button" class="weekly-quantity-link" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" data-id="${esc(product.id)}" aria-label="${esc(label)}" aria-haspopup="dialog">${weeklyNumber(units)}</button>`;
+}
 function weeklyClientButton(period,client){
  return `<button type="button" class="btn btn-small" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" ${period.locked?'disabled':''}>${esc(salesClientLabel(client))}</button>`;
 }
@@ -793,12 +799,12 @@ function renderWeekly(){
  const cols=slots.map(cl=>`<th class="slot-col" title="${esc(cl.name||cl.code)}">${esc(cl.name||cl.code)}</th>`).join('');
  const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal de solo lectura"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
-  return `<tr><td class="sticky-first">${esc(pr.name)}</td>${slots.map(cl=>`<td class="num">${weeklyNumber(state.movements[period.id]?.[pr.id]?.[cl.id])}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="num">${weeklyNumber(prc===''?null:prc)}</td><td class="num">${weeklyNumber(total===''?null:total)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
+  return `<tr><td class="sticky-first">${esc(pr.name)}</td>${slots.map(cl=>`<td class="num">${weeklyQuantityCell(period,cl,pr)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="num">${weeklyNumber(prc===''?null:prc)}</td><td class="num">${weeklyNumber(total===''?null:total)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
  }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
  const mobile=sel.rows.length?`<div class="week-mobile">${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),price=state.prices[period.id]?.[pr.id],total=state.weekTotals[period.id]?.[pr.id];
   return `<article class="card week-product"><div class="week-product-head"><h3>${esc(pr.name)}</h3><span class="badge ${qty<0?'danger':qty>0?'good':''}">Total ${format(qty)}</span></div>
-  <div class="week-product-grid">${slots.map(cl=>`<div class="field"><span>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</span><strong class="mono">${weeklyNumber(state.movements[period.id]?.[pr.id]?.[cl.id])}</strong></div>`).join('')}</div>
+  <div class="week-product-grid">${slots.map(cl=>`<div class="field"><span>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</span><strong class="mono">${weeklyQuantityCell(period,cl,pr)}</strong></div>`).join('')}</div>
   <div class="week-product-grid" style="margin-top:13px"><div class="field"><span>Precio unitario (CY)</span><strong>${weeklyNumber(price)}</strong></div><div class="field"><span>Total manual (CZ)</span><strong>${weeklyNumber(total)}</strong></div></div>
   <div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${money(qty*(price||0))}</strong></div></article>`;
  }).join('')}${pageFoot(sel,'productos')}</div>`:'';
@@ -808,7 +814,7 @@ function renderWeekly(){
  <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-values"${locked?' disabled':''}>Editar precio y total</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
  <div class="weekly-client-entries" role="group" aria-label="Registrar por cliente"><strong>Registrar por cliente</strong>${slots.map(client=>weeklyClientButton(period,client)).join('')}</div>
- <p class="table-hint">La tabla es de solo lectura. Elige el cliente en Registrar por cliente para agregar o modificar cantidades.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» corresponde al campo CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
+ <p class="table-hint">Toca una cantidad para revisarla y cambiarla. Para agregar una nueva, usa Registrar por cliente.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» corresponde al campo CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
 }
 function renderFinal(){
  const filteredProducts=productsFiltered(),all=filteredProducts.filter(p=>{const n=C.result(state,p).N;return finalFilter==='all'||(finalFilter==='positive'?n>0:finalFilter==='zero'?n===0:n<0);}),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
