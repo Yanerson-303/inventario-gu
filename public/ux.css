@@ -385,3 +385,10 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .catalog-product-number small { display: block; font-weight: 500; }
 .catalog-table tbody th, .catalog-table td { overflow-wrap: anywhere; }
 .catalog-table .catalog-actions { flex-wrap: wrap; }
+
+/* Identificación visual de los grupos del catálogo. */
+.catalog-group-badge {
+  border-color: var(--group-color);
+  background: color-mix(in srgb, var(--group-color) 16%, var(--surface));
+}
+.catalog-group-badge i { background: var(--group-color); }

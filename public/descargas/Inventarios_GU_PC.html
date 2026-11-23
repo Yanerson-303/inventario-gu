@@ -678,6 +678,15 @@ body.gu-entry-active{overflow:hidden}
 .catalog-table tbody th, .catalog-table td { overflow-wrap: anywhere; }
 .catalog-table .catalog-actions { flex-wrap: wrap; }
 </style>
+<style>
+
+/* Identificación visual de los grupos del catálogo. */
+.catalog-group-badge {
+  border-color: var(--group-color);
+  background: color-mix(in srgb, var(--group-color) 16%, var(--surface));
+}
+.catalog-group-badge i { background: var(--group-color); }
+</style>
 </head>
 <body data-palette="almond" data-mode="light">
   <div id="gu-entry" role="status" aria-label="Preparando Inventarios GU, acceso automático">
@@ -1686,7 +1695,7 @@ let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,st
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],lots:[],catalogTags:[],catalogGroups:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],lots:[],catalogGroups:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -2319,51 +2328,28 @@ function renderFinal(){
  <div class="gu-filterbar" role="group" aria-label="Filtrar saldos"><span class="gu-filter-label">Saldo</span>${[['all','Todos'],['positive','Positivo'],['zero','En cero'],['negative','Negativo']].map(([k,label])=>`<button type="button" data-final-filter="${k}" aria-pressed="${finalFilter===k}">${label}</button>`).join('')}<span class="muted">${all.length} referencias</span></div>
  <div class="final-desktop">${table}</div>${cards}<div class="help-note"><b>Reglas originales:</b> H = Σ semanas; J = L + M; N = H − J; P = N × O; Q = N; R = −Q; T = R / S (vacío si S = 0); V = COCIENTE(R,U) / RESIDUO(R,U), con aviso si U ≤ 0. El saldo puede ser negativo y no se convierte en valor absoluto.</div>`;
 }
-let catalogCategory='',catalogTag='';
+let catalogCategory='';
 const groupKey=name=>name.trim().toLocaleLowerCase('es');
 function catalogCategories(){
  const names=new Map();
  for(const product of state.products){const name=product.category?.trim();if(name&&!names.has(groupKey(name)))names.set(groupKey(name),name);}
  return [...names.values()].sort((a,b)=>a.localeCompare(b,'es'));
 }
-function catalogTags(){return (state.catalogTags||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'es'));}
-function productGroupFields(product){
- const current=product?.category?.trim()||'';
- const category=catalogCategories().map(name=>`<option value="category:${esc(name)}"${groupKey(name)===groupKey(current)?' selected':''}>${esc(name)}</option>`).join('');
- const tags=catalogTags();
- return `<label class="field">Categoría <select class="form-control" name="category"><option value="">Sin categoría</option>${category}<option value="__new_category__">+ Nueva categoría</option></select></label>
- <label class="field" id="new-category-field" hidden>Nueva categoría <input class="form-control" name="newCategory" maxlength="70" disabled></label>
- <fieldset class="field full catalog-tag-fields"><legend>Etiquetas</legend>${tags.length?tags.map(tag=>`<label><input type="checkbox" name="tagIds" value="${esc(tag.id)}"${product?.tagIds?.includes(tag.id)?' checked':''}> ${tagBadge(tag)}</label>`).join(''):'<p class="muted">Todavía no hay etiquetas. Puedes crear una aquí.</p>'}
- <details><summary>Nueva etiqueta</summary><div class="catalog-tag-create"><label class="field">Nombre <input class="form-control" name="newTag" maxlength="50"></label><label class="field">Color <input type="color" name="newTagColor" value="#4f6fae"></label></div></details></fieldset>`;
+function categoryField(product){
+ const current=product.category?.trim()||'';
+ const options=catalogCategories().map(name=>`<option value="category:${esc(name)}"${groupKey(name)===groupKey(current)?' selected':''}>${esc(name)}</option>`).join('');
+ return `<label class="field">Categoría <select class="form-control" name="category"><option value="">Sin categoría</option>${options}<option value="__new_category__">+ Nueva categoría</option></select></label>
+ <label class="field" id="new-category-field" hidden>Nueva categoría <input class="form-control" name="newCategory" maxlength="70" disabled></label>`;
 }
-function tagBadge(tag){
- return `<span class="catalog-tag"><i style="background-color:${esc(tag.color)}"></i>${esc(tag.name)}</span>`;
+function groupBadge(group){
+ return `<span class="catalog-tag catalog-group-badge" style="--group-color:${esc(group.color)}"><i aria-hidden="true"></i>${esc(group.name)}</span>`;
 }
-function tagEditor(editId=''){
- const tags=catalogTags(),current=tags.find(tag=>tag.id===editId);
- showModal('Etiquetas de productos',`<form id="catalog-tag-form" class="modal-body">
- <label class="field">Etiqueta <select class="form-control" id="catalog-tag-edit" name="id"><option value="">+ Nueva etiqueta</option>${salesOptions(tags,current?.id,tag=>tag.name)}</select></label>
- <div class="catalog-tag-create"><label class="field">Nombre <input class="form-control" name="name" value="${esc(current?.name||'')}" maxlength="50" required></label><label class="field">Color <input type="color" name="color" value="${esc(current?.color||'#4f6fae')}" required></label></div></form>`,
- `<button class="btn" data-action="close-modal">Cerrar</button><button class="btn btn-primary" type="submit" form="catalog-tag-form">Guardar etiqueta</button>`);
-}
-function saveTag(form){
- const data=new FormData(form),name=String(data.get('name')||'').trim(),color=String(data.get('color')||''),editId=String(data.get('id')||'');
- const tags=catalogTags(),current=tags.find(tag=>tag.id===editId);
- if(!name||!/^#[0-9a-f]{6}$/i.test(color))return toast('Escribe un nombre y elige un color.');
- if(tags.some(tag=>tag.id!==editId&&groupKey(tag.name)===groupKey(name)))return toast('Ya existe una etiqueta con ese nombre.');
- if(mutation(`Etiqueta ${current?'editada':'creada'}: ${name}`,()=>{
-  if(current)Object.assign(current,{name,color});else (state.catalogTags??=[]).push({id:id('tag'),name,color});
- }))closeModal();
-}
-function reconcileCatalogTags(state){
- const byName=new Map(),aliases=new Map();
- for(const tag of state.catalogTags||[]){
-  const key=groupKey(tag.name),existing=byName.get(key);
-  if(existing)aliases.set(tag.id,existing.id);else byName.set(key,tag);
- }
- state.catalogTags=[...byName.values()];
- const known=new Set(state.catalogTags.map(tag=>tag.id));
- state.products=state.products.map(p=>({...p,tagIds:[...new Set((p.tagIds||[]).map(id=>aliases.get(id)||id).filter(id=>known.has(id)))]}));
+function productGroupChoices(product){
+ const groups=catalogGroups();
+ const selected=product?.groupIds||(product?[]:(view==='products'&&catalogGroup?[catalogGroup]:[]));
+ return `<fieldset class="field full catalog-tag-fields"><legend>Grupos</legend>
+ ${groups.length?groups.map(group=>`<label><input type="checkbox" name="groupIds" value="${esc(group.id)}"${selected.includes(group.id)?' checked':''}> ${groupBadge(group)}</label>`).join(''):'<p class="muted">Puedes crear grupos desde Gestionar grupos en Productos.</p>'}
+ </fieldset>`;
 }
 let catalogGroup='';
 function catalogGroups(){
@@ -2395,43 +2381,58 @@ function removeCatalogGroup(groupId){
  if(!confirm(`¿Eliminar el grupo «${group.name}»? Los productos de este grupo quedarán sin grupo.`))return;
  if(mutation(`Grupo eliminado: ${group.name}`,()=>{
   group.deleted=true;
-  for(const product of state.products)if(product.groupId===groupId)product.groupId='';
+  for(const product of state.products)if(product.groupIds?.includes(groupId))product.groupIds=product.groupIds.filter(id=>id!==groupId);
  }))catalogGroupEditor();
 }
 function reconcileCatalogGroups(snapshot){
- const names=new Map(),aliases=new Map(),removed=[];
- for(const group of snapshot.catalogGroups||[]){
-  if(group.deleted){removed.push(group);continue;}
-  const key=groupKey(group.name),existing=names.get(key);
-  if(existing)aliases.set(group.id,existing.id);else names.set(key,group);
+ // Prefiere los grupos existentes cuando una etiqueta anterior tiene el mismo nombre.
+ const groups=snapshot.catalogGroups||[];
+ const removed=groups.filter(group=>group.deleted);
+ const deletedIds=new Set(removed.flatMap(group=>[group.id,...(group.aliases||[])]));
+ const byName=new Map(),byId=new Map(),active=[];
+ for(const candidate of [...groups,...(snapshot.catalogTags||[])]){
+  if(candidate.deleted||deletedIds.has(candidate.id))continue;
+  const ids=[candidate.id,...(candidate.aliases||[])].filter(id=>!deletedIds.has(id));
+  const key=groupKey(candidate.name);
+  let group=ids.map(id=>byId.get(id)).find(Boolean)||byName.get(key);
+  if(!group){
+   group={id:candidate.id,name:candidate.name,color:candidate.color,aliases:[]};
+   active.push(group);byName.set(key,group);
+  }
+  for(const id of ids){
+   if(byId.has(id))continue;
+   byId.set(id,group);
+   if(id!==group.id)group.aliases.push(id);
+  }
  }
- const current=[...names.values()],known=new Set(current.map(group=>group.id));
- snapshot.catalogGroups=[...current,...removed];
+ snapshot.catalogGroups=[...active,...removed];
+ delete snapshot.catalogTags;
  snapshot.products=snapshot.products.map(product=>{
-  if(!product.groupId)return product;
-  const groupId=aliases.get(product.groupId)||product.groupId;
-  return {...product,groupId:known.has(groupId)?groupId:''};
+  const {groupId,tagIds,...clean}=product;
+  const hadGroups=Array.isArray(product.groupIds)||groupId!==undefined||(tagIds?.length>0);
+  if(hadGroups){
+   clean.groupIds=[...new Set([...(product.groupIds||[]),groupId,...(tagIds||[])].map(id=>byId.get(id)?.id).filter(Boolean))];
+  }
+  return clean;
  });
 }
 function renderProducts(){
- const tags=catalogTags(),byTag=new Map(tags.map(tag=>[tag.id,tag])),categories=catalogCategories(),groups=catalogGroups(),byGroup=new Map(groups.map(group=>[group.id,group]));
+ const categories=catalogCategories(),groups=catalogGroups(),byGroup=new Map(groups.map(group=>[group.id,group]));
  if(catalogGroup&&!byGroup.has(catalogGroup))catalogGroup='';
- if(catalogTag&&!byTag.has(catalogTag))catalogTag='';
  if(catalogCategory&&!categories.some(name=>groupKey(name)===catalogCategory))catalogCategory='';
- const all=productsFiltered().filter(p=>(!catalogCategory||groupKey(p.category||'')===catalogCategory)&&(!catalogTag||p.tagIds?.includes(catalogTag))&&(!catalogGroup||p.groupId===catalogGroup));
+ const all=productsFiltered().filter(p=>(!catalogCategory||groupKey(p.category||'')===catalogCategory)&&(!catalogGroup||p.groupIds?.includes(catalogGroup)));
  if(productSort==='name')all.sort((a,b)=>(a.productNumber||a.name).localeCompare(b.productNumber||b.name,'es',{numeric:true}));
  else if(productSort==='stock')all.sort((a,b)=>C.result(state,a).N-C.result(state,b).N);
  else if(productSort==='value')all.sort((a,b)=>C.result(state,b).P-C.result(state,a).P);
  const sel=selection(all);
- return `${heading('CATÁLOGO MAESTRO','Productos','Consulta los números de embarcación, caja y producto junto con la cantidad y el precio unitario.',`<button class="btn btn-primary" data-action="new-product">+ Añadir producto</button><button class="btn" data-action="catalog-tags">Gestionar etiquetas</button><button class="btn" data-action="catalog-groups">Gestionar grupos</button>`)}
+ return `${heading('CATÁLOGO MAESTRO','Productos','Consulta los números de embarcación, caja y producto junto con la cantidad y el precio unitario.',`<button class="btn btn-primary" data-action="new-product">+ Añadir producto</button><button class="btn" data-action="catalog-groups">Gestionar grupos</button>`)}
  <div class="tool-strip"><div class="left">${searchBar('Buscar por producto, embarcación o caja…')}</div><div class="right"><label class="gu-sort-label"><span class="muted">Ordenar</span><select class="form-control" id="product-sort"><option value="original" ${productSort==='original'?'selected':''}>Registro</option><option value="name" ${productSort==='name'?'selected':''}>Número de producto</option><option value="stock" ${productSort==='stock'?'selected':''}>Menor stock</option><option value="value" ${productSort==='value'?'selected':''}>Mayor valor</option></select></label><span class="muted">${all.length} / ${state.products.length}</span></div></div>
  <div class="catalog-group-filters">
  <label>Categoría <select class="form-control" id="catalog-category"><option value="">Todas</option>${categories.map(name=>`<option value="${esc(groupKey(name))}"${catalogCategory===groupKey(name)?' selected':''}>${esc(name)}</option>`).join('')}</select></label>
- <label>Etiqueta <select class="form-control" id="catalog-tag"><option value="">Todas</option>${salesOptions(tags,catalogTag,tag=>tag.name)}</select></label>
  <label>Grupo <select class="form-control" id="catalog-group"><option value="">Todos</option>${salesOptions(groups,catalogGroup,group=>group.name)}</select></label>
- ${byTag.has(catalogTag)?tagBadge(byTag.get(catalogTag)):''}</div>
+ ${byGroup.has(catalogGroup)?groupBadge(byGroup.get(catalogGroup)):''}</div>
  ${sel.rows.length?`<div class="card catalog-table"><div class="table-scroll"><table class="data-table" aria-label="Productos"><thead><tr><th scope="col">Número de embarcación</th><th scope="col">Número de caja</th><th scope="col" class="num">Cantidad de productos por caja</th><th scope="col">Número de producto</th><th scope="col" class="num">Precio por unidad</th><th scope="col">Acciones</th></tr></thead><tbody>
- ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${byGroup.has(p.groupId)?`<div class="catalog-tag-list">${tagBadge(byGroup.get(p.groupId))}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría y etiquetas</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
+ ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${p.groupIds?.length?`<div class="catalog-tag-list">${p.groupIds.map(id=>byGroup.get(id)).filter(Boolean).map(groupBadge).join('')}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
  </tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con los filtros.':'Añade un producto para empezar a registrar tus cajas.','new-product','Añadir producto')}`;
 }
 function renderClients(){
@@ -2481,20 +2482,21 @@ function productModal(productId){
  const field=(name,label,example)=>`<label class="field">${label}<input type="text" class="form-control" name="${name}" maxlength="80" value="${esc(product?.[name]||'')}" placeholder="${example}" required></label>`;
  showModal(product?'Editar producto':'Añadir producto',`<form id="product-form" data-id="${esc(productId||'')}" class="modal-body">
  <div class="modal-grid">
+ <label class="field full">Nombre del producto<input type="text" class="form-control" name="name" maxlength="110" value="${esc(product?.name||'')}" placeholder="Ej. Té de jazmín" required></label>
  ${field('vesselNumber','Número de embarcación','Ej. EMB-001')}
  ${field('boxNumber','Número de caja','Ej. 015')}
  <label class="field">Cantidad de productos por caja<input type="number" class="form-control" name="boxes" min="1" max="1000000000000000" step="1" value="${esc(product?.boxes||'')}" placeholder="Ej. 24" required></label>
  ${field('productNumber','Número de producto','Ej. PR-204')}
  <label class="field">Precio por unidad (${esc(state.settings.currency||'COP')})<input type="number" class="form-control" name="value" min="0" max="1000000000000000" step="any" value="${esc(product?.value??'')}" placeholder="Ej. 12500" required></label>
- <label class="field">Grupo <select class="form-control" name="groupId"><option value="">Sin grupo</option>${salesOptions(catalogGroups(),product?product.groupId:catalogGroup,group=>group.name)}</select></label>
+ ${productGroupChoices(product)}
  </div></form>`,
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${product?'Guardar cambios':'Crear producto'}</button>`);
 }
 function productGroupsModal(productId){
  const product=state.products.find(item=>item.id===productId);
  if(!product)return;
- showModal(`Categoría y etiquetas · ${product.name}`,`<form id="product-groups-form" data-id="${esc(productId)}" class="modal-body"><div class="modal-grid">${productGroupFields(product)}</div></form>`,
- `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="product-groups-form" class="btn btn-primary">Guardar grupos</button>`);
+ showModal(`Categoría · ${product.name}`,`<form id="product-groups-form" data-id="${esc(productId)}" class="modal-body"><div class="modal-grid">${categoryField(product)}</div></form>`,
+ `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="product-groups-form" class="btn btn-primary">Guardar categoría</button>`);
 }
 function periodModal(existing){
  const p=existing||{label:'Semana '+(state.periods.length+1),start:'',end:'',locked:false};
@@ -2505,17 +2507,18 @@ function submitProduct(form){
  const identifier=key=>String(data.get(key)||'').trim().slice(0,80);
  const vesselNumber=identifier('vesselNumber'),boxNumber=identifier('boxNumber'),productNumber=identifier('productNumber');
  const quantity=String(data.get('boxes')??'').trim(),price=String(data.get('value')??'').trim();
- const boxes=nf(quantity),value=nf(price),requestedGroup=String(data.get('groupId')||'');
- if(requestedGroup&&!catalogGroups().some(group=>group.id===requestedGroup))return toast('Selecciona un grupo válido.');
+ const boxes=nf(quantity),value=nf(price),name=String(data.get('name')||'').trim().slice(0,110);
+ const groupIds=[...new Set(data.getAll('groupIds'))],known=new Set(catalogGroups().map(group=>group.id));
+ if(!name)return toast('Escribe el nombre del producto.');
+ if(groupIds.some(id=>!known.has(id)))return toast('Selecciona grupos válidos.');
  if(!vesselNumber||!boxNumber||!productNumber)return toast('Completa los números de embarcación, caja y producto.');
  if(!quantity||!Number.isSafeInteger(boxes)||boxes<1||boxes>1e15)return toast('Escribe una cantidad entera mayor que cero por caja.');
  if(!price||value===null||value<0||value>1e15)return toast('Escribe un precio por unidad válido.');
  const existing=editId?state.products.find(item=>item.id===editId):null;
  if(editId&&!existing)return toast('Producto no encontrado.');
- const name=existing?.name&&existing.name!==existing.productNumber?existing.name:productNumber;
  if(mutation(editId?`Producto editado: ${name}`:`Producto creado: ${name}`,()=>{
-  const product=existing||{id:id('prod'),createdAt:new Date().toISOString(),category:'',unit:'unidad',tagIds:[],quantityN:0,quantityV:0,average:0};
-  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupId:requestedGroup});
+  const product=existing||{id:id('prod'),createdAt:new Date().toISOString(),category:'',unit:'unidad',quantityN:0,quantityV:0,average:0};
+  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds});
   if(!existing)state.products.push(product);
  }))closeModal();
 }
@@ -2523,22 +2526,10 @@ function submitProductGroups(form){
  const product=state.products.find(item=>item.id===form.dataset.id);
  if(!product)return toast('Producto no encontrado.');
  const data=new FormData(form);
- const chosenCategory=String(data.get('category')||''),requestedCategory=String(data.get('newCategory')||'').trim().slice(0,70);
- const category=chosenCategory==='__new_category__'?(catalogCategories().find(name=>groupKey(name)===groupKey(requestedCategory))||requestedCategory):chosenCategory.slice(9);
- if(chosenCategory==='__new_category__'&&!category)return toast('Escribe el nombre de la categoría.');
- const tags=catalogTags(),known=new Set(tags.map(tag=>tag.id));
- const tagIds=data.getAll('tagIds').filter(id=>known.has(id));
- const tagName=String(data.get('newTag')||'').trim().slice(0,50),tagColor=String(data.get('newTagColor')||'');
- const existingTag=tagName?tags.find(tag=>groupKey(tag.name)===groupKey(tagName)):null;
- if(tagName&&!/^#[0-9a-f]{6}$/i.test(tagColor))return toast('Elige un color válido.');
- if(mutation(`Grupos actualizados: ${product.name}`,()=>{
-  if(tagName){
-   const tag=existingTag||{id:id('tag'),name:tagName,color:tagColor};
-   if(!existingTag)(state.catalogTags??=[]).push(tag);
-   if(!tagIds.includes(tag.id))tagIds.push(tag.id);
-  }
-  Object.assign(product,{category,tagIds});
- }))closeModal();
+ const choice=String(data.get('category')||''),requested=String(data.get('newCategory')||'').trim().slice(0,70);
+ const category=choice==='__new_category__'?(catalogCategories().find(name=>groupKey(name)===groupKey(requested))||requested):choice.slice(9);
+ if(choice==='__new_category__'&&!category)return toast('Escribe el nombre de la categoría.');
+ if(mutation(`Categoría actualizada: ${product.name}`,()=>{product.category=category;}))closeModal();
 }
 function submitPeriod(form){
  const data=new FormData(form),label=String(data.get('label')||'').trim(),start=String(data.get('start')||''),end=String(data.get('end')||'');
@@ -2659,9 +2650,9 @@ function normalizeImported(raw){
  const catalogGroups=makeUnique(Array.isArray(raw.catalogGroups)?raw.catalogGroups:[],'Grupo',group=>{
   const name=string(group.name,50).trim(),color=string(group.color,7);
   if(!name||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Grupo de productos no válido.');
-  return {id:group.id,name,color,deleted:group.deleted===true};
+  return {id:group.id,name,color,deleted:group.deleted===true,aliases:Array.isArray(group.aliases)?group.aliases.filter(id=>typeof id==='string'&&safeid(id)):[]};
  });
- const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
+ const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupIds:Array.isArray(p.groupIds)?p.groupIds.filter(id=>typeof id==='string'&&safeid(id)):undefined,groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
  const clients=makeUnique(raw.clients,'Cliente',c=>({id:c.id,code:string(c.code,35)||c.id,name:string(c.name,90),active:c.active!==false}));
  const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked}));
  const periodIDs=new Set(periods.map(p=>p.id)),productIDs=new Set(products.map(p=>p.id)),clientIDs=new Set(clients.map(c=>c.id));
@@ -2701,7 +2692,7 @@ function normalizeImported(raw){
   if((lotId&&(typeof lotId!=='string'||!safeid(lotId)))||(price!==null&&(price<0||price>1e12)))throw new Error('Una venta tiene precio o lote no válido.');
   return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,lotId,location:string(sale.location,220),price,currency:['COP','USD','EUR','MXN','CNY'].includes(sale.currency)?sale.currency:'COP',reference:string(sale.reference,120),voided:sale.voided===true};
  });
- reconcileCatalogTags(clean);reconcileCatalogGroups(clean);
+ reconcileCatalogGroups(clean);
  Trace?.validate(clean);
  clean.gu4=GU4?.normalizeGu4(raw.gu4,clean)||newState().gu4;return clean;
 }
@@ -2712,14 +2703,13 @@ function mergeStates(local,remote){
  out.products=mergeList(local.products,remote.products).map(product=>{
   const prior=localProducts.get(product.id);
   if(!prior)return product;
-  return {...product,groupId:product.groupId??prior.groupId,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
+  return {...product,groupIds:product.groupIds??prior.groupIds,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
  });
  out.clients=mergeList(local.clients,remote.clients);out.periods=mergeList(local.periods,remote.periods);
- out.catalogTags=mergeList(local.catalogTags||[],remote.catalogTags||[]);reconcileCatalogTags(out);
  const groupsById=new Map((local.catalogGroups||[]).map(group=>[group.id,group]));
  for(const group of remote.catalogGroups||[]){
   const previous=groupsById.get(group.id);
-  groupsById.set(group.id,{...group,deleted:group.deleted||previous?.deleted||false});
+  groupsById.set(group.id,{...group,deleted:group.deleted||previous?.deleted||false,aliases:[...new Set([...(previous?.aliases||[]),...(group.aliases||[])])]});
  }
  out.catalogGroups=[...groupsById.values()];
  reconcileCatalogGroups(out);
@@ -2851,7 +2841,6 @@ document.addEventListener('click',async e=>{
   case 'product-groups':productGroupsModal(targetId);break;
   case 'catalog-groups':catalogGroupEditor();break;
   case 'remove-catalog-group':removeCatalogGroup(targetId);break;
-  case 'catalog-tags':tagEditor();break;
   case 'edit-product':productModal(targetId);break;
   case 'remove-product':await removeProduct(targetId);break;
   case 'new-period':periodModal();break;
@@ -2888,7 +2877,6 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',e=>{
  const form=e.target;if(form.id==='product-groups-form'){e.preventDefault();submitProductGroups(form);return;}
  if(form.id==='catalog-group-form'){e.preventDefault();saveCatalogGroup(form);return;}
- if(form.id==='catalog-tag-form'){e.preventDefault();saveTag(form);return;}
  if(form.id==='lot-form'){e.preventDefault();submitLot(form);return;}
  if(['sales-filters','sales-speed','sale-form'].includes(form.id)){e.preventDefault();submitSales(form);return;}
  if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
@@ -2902,12 +2890,11 @@ document.addEventListener('submit',e=>{
 });
 document.addEventListener('change',e=>{
  const el=e.target;
- if(el.id==='catalog-category'||el.id==='catalog-tag'||el.id==='catalog-group'){
-  if(el.id==='catalog-category')catalogCategory=el.value;else if(el.id==='catalog-tag')catalogTag=el.value;else catalogGroup=el.value;
+ if(el.id==='catalog-category'||el.id==='catalog-group'){
+  if(el.id==='catalog-category')catalogCategory=el.value;else catalogGroup=el.value;
   page=0;render();document.getElementById(el.id)?.focus();return;
  }
  if(el.id==='catalog-group-edit'){catalogGroupEditor(el.value);return;}
- if(el.id==='catalog-tag-edit'){tagEditor(el.value);return;}
  if(el.form?.id==='product-groups-form'&&el.name==='category'){
   const field=$('#new-category-field'),input=el.form.elements.newCategory;
   field.hidden=el.value!=='__new_category__';input.disabled=field.hidden;input.required=!field.hidden;
@@ -2965,9 +2952,11 @@ async function init(){
   if(!Array.isArray(state.products)||!Array.isArray(state.clients)||!Array.isArray(state.periods)||!state.periods.length)throw new Error('Los datos locales parecen dañados. Restaura una copia de seguridad.');
   if(!state.weekTotals)state.weekTotals={};if(!state.prices)state.prices={};if(!state.movements)state.movements={};if(!state.audit)state.audit=[];
   if(!state.settings)state.settings=newState().settings;
+  const migrateGroups=!!state.catalogTags||state.products.some(p=>p.groupId!==undefined||p.tagIds!==undefined);
+  if(migrateGroups)reconcileCatalogGroups(state);
   if(loaded&&!loaded.gu4){await DB.backup({id:id('before4'),createdAt:new Date().toISOString(),type:'manual',label:'Copia antes de migrar a 4.0',data:clone(loaded)});}
  GU4?.ensure(state);
- if(!loaded||!loaded.gu4)await DB.save(state);
+ if(!loaded||!loaded.gu4||migrateGroups)await DB.save(state);
   periodId=state.periods[0].id;
   await refreshBackups();render();savedStatus();
   if(typeof CustomEvent!=='undefined'){
