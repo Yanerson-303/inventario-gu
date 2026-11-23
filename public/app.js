@@ -144,13 +144,15 @@ function openDashboardMenu(trigger){
 }
 function renderDashboard(){
  const all=C.totals(state,state.products);
- const weeklyValues=state.periods.map(p=>({label:p.label,value:state.products.reduce((a,pr)=>a+C.qty(state,p.id,pr.id),0)}));
+ const registered=state.products.map(product=>({label:product.name,value:Math.max(0,C.num(product.boxes))}));
+ const registeredUnits=C.round(registered.reduce((sum,row)=>sum+row.value,0));
+ const registeredBars=registered.filter(row=>row.value>0).sort((a,b)=>b.value-a.value).slice(0,5);
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.')}
  ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Abre Inventario para añadir productos o cargar la demostración.</p></div></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
- ${metricBox('volumen',statCard(metricLabels.volumen,format(all.quantity),'Suma de unidades registradas en todas las semanas','▦',unitReportCard('sales',M.spark(weeklyValues.slice(-12),'Unidades por semana',{left:'Por semanas',right:'Últimos registros',emptyWhenZero:true}))))}
+ ${metricBox('volumen',statCard(metricLabels.volumen,format(registeredUnits,9),'Suma de las cantidades por caja guardadas en Productos','▦',unitReportCard('sales',M.barRows(registeredBars,'Unidades guardadas por producto',{empty:'Aún no hay unidades guardadas en Productos'}))))}
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows))))}
  ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',unitReportCard('value',M.valueMix(all.rows))))}
  </section>

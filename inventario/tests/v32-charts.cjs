@@ -21,7 +21,7 @@ assert(polluted.includes('&lt;img'));
 assert(/aria-label="[^"]+"/.test(M.donut([{label:'A',value:1}])));
 const app=fs.readFileSync(path.join(dir,'app.js'),'utf8'),index=fs.readFileSync(path.join(dir,'index.html'),'utf8');
 const dashboard=app.match(/function renderDashboard\(\)\{[\s\S]*?\n\}/)[0];
-for(const v of ['M.spark','M.balances','M.valueMix'])assert(dashboard.includes(v),v+' no integrado');
+for(const v of ['M.barRows','M.balances','M.valueMix'])assert(dashboard.includes(v),v+' no integrado');
 assert.deepEqual([...dashboard.matchAll(/metricBox\('([^']+)'/g)].map(match=>match[1]),['volumen','saldo','valor']);
 assert(app.includes('metric-icon-control')&&!app.includes('metric-icon-mark'),'Control integrado al icono debe carecer de signos adicionales');
 assert(index.includes('metric-visuals.js'));
