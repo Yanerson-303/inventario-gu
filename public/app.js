@@ -633,6 +633,13 @@ function weeklyCellButton(period,client,product){
 function weeklyClientButton(period,client){
  return `<button type="button" class="btn btn-small" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" ${period.locked?'disabled':''}>${esc(salesClientLabel(client))}</button>`;
 }
+function hasWeeklyOrigin(origin){
+ return Boolean(origin?.boxNumber?.trim()&&origin?.vesselNumber?.trim()&&origin?.rack?.trim());
+}
+function weeklyCellOrigin(weekId,product,clientId){
+ const previous=state.weeklyOrigins?.[Trace.weeklyKey(weekId,product.id,clientId)];
+ return previous&&!previous.deleted&&hasWeeklyOrigin(previous.origin)?previous.origin:purchaseOrigin(product);
+}
 function weeklyCellModal(weekId,clientId,productId=''){
  const period=state.periods.find(item=>item.id===weekId),client=state.clients.find(item=>item.id===clientId);
  if(!period||!client)return;
@@ -646,18 +653,35 @@ function weeklyCellModal(weekId,clientId,productId=''){
  <div class="modal-grid">
  <label class="field full">Buscar en Productos<input class="form-control" type="search" id="weekly-cell-search" placeholder="Nombre, producto, caja o embarcación"></label>
  <label class="field full">Producto<select class="form-control" name="productId" required></select></label>
- <div class="field full sale-origin" data-weekly-origin></div>
- <label class="field full">Cantidad de este producto para el cliente<input class="form-control" type="number" name="units" min="0" max="1000000000000" step="0.000001" required></label>
+ <div class="field full sale-origin" data-weekly-origin aria-live="polite"></div>
+ <label class="switch-line full"><input type="checkbox" name="confirmOrigin" disabled required> Revisé la procedencia de este producto.</label>
+ <label class="field full">Cantidad de este producto para el cliente<input class="form-control" type="number" name="units" min="0" max="1000000000000" step="0.000001" disabled required></label>
  </div><p class="muted">Escribe el total para esta semana. Guarda 0 para quitarlo del registro.</p></form>`,
- '<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-primary" form="weekly-cell-form">Guardar cantidad</button>');
+ '<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-primary" form="weekly-cell-form" id="weekly-cell-save" disabled>Guardar cantidad</button>');
  const form=$('#weekly-cell-form'),search=$('#weekly-cell-search'),picker=form.elements.productId,units=form.elements.units;
- const originField=form.querySelector('[data-weekly-origin]');
+ const originField=form.querySelector('[data-weekly-origin]'),review=form.elements.confirmOrigin,save=$('#weekly-cell-save');
+ const updateControls=()=>{
+  const product=state.products.find(item=>item.id===picker.value);
+  const origin=product?weeklyCellOrigin(weekId,product,clientId):null;
+  const approved=hasWeeklyOrigin(origin)&&review.checked;
+  units.disabled=!approved;
+  save.disabled=!approved;
+  form.dataset.originConfirmed=approved?JSON.stringify(origin):'';
+ };
  const updateProduct=()=>{
   const product=state.products.find(p=>p.id===picker.value);
-  if(!product){units.value='';originField.innerHTML='';return;}
-  const origin=purchaseOrigin(product);
+  review.checked=false;
+  if(!product){
+   units.value='';originField.innerHTML='';review.value='';review.disabled=true;updateControls();return;
+  }
+  const origin=weeklyCellOrigin(weekId,product,clientId);
+  const complete=hasWeeklyOrigin(origin);
   units.value=state.movements[weekId]?.[product.id]?.[clientId]??'';
-  originField.innerHTML=`<span>Origen · Caja: <strong>${esc(origin.boxNumber||'—')}</strong> · Embarcación: <strong>${esc(origin.vesselNumber||'—')}</strong> · Rack: <strong>${esc(origin.rack||'—')}</strong></span>${origin.groups.length?originBadges(origin.groups):''}`;
+  review.value=product.id;
+  review.disabled=!complete;
+  originField.innerHTML=`<span>Origen · Caja: <strong>${esc(origin.boxNumber||'—')}</strong> · Lote: <strong>${esc(origin.lotCode||'—')}</strong> · Embarcación: <strong>${esc(origin.vesselNumber||'—')}</strong> · Rack: <strong>${esc(origin.rack||'—')}</strong></span>
+   ${origin.groups?.length?originBadges(origin.groups):''}${complete?'':'<span role="status">Completa la caja, la embarcación y el rack en Productos para registrar o cambiar esta cantidad.</span>'}`;
+  updateControls();
  };
  const showProducts=(selected='')=>{
   const term=search.value.trim().toLocaleLowerCase('es');
@@ -668,13 +692,18 @@ function weeklyCellModal(weekId,clientId,productId=''){
  showProducts(productId);updateProduct();
  search.addEventListener('input',()=>showProducts(picker.value));
  picker.addEventListener('change',updateProduct);
+ review.addEventListener('change',updateControls);
 }
 function saveWeeklyCell(form){
  const {period:weekId,client:clientId}=form.dataset,period=state.periods.find(item=>item.id===weekId),client=state.clients.find(item=>item.id===clientId);
  if(!period||period.locked||!client)return toast('Esta casilla no está disponible para editar.');
  const data=new FormData(form),product=state.products.find(item=>item.id===data.get('productId'));
  const raw=String(data.get('units')??'').trim(),units=Number(raw);
- if(!product||!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Selecciona un producto y escribe una cantidad válida.');
+ if(!product)return toast('Selecciona un producto del catálogo.');
+ const origin=weeklyCellOrigin(weekId,product,clientId);
+ if(!hasWeeklyOrigin(origin))return toast('Completa la caja, la embarcación y el rack en Productos.');
+ if(data.get('confirmOrigin')!==product.id||form.dataset.originConfirmed!==JSON.stringify(origin))return toast('Confirma la procedencia antes de guardar la cantidad.');
+ if(!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Escribe una cantidad válida.');
  const key=Trace.weeklyKey(weekId,product.id,clientId),previous=state.weeklyOrigins?.[key];
  const existing=state.movements[weekId]?.[product.id]?.[clientId];
  if(units===0&&!existing&&!previous){closeModal();return;}
@@ -684,9 +713,9 @@ function saveWeeklyCell(form){
   if(units>0)cells[clientId]=units;else delete cells[clientId];
   const record=previous&&!previous.deleted?previous:{
    periodId:weekId,productId:product.id,clientId,productName:product.name,clientName:salesClientLabel(client),date:localSaleDate(),
-   origin:purchaseOrigin(product),price:state.prices[weekId]?.[product.id]??product.value??null,currency:state.settings.currency||'COP'
+   price:state.prices[weekId]?.[product.id]??product.value??null,currency:state.settings.currency||'COP'
   };
-  (state.weeklyOrigins??={})[key]={...record,deleted:units===0,updatedAt:new Date().toISOString()};
+  (state.weeklyOrigins??={})[key]={...record,origin,deleted:units===0,updatedAt:new Date().toISOString()};
   if(view==='weekly'&&periodId===weekId){
    weeklyPreviewProduct='';query='';
    const ids=weeklyProductIds(period),position=state.products.filter(item=>ids.has(item.id)).findIndex(item=>item.id===product.id);
