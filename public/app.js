@@ -24,7 +24,7 @@ let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,st
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],lots:[],catalogGroups:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],weeklyOrigins:{},lots:[],catalogGroups:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -92,7 +92,7 @@ function render(){
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
  const warehouse=$('#main-content').querySelector('.warehouse-viewport');
  if(warehouse){
-  const overCapacity=view==='dashboard'?!!$('#main-content').querySelector('#capacity-alert-title'):catalogCapacity(C.totals(state,state.products).rows,state.sales||[]).exceeded.length>0;
+  const overCapacity=view==='dashboard'?!!$('#main-content').querySelector('#capacity-alert-title'):catalogCapacity(C.totals(state,state.products).rows,purchases()).exceeded.length>0;
   if(overCapacity){
    warehouse.dataset.capacityAlarm='true';
    warehouse.insertAdjacentHTML('beforeend','<span class="warehouse-emergency">Emergencia · Sobrecupo</span>');
@@ -100,7 +100,7 @@ function render(){
   window.GUFeedback?.setCapacityAlarm?.(overCapacity);
   window.AlmendraWarehouse?.mount();
  }else window.GUFeedback?.setCapacityAlarm?.(false);
- if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled)');target?.focus();target?.select?.();});}
+ if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled),button.weekly-cell-button:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
 const metricLabels={volumen:'Unidades registradas',saldo:'Stock',valor:'Valor total del inventario',productos:'Productos',stock:'Unidades en stock',referencias:'Referencias con stock',bodega:'Bodega 3D',proyecciones:'Proyecciones', 'grafico-semanal':'Gráfico semanal','grafico-productos':'Productos destacados',revision:'Revisión',tendencias:'Comparativa', 'vista-rapida':'Vista rápida',actividad:'Actividad'};
@@ -182,7 +182,7 @@ function renderCapacityAlert(exceeded){
 }
 function renderDashboard(){
  const all=C.totals(state,state.products);
- const capacity=catalogCapacity(all.rows,state.sales||[]);
+ const capacity=catalogCapacity(all.rows,purchases());
  const {registered,weekly,sold}=capacity.totals;
  const registeredBars=capacity.products.filter(row=>row.registered>0).sort((a,b)=>b.registered-a.registered).slice(0,5).map(row=>({label:row.product.name,value:row.registered}));
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.')}
@@ -227,13 +227,13 @@ function setDefaultReportDates(report){
  if(weekly&&period==='week'){report.from='';report.to='';return;}
  const latest=(weekly
   ?state.periods.reduce((date,item)=>calendarDate(item.start)&&item.start>date?item.start:date,'')
-  :(state.sales||[]).reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,''))||localSaleDate();
+  :purchases().reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,''))||localSaleDate();
  report.from=reportDate(shiftReportPeriod(reportPeriod(latest,period),period,period==='year'?-4:-11));
  report.to=latest;
 }
 function reportEntities(group,source){
  const items=new Map(group==='product'?state.products.map(p=>[p.id,p.name]):state.clients.map(c=>[c.id,salesClientLabel(c)]));
- for(const sale of source==='sales'?(state.sales||[]):[]){
+ for(const sale of source==='sales'?purchases():[]){
   if(sale.voided)continue;
   const id=group==='product'?sale.productId:sale.clientId;
   const name=group==='product'?sale.productName:sale.clientName;
@@ -280,7 +280,7 @@ function unitReportModel(report){
    }
   }
  }else{
-  for(const sale of state.sales||[]){
+  for(const sale of purchases()){
    if(!sale.voided&&withinDate(sale.date))add(sale.productId,sale.clientId,reportDate(reportPeriod(sale.date,period)),sale.units);
   }
  }
@@ -403,11 +403,12 @@ function traceTable(headings,rows){
 function traceProductName(lot){return state.products.find(p=>p.id===lot.productId)?.name||lot.productName;}
 function traceLotLabel(lot){return `${traceProductName(lot)} · Lote ${lot.code} · Contenedor ${lot.container}`;}
 function traceMoney(sale,amount){return new Intl.NumberFormat('es-CO',{style:'currency',currency:sale.currency||'COP'}).format(amount);}
-function purchaseOrigin(product,lot){
+function purchases(){return Trace?.purchases?.(state)||state.sales||[];}
+function purchaseOrigin(product){
  const groups=new Map(catalogGroups().map(group=>[group.id,group]));
  return {
   productNumber:product.productNumber||'',boxNumber:product.boxNumber||'',vesselNumber:product.vesselNumber||'',
-  lotCode:lot?.code||'',container:lot?.container||'',
+  lotCode:product.boxNumber||'',container:'',catalogLot:!!product.boxNumber,rack:product.catalogRack?`Rack ${product.catalogRack}`:'',
   groups:(product.groupIds||[]).map(id=>groups.get(id)).filter(Boolean).map(({name,color})=>({name,color}))
  };
 }
@@ -417,94 +418,44 @@ function originBadges(groups){
 function saleProductLabel(product){
  return [product.name,product.productNumber,product.boxNumber?`Caja ${product.boxNumber}`:'',product.vesselNumber?`Embarcación ${product.vesselNumber}`:''].filter(Boolean).join(' · ');
 }
-function saleOriginPreview(productId,lotId){
- const product=state.products.find(item=>item.id===productId);
- if(!product)return '';
- const lot=(state.lots||[]).find(item=>item.id===lotId&&item.productId===productId);
- const origin=purchaseOrigin(product,lot);
- return `<span>Caja: <strong>${esc(origin.boxNumber||'—')}</strong> · Embarcación: <strong>${esc(origin.vesselNumber||'—')}</strong>${lot?` · Lote: <strong>${esc(origin.lotCode)}</strong> · Contenedor: <strong>${esc(origin.container)}</strong>`:''}</span>${origin.groups.length?originBadges(origin.groups):''}`;
-}
 function tracePurchases(sales,entity){
  if(!sales.length)return '<p class="muted">Todavía no hay compras registradas.</p>';
  const lots=new Map((state.lots||[]).map(lot=>[lot.id,lot]));
- return traceTable(['Fecha',entity==='client'?'Producto':'Cliente','Número de caja','Lote / contenedor','Embarcación','Grupos','Ubicación de salida','Unidades','Precio unitario','Total','Referencia'],sales.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(sale=>{
+ return traceTable(['Fecha','Semana',entity==='client'?'Producto':'Cliente','Número de caja','Lote / contenedor','Embarcación','Grupos','Ubicación de salida','Unidades','Precio unitario','Total','Referencia'],sales.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(sale=>{
   const origin=sale.origin;
   const lot=lots.get(sale.lotId);
   const name=entity==='client'?(sale.productName||state.products.find(p=>p.id===sale.productId)?.name):(sale.clientName||state.clients.find(c=>c.id===sale.clientId)?.name);
   const number=entity==='client'&&origin?.productNumber?`<small class="muted purchase-product-number">${esc(origin.productNumber)}</small>`:'';
   const lotCode=origin?.lotCode||lot?.code,container=origin?.container||lot?.container;
-  return [sale.date,esc(name||'—')+number,esc(origin?.boxNumber||'—'),lotCode?esc(container?`${lotCode} / ${container}`:lotCode):'Sin lote registrado',esc(origin?.vesselNumber||'—'),originBadges(origin?.groups),esc(sale.location||'—'),format(sale.units,6),sale.price==null?'—':traceMoney(sale,sale.price),sale.price==null?'—':traceMoney(sale,sale.price*sale.units),esc(sale.reference||'—')];
+  return [sale.date,esc(sale.weeklyPeriodLabel||'—'),esc(name||'—')+number,esc(origin?.boxNumber||'—'),lotCode?esc(origin?.catalogLot?`${lotCode} (caja)`:container?`${lotCode} / ${container}`:lotCode):'Sin lote registrado',esc(origin?.vesselNumber||'—'),originBadges(origin?.groups),esc(sale.location||'—'),format(sale.units,6),sale.price==null?'—':traceMoney(sale,sale.price),sale.price==null?'—':traceMoney(sale,sale.price*sale.units),esc(sale.reference||'—')];
  }));
 }
-function productTrace(productId){
- const product=state.products.find(p=>p.id===productId);if(!product)return;
- const remaining=Trace.balance(state),lots=(state.lots||[]).filter(lot=>lot.productId===productId);
- const sales=(state.sales||[]).filter(sale=>sale.productId===productId&&!sale.voided);
- const body=lots.map(lot=>{
-  const available=remaining.get(lot.id);
-  return `<details class="trace-lot"><summary><strong>Lote ${esc(lot.code)}</strong> · Contenedor ${esc(lot.container)} · ${traceQuantity(available)} disponibles</summary>
-   <p>Recibido el ${lot.receipt.date} · ${traceQuantity(lot.units)} unidades<br>Ubicación actual: ${esc(Trace.label(Trace.location(lot)))}</p>
-   ${traceTable(['Fecha','Movimiento','Ubicación'],[lot.receipt,...lot.moves].map((place,i)=>[place.date,i?'Traslado':'Recepción',esc(Trace.label(place))]))}
-   ${available>0?`<button type="button" class="btn btn-small" data-action="move-lot" data-id="${esc(lot.id)}">Trasladar lote</button>`:''}</details>`;
- }).join('');
- showModal(`Seguimiento · ${product.name}`,`<div class="modal-body trace-body"><h3>Recepciones y ubicaciones</h3>${body||'<p class="muted">Aún no hay lotes recibidos para este producto.</p>'}<h3>Ventas por cliente</h3>${tracePurchases(sales,'product')}</div>`,`<button type="button" class="btn" data-action="close-modal">Cerrar</button><button type="button" class="btn btn-primary" data-action="receive-lot" data-id="${esc(productId)}">Registrar llegada</button>`);
-}
-function clientTrace(clientId,month=''){
+function clientTrace(clientId){
  const client=state.clients.find(c=>c.id===clientId);if(!client)return;
- const sales=(state.sales||[]).filter(sale=>sale.clientId===clientId&&!sale.voided);
- const months=[...new Set(sales.map(sale=>sale.date.slice(0,7)))].sort().reverse();
- const visible=month?sales.filter(sale=>sale.date.startsWith(month)):sales;
- showModal(`Compras · ${salesClientLabel(client)}`,`<div class="modal-body trace-body">${months.length?`<label class="field">Mes <select class="form-control" id="trace-client-month" data-id="${esc(clientId)}"><option value="">Todos los meses</option>${months.map(key=>`<option value="${key}"${key===month?' selected':''}>${key}</option>`).join('')}</select></label><p><strong>${traceQuantity(sumSales(visible))} unidades compradas</strong></p>`:''}${tracePurchases(visible,'client')}</div>`,`<button type="button" class="btn" data-action="close-modal">Cerrar</button><button type="button" class="btn btn-primary" data-action="record-sale" data-id="${esc(client.id)}">Registrar venta</button>`);
+ const records=purchases().filter(sale=>sale.clientId===clientId&&!sale.voided);
+ const months=[...new Set(records.map(sale=>sale.date.slice(0,7)))].sort().reverse();
+ const products=new Map(records.map(sale=>[sale.productId,{id:sale.productId,name:sale.productName||state.products.find(p=>p.id===sale.productId)?.name||sale.productId}]));
+ showModal(`Compras · ${salesClientLabel(client)}`,`<div class="modal-body trace-body client-purchases">
+ <div class="sales-fields">
+ <label class="field">Mes <select class="form-control" data-client-purchase-month><option value="">Todos los meses</option>${months.map(key=>`<option value="${key}">${key}</option>`).join('')}</select></label>
+ <label class="field">Producto <select class="form-control" data-client-purchase-product><option value="">Todos los productos</option>${salesOptions([...products.values()],null,p=>p.name)}</select></label>
+ <label class="field">Buscar procedencia <input type="search" class="form-control" data-client-purchase-origin placeholder="Caja, lote, embarcación, rack o grupo"></label>
+ </div><div data-client-purchases-results></div></div>`,
+ '<button type="button" class="btn" data-action="close-modal">Cerrar</button>');
+ const root=$('.client-purchases'),month=root.querySelector('[data-client-purchase-month]'),product=root.querySelector('[data-client-purchase-product]'),origin=root.querySelector('[data-client-purchase-origin]');
+ const lots=new Map((state.lots||[]).map(lot=>[lot.id,lot]));
+ const refresh=()=>{
+  const term=origin.value.trim().toLocaleLowerCase('es');
+  const visible=records.filter(sale=>{
+   if(month.value&&!sale.date.startsWith(month.value))return false;
+   if(product.value&&sale.productId!==product.value)return false;
+   const source=sale.origin,lot=lots.get(sale.lotId);
+   return !term||[source?.boxNumber,source?.vesselNumber,source?.lotCode,source?.container,sale.location,lot?.code,lot?.container,...(source?.groups||[]).map(group=>group.name)].join(' ').toLocaleLowerCase('es').includes(term);
+  });
+  root.querySelector('[data-client-purchases-results]').innerHTML=`<p><strong>${format(sumSales(visible),6)} unidades compradas</strong></p>${tracePurchases(visible,'client')}`;
+ };
+ month.addEventListener('change',refresh);product.addEventListener('change',refresh);origin.addEventListener('input',refresh);refresh();
 }
-function locationFields(place={}){
- const numbers=(name,label,max)=>`<label class="field">${label}<select class="form-control" name="${name}">${Array.from({length:max},(_,i)=>i+1).map(n=>`<option value="${n}"${place[name]===n?' selected':''}>${n}</option>`).join('')}</select></label>`;
- return `<label class="field full">Lugar de llegada o destino <input class="form-control" name="area" maxlength="120" value="${esc(place.area||'')}" placeholder="Ej. Bodega principal" required></label>
- <label class="field">Estantería <select class="form-control" name="rack"><option value="0">Sin estantería</option>${[1,2,3].map(n=>`<option value="${n}"${place.rack===n?' selected':''}>Rack ${n}</option>`).join('')}</select></label>${numbers('level','Nivel',2)}${numbers('position','Posición',8)}`;
-}
-function lotModal(key,moving=false){
- const lot=moving?(state.lots||[]).find(item=>item.id===key):null;
- const product=state.products.find(p=>p.id===(moving?lot?.productId:key));if(!product)return;
- const min=lot?Trace.location(lot).date:'';
- showModal(moving?`Trasladar lote ${lot.code}`:`Registrar llegada · ${product.name}`,`<form id="lot-form" class="modal-body" data-id="${esc(key)}" data-mode="${moving?'move':'receive'}"><div class="modal-grid">
- ${moving?'':`<label class="field">Contenedor <input class="form-control" name="container" maxlength="80" required></label>
- <label class="field">Código de lote <input class="form-control" name="code" maxlength="80" required></label>
- <label class="field">Unidades recibidas <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="0.000001" required></label>`}
- <label class="field">Fecha ${moving?'del traslado':'de llegada'} <input class="form-control" type="date" name="date" value="${localSaleDate()}" min="${min||'0001-02-01'}" max="${localSaleDate()}" required></label>
- ${locationFields(lot?Trace.location(lot):{})}</div><p>Selecciona rack, nivel y posición para mostrar el lote en la bodega 3D.</p></form>`,`<button type="button" class="btn" data-action="product-trace" data-id="${esc(product.id)}">Volver al seguimiento</button><button type="submit" form="lot-form" class="btn btn-primary">${moving?'Guardar traslado':'Guardar llegada'}</button>`);
-}
-function normalizePlace(input){
- const area=String(input?.area??'').trim().slice(0,120),rack=Number(input?.rack);
- const level=rack?Number(input?.level):0,position=rack?Number(input?.position):0;
- if(!Trace.calendarDate(input?.date)||!area||![0,1,2,3].includes(rack)||(rack&&(![1,2].includes(level)||!Number.isInteger(position)||position<1||position>8)))throw new Error('Revisa la fecha, el lugar y la posición.');
- return {date:input.date,area,rack,level,position,at:typeof input.at==='string'&&Number.isFinite(Date.parse(input.at))?new Date(input.at).toISOString():''};
-}
-function submitLot(form){
- const data=Object.fromEntries(new FormData(form));
- let place;
- try{place=normalizePlace(data);}catch(error){return toast(error.message);}
- if(place.date>localSaleDate())return toast('La fecha no puede ser futura.');
- place.at=new Date().toISOString();
- if(form.dataset.mode==='move'){
-  const lot=(state.lots||[]).find(item=>item.id===form.dataset.id);
-  if(!lot||Trace.balance(state).get(lot.id)<=0||place.date<Trace.location(lot).date)return toast('Revisa el lote, sus existencias y la fecha.');
-  if(['area','rack','level','position'].every(key=>Trace.location(lot)[key]===place[key]))return toast('Elige una ubicación distinta.');
-  if(mutation(`Traslado de lote: ${lot.code}`,()=>lot.moves.push(place)))productTrace(lot.productId);
-  return;
- }
- const product=state.products.find(p=>p.id===form.dataset.id);
- const units=Number(data.units),code=data.code.trim(),container=data.container.trim();
- if(!product||!code||!container||!Number.isFinite(units)||units<0.000001||units>1e12)return toast('Completa el contenedor, el lote y las unidades recibidas.');
- const lot={id:id('lot'),productId:product.id,productName:product.name,code,container,units,receipt:place,moves:[]};
- if((state.lots||[]).some(item=>Trace.lotKey(item)===Trace.lotKey(lot)))return toast('Este lote ya fue registrado para el producto y contenedor.');
- if(mutation(`Llegada de lote: ${lot.code} · ${product.name}`,()=>{(state.lots??=[]).push(lot);}))productTrace(product.id);
-}
-function saleLotChoices(product,date=''){
- const remaining=Trace.balance(state);
- const lots=(state.lots||[]).filter(lot=>lot.productId===product&&remaining.get(lot.id)>0&&(!date||lot.receipt.date<=date));
- return '<option value="">Seleccionar lote</option>'+salesOptions(lots,'',lot=>`${lot.code} · Contenedor ${lot.container} · ${traceQuantity(remaining.get(lot.id))} disponibles`);
-}
-const salesFilters={month:'',product:'',firstClient:'',secondClient:''};
-let speedQuery=null;
 function calendarDate(value){
  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
  const date=new Date(value+'T00:00:00Z');
@@ -534,7 +485,7 @@ function renderSales(){
  const product=products.find(p=>p.id===salesFilters.product)||products[0];
  const first=clients.find(c=>c.id===salesFilters.firstClient)||clients[0];
  const second=clients.find(c=>c.id===salesFilters.secondClient&&c.id!==first?.id)||clients.find(c=>c.id!==first?.id);
- const records=(state.sales||[]).filter(sale=>!sale.voided);
+ const records=purchases().filter(sale=>!sale.voided);
  const productNames=new Map(products.map(p=>[p.id,p.name]));
  const clientNames=new Map(clients.map(c=>[c.id,salesClientLabel(c)]));
  const current=records.filter(sale=>sale.date.startsWith(month));
@@ -571,8 +522,8 @@ function renderSales(){
  const visible=[...current].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
  const salesPage=selection(visible);
  const lotsById=new Map(lots.map(lot=>[lot.id,lot]));
- return `${heading('MÉTRICAS','Comparar ventas','Consulta ventas por producto y cliente, y compara el tiempo de salida de dos productos.',products.length?`<button type="button" class="btn btn-primary" data-action="record-sale">Registrar venta</button>`:'')}
- <p class="sales-note">El análisis usa ventas fechadas. Puedes registrar ventas anteriores. Las cantidades del Registro semanal se consultan por separado.</p>
+ return `${heading('MÉTRICAS','Comparar ventas','Consulta ventas por producto y cliente, y compara el tiempo de salida de dos productos.')}
+ <p class="sales-note">Las compras se registran desde las casillas del Registro semanal. Las ventas guardadas anteriormente también aparecen en el historial.</p>
  ${!products.length?empty('Agrega un producto para empezar','Después podrás registrar ventas y comparar resultados.','new-product','Añadir producto'):''}
  <section class="card card-pad sales-section"><h2 id="sales-monthly" tabindex="-1">Productos y clientes por mes</h2>
  <form id="sales-filters" class="sales-fields">
@@ -592,32 +543,11 @@ function renderSales(){
  ${lots.length>=2?`<form id="sales-speed" class="sales-fields">
  <label class="field">Lote 1 <select class="form-control" name="a">${salesOptions(lots,lotA?.id||lots[0].id,traceLotLabel)}</select></label>
  <label class="field">Lote 2 <select class="form-control" name="b">${salesOptions(lots,lotB?.id||lots[1].id,traceLotLabel)}</select></label>
- <button class="btn" type="submit">Comparar velocidad</button></form>${speedResult}`:'<p class="muted">Registra al menos dos lotes para comparar.</p>'}</section>
+ <button class="btn" type="submit">Comparar velocidad</button></form>${speedResult}`:'<p class="muted">Este informe requiere dos lotes históricos con recepción registrada.</p>'}</section>
  <section class="card card-pad sales-section"><h2>Existencias por lote</h2><p><strong>${traceQuantity(received)}</strong> recibidas · <strong>${traceQuantity(received-available)}</strong> vendidas · <strong>${traceQuantity(available)}</strong> disponibles · <strong>${traceQuantity(unplaced)}</strong> sin rack.</p><p class="muted">Las ventas históricas sin lote siguen en los totales por mes y cliente. Las existencias por lote se calculan desde las recepciones y las ventas vinculadas.</p></section>
  <section class="sales-section dashboard-visual-row trace-warehouse" aria-label="Ubicaciones de los lotes">${window.AlmendraWarehouse?.render(state)||''}</section>
  <section class="card card-pad sales-section"><h2>Ventas registradas · ${month}</h2>
- ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Lote','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${esc(lotsById.get(s.lotId)?.code||'Sin lote registrado')}</td><td>${traceQuantity(s.units)}</td><td><button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button></td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
-}
-function saleModal(clientId=''){
- const fixedClient=state.clients.find(client=>client.id===clientId);
- const remaining=Trace.balance(state);
- const availableProducts=new Set((state.lots||[]).filter(lot=>remaining.get(lot.id)>0).map(lot=>lot.productId));
- const products=state.products.filter(p=>availableProducts.has(p.id));
- const product=products.find(item=>item.id===salesFilters.product)||products[0];
- if(!product){
-  showModal('Registrar venta','<div class="modal-body"><p>Para registrar una venta, primero registra la llegada de un lote con existencias desde el seguimiento del producto.</p></div>', '<button class="btn" data-action="close-modal">Cerrar</button><button class="btn btn-primary" data-action="sale-products">Ir a Productos</button>');
-  return;
- }
- showModal(fixedClient?`Registrar venta · ${salesClientLabel(fixedClient)}`:'Registrar venta',`<form id="sale-form" data-client="${esc(fixedClient?.id||'')}" class="modal-body"><div class="modal-grid">
- <label class="field">Producto <select class="form-control" name="productId" required>${salesOptions(products,product.id,saleProductLabel)}</select></label>
- <label class="field">Lote <select class="form-control" name="lotId" required>${saleLotChoices(product.id,localSaleDate())}</select></label>
- ${fixedClient?`<div class="field">Cliente externo <strong>${esc(salesClientLabel(fixedClient))}</strong><input type="hidden" name="clientId" value="${esc(fixedClient.id)}"></div>`:`<label class="field">Cliente externo <select class="form-control" name="clientId" required>${salesOptions(state.clients,salesFilters.firstClient,salesClientLabel)}</select></label>`}
- <div class="field full sale-origin" id="sale-origin">${saleOriginPreview(product.id,'')}</div>
- <label class="field">Fecha de venta <input class="form-control" type="date" name="date" value="${localSaleDate()}" min="0001-02-01" max="${localSaleDate()}" required></label>
- <label class="field">Unidades vendidas <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="0.000001" required></label>
- <label class="field">Precio unitario (${esc(state.settings.currency||'COP')}) <input class="form-control" type="number" name="price" min="0" max="1000000000000" step="any" placeholder="Opcional"></label>
- <label class="field full">Factura o referencia <input class="form-control" name="reference" maxlength="120" placeholder="Opcional"></label>
- </div><p>Las unidades se descontarán del lote seleccionado.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="sale-form" class="btn btn-primary">Guardar venta</button>`);
+ ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Lote','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${esc(s.origin?.lotCode||lotsById.get(s.lotId)?.code||'Sin lote registrado')}</td><td>${traceQuantity(s.units)}</td><td>${s.weeklyPeriodId?'Registro semanal':`<button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button>`}</td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
 }
 function submitSales(form){
  const data=Object.fromEntries(new FormData(form));
@@ -629,19 +559,6 @@ function submitSales(form){
  if(form.id==='sales-speed'){
   if(data.a===data.b||![data.a,data.b].every(id=>(state.lots||[]).some(lot=>lot.id===id)))return toast('Selecciona dos lotes distintos.');
   speedQuery={a:data.a,b:data.b};render();return;
- }
- const units=Number(data.units);
- if(!calendarDate(data.date)||data.date<'0001-02-01'||data.date>localSaleDate()||!Number.isFinite(units)||units<0.000001||units>1e12)return toast('Revisa la fecha y la cantidad.');
- const product=state.products.find(p=>p.id===data.productId),client=state.clients.find(c=>c.id===(form.dataset.client||data.clientId));
- const lot=(state.lots||[]).find(item=>item.id===data.lotId&&item.productId===data.productId);
- if(!product||!client||!lot||data.date<lot.receipt.date)return toast('Selecciona un producto, un cliente y un lote recibido para esa fecha.');
- if(units>Trace.balance(state).get(lot.id)||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Revisa la cantidad disponible del lote. Se admiten hasta seis decimales.');
- const price=data.price===''?null:Number(data.price);
- if(price!==null&&(!Number.isFinite(price)||price<0||price>1e12))return toast('Revisa el precio de venta.');
- const place=[lot.receipt,...lot.moves].findLast(item=>item.date<=data.date);
- const sale={id:id('sale'),date:data.date,productId:product.id,productName:product.name,clientId:client.id,clientName:salesClientLabel(client),units,lotId:lot.id,location:Trace.label(place),price,currency:state.settings.currency||'COP',reference:data.reference.trim().slice(0,120),origin:purchaseOrigin(product,lot),voided:false};
- if(mutation(`Venta registrada: ${product.name} · Lote ${lot.code}`,()=>{(state.sales??=[]).push(sale);salesFilters.month=sale.date.slice(0,7);page=0;})){
-  if(form.dataset.client)clientTrace(client.id,sale.date.slice(0,7));else closeModal();
  }
 }
 function voidSale(saleId){
@@ -708,63 +625,74 @@ function weeklyProductIds(period){
  for(const id of Object.keys(state.weekTotals[period.id]||{}))ids.add(id);
  return ids;
 }
-function weeklyCatalogPicker(){
- const period=activePeriod();
- if(period.locked)return toast('Reabre el período para añadir productos.');
+function weeklyCellButton(period,client,product){
+ const units=state.movements[period.id]?.[product.id]?.[client.id];
+ const label=`${product.name} · ${salesClientLabel(client)}`;
+ return `<button type="button" class="form-control weekly-cell-button" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" data-id="${esc(product.id)}" aria-label="${esc(label)}" ${period.locked?'disabled':''}>${units==null?'—':format(units,9)}</button>`;
+}
+function weeklyClientButton(period,client){
+ return `<button type="button" class="btn btn-small" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" ${period.locked?'disabled':''}>${esc(salesClientLabel(client))}</button>`;
+}
+function weeklyCellModal(weekId,clientId,productId=''){
+ const period=state.periods.find(item=>item.id===weekId),client=state.clients.find(item=>item.id===clientId);
+ if(!period||!client)return;
+ if(period.locked)return toast('Reabre el período para cambiar las cantidades.');
  if(!state.products.length){
-  showModal('Productos del catálogo','<div class="modal-body"><p>Añade primero los productos al catálogo y luego selecciónalos aquí para la semana.</p></div>',
+  showModal('Productos del catálogo','<div class="modal-body"><p>Añade primero un producto al catálogo.</p></div>',
    '<button type="button" class="btn" data-action="close-modal">Cerrar</button><button type="button" class="btn btn-primary" data-action="weekly-catalog">Ir a Productos</button>');
   return;
  }
- const attached=weeklyProductIds(period),chosen=new Set();
- let pickerPage=0;
- showModal(`Añadir productos · ${period.label}`,`<div class="modal-body weekly-picker">
- <label class="field">Buscar en Productos <input type="search" class="form-control" id="weekly-picker-search" placeholder="Nombre, número, caja o embarcación"></label>
- <p>Marca los productos que quieres registrar en esta semana.</p>
- <div id="weekly-picker-results"></div></div>`,`<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="button" class="btn btn-primary" id="weekly-picker-add" disabled>Añadir seleccionados</button>`);
- const search=$('#weekly-picker-search'),results=$('#weekly-picker-results'),add=$('#weekly-picker-add');
- const syncButton=()=>{
-  add.disabled=chosen.size===0;
-  add.textContent=chosen.size?`Añadir seleccionados (${chosen.size})`:'Añadir seleccionados';
+ showModal(`${period.label} · ${salesClientLabel(client)}`,`<form id="weekly-cell-form" class="modal-body" data-period="${esc(weekId)}" data-client="${esc(clientId)}">
+ <div class="modal-grid">
+ <label class="field full">Buscar en Productos<input class="form-control" type="search" id="weekly-cell-search" placeholder="Nombre, producto, caja o embarcación"></label>
+ <label class="field full">Producto<select class="form-control" name="productId" required></select></label>
+ <div class="field full sale-origin" data-weekly-origin></div>
+ <label class="field full">Cantidad de este producto para el cliente<input class="form-control" type="number" name="units" min="0" max="1000000000000" step="0.000001" required></label>
+ </div><p class="muted">Escribe el total para esta semana. Guarda 0 para quitarlo del registro.</p></form>`,
+ '<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-primary" form="weekly-cell-form">Guardar cantidad</button>');
+ const form=$('#weekly-cell-form'),search=$('#weekly-cell-search'),picker=form.elements.productId,units=form.elements.units;
+ const originField=form.querySelector('[data-weekly-origin]');
+ const updateProduct=()=>{
+  const product=state.products.find(p=>p.id===picker.value);
+  if(!product){units.value='';originField.innerHTML='';return;}
+  const origin=purchaseOrigin(product);
+  units.value=state.movements[weekId]?.[product.id]?.[clientId]??'';
+  originField.innerHTML=`<span>Origen · Caja: <strong>${esc(origin.boxNumber||'—')}</strong> · Embarcación: <strong>${esc(origin.vesselNumber||'—')}</strong> · Rack: <strong>${esc(origin.rack||'—')}</strong></span>${origin.groups.length?originBadges(origin.groups):''}`;
  };
- const draw=()=>{
-  const keyword=search.value.trim().toLocaleLowerCase('es');
-  const products=state.products.filter(p=>[p.name,p.productNumber,p.boxNumber,p.vesselNumber].join(' ').toLocaleLowerCase('es').includes(keyword));
-  const size=25,last=Math.max(0,Math.ceil(products.length/size)-1);
-  pickerPage=Math.min(pickerPage,last);
-  if(!products.length){results.innerHTML='<p class="muted">Ningún producto coincide con la búsqueda.</p>';return;}
-  results.innerHTML=`<div class="table-scroll weekly-picker-scroll"><table class="data-table"><thead><tr><th scope="col">Añadir</th><th scope="col">Producto</th><th scope="col">Número de producto</th><th scope="col">Caja</th><th scope="col">Embarcación</th><th scope="col" class="num">Unidades por caja</th></tr></thead>
-   <tbody>${products.slice(pickerPage*size,(pickerPage+1)*size).map(p=>`<tr>
-    <td>${attached.has(p.id)?'<span class="muted">Ya añadido</span>':`<input type="checkbox" data-weekly-pick value="${esc(p.id)}" aria-label="Añadir ${esc(p.name)}"${chosen.has(p.id)?' checked':''}>`}</td>
-    <th scope="row">${esc(p.name)}</th><td>${esc(p.productNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td>${esc(p.vesselNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td>
-   </tr>`).join('')}</tbody></table></div>
-   ${last?`<div class="unit-report-pages"><span>Página ${pickerPage+1} de ${last+1}</span><button type="button" class="btn btn-small" data-weekly-picker-page="-1"${pickerPage===0?' disabled':''}>Anterior</button><button type="button" class="btn btn-small" data-weekly-picker-page="1"${pickerPage===last?' disabled':''}>Siguiente</button></div>`:''}`;
+ const showProducts=(selected='')=>{
+  const term=search.value.trim().toLocaleLowerCase('es');
+  const products=state.products.filter(p=>saleProductLabel(p).toLocaleLowerCase('es').includes(term));
+  picker.innerHTML='<option value="">Selecciona un producto</option>'+salesOptions(products,selected,saleProductLabel);
+  if(picker.value!==selected)updateProduct();
  };
- search.addEventListener('input',()=>{pickerPage=0;draw();});
- results.addEventListener('change',event=>{
-  const input=event.target;if(!input.matches('[data-weekly-pick]'))return;
-  if(input.checked)chosen.add(input.value);else chosen.delete(input.value);
-  syncButton();
- });
- results.addEventListener('click',event=>{
-  const button=event.target.closest('[data-weekly-picker-page]');if(!button)return;
-  pickerPage+=Number(button.dataset.weeklyPickerPage);draw();
-  (results.querySelector(`[data-weekly-picker-page="${button.dataset.weeklyPickerPage}"]:not(:disabled)`)||results.querySelector('[data-weekly-pick]'))?.focus();
- });
- add.addEventListener('click',()=>{
-  const current=state.periods.find(item=>item.id===period.id);
-  if(view!=='weekly'||periodId!==period.id||!current||current.locked)return toast('La semana ya no está disponible para editar.');
-  const known=weeklyProductIds(current);
-  const selected=state.products.filter(p=>chosen.has(p.id)&&!known.has(p.id)).map(p=>p.id);
-  if(!selected.length)return;
-  if(mutation(`Productos añadidos a ${current.label}: ${selected.length}`,()=>{
-   current.productIds=[...new Set([...(current.productIds||[]),...selected])];
+ showProducts(productId);updateProduct();
+ search.addEventListener('input',()=>showProducts(picker.value));
+ picker.addEventListener('change',updateProduct);
+}
+function saveWeeklyCell(form){
+ const {period:weekId,client:clientId}=form.dataset,period=state.periods.find(item=>item.id===weekId),client=state.clients.find(item=>item.id===clientId);
+ if(!period||period.locked||!client)return toast('Esta casilla no está disponible para editar.');
+ const data=new FormData(form),product=state.products.find(item=>item.id===data.get('productId'));
+ const raw=String(data.get('units')??'').trim(),units=Number(raw);
+ if(!product||!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Selecciona un producto y escribe una cantidad válida.');
+ const key=Trace.weeklyKey(weekId,product.id,clientId),previous=state.weeklyOrigins?.[key];
+ const existing=state.movements[weekId]?.[product.id]?.[clientId];
+ if(units===0&&!existing&&!previous){closeModal();return;}
+ if(mutation(`${period.label}: ${product.name} · ${salesClientLabel(client)} → ${format(units,6)}`,()=>{
+  const movements=(state.movements[weekId]??={});
+  const cells=(movements[product.id]??={});
+  if(units>0)cells[clientId]=units;else delete cells[clientId];
+  const record=previous&&!previous.deleted?previous:{
+   periodId:weekId,productId:product.id,clientId,productName:product.name,clientName:salesClientLabel(client),date:localSaleDate(),
+   origin:purchaseOrigin(product),price:state.prices[weekId]?.[product.id]??product.value??null,currency:state.settings.currency||'COP'
+  };
+  (state.weeklyOrigins??={})[key]={...record,deleted:units===0,updatedAt:new Date().toISOString()};
+  if(view==='weekly'&&periodId===weekId){
    weeklyPreviewProduct='';query='';
-   const ids=weeklyProductIds(current),ordered=state.products.filter(p=>ids.has(p.id));
-   page=Math.floor(ordered.findIndex(p=>p.id===selected[0])/(state.settings.pageSize||20));
-  }))closeModal();
- });
- draw();
+   const ids=weeklyProductIds(period),position=state.products.filter(item=>ids.has(item.id)).findIndex(item=>item.id===product.id);
+   if(position>=0)page=Math.floor(position/(state.settings.pageSize||20));
+  }
+ }))closeModal();
 }
 function renderWeekly(){
  const period=activePeriod(),slots=currentSlots(),ids=weeklyProductIds(period),locked=period.locked;
@@ -775,14 +703,15 @@ function renderWeekly(){
  const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal con desplazamiento horizontal y vertical"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
   return `<tr><td class="sticky-first">${productButton(pr)}</td>${slots.map(cl=>`<td class="week-cell">${numInput('movement',state.movements[period.id]?.[pr.id]?.[cl.id]??'',`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" aria-label="${esc(pr.name)} / ${esc(cl.name||cl.code)}" ${locked?'disabled':''}`)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="week-cell">${numInput('price',prc,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Precio ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="week-cell">${numInput('week-total',total,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Total manual ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
- }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona productos del catálogo para registrarlos en esta semana.':'El catálogo está vacío.',locked?'':'weekly-picker','Añadir productos');
- const mobile=sel.rows.length?`<div class="week-mobile">${sel.rows.map(pr=>{const qty=C.qty(state,period.id,pr.id);return `<article class="card week-product"><div class="week-product-head"><h3>${productButton(pr)}</h3><span class="badge ${qty<0?'danger':qty>0?'good':''}">Total ${format(qty)}</span></div><div class="week-product-grid">${slots.map(cl=>`<div class="field"><label>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</label><input class="form-control" type="number" inputmode="decimal" step="any" placeholder="0" data-edit="movement" value="${esc(state.movements[period.id]?.[pr.id]?.[cl.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" ${locked?'disabled':''}></div>`).join('')}</div><div class="week-product-grid" style="margin-top:13px"><div class="field"><label>Precio unitario (CY)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="price" value="${esc(state.prices[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div><div class="field"><label>Total manual (CZ)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="week-total" value="${esc(state.weekTotals[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div></div><div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${money(qty*(state.prices[period.id]?.[pr.id]||0))}</strong></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:'';
- return `${heading('CAPTURA DE DATOS','Registro semanal','Registra cantidades por espacio. Enter avanza una fila; Alt + flechas navega entre celdas.',`<button class="btn" data-action="edit-period">Editar período</button><button class="btn btn-primary" data-action="new-period">+ Semana</button>`)}
+ }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
+ const mobile=sel.rows.length?`<div class="week-mobile">${sel.rows.map(pr=>{const qty=C.qty(state,period.id,pr.id);return `<article class="card week-product"><div class="week-product-head"><h3>${productButton(pr)}</h3><span class="badge ${qty<0?'danger':qty>0?'good':''}">Total ${format(qty)}</span></div><div class="week-product-grid">${slots.map(cl=>`<div class="field"><label>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</label>${weeklyCellButton(period,cl,pr)}</div>`).join('')}</div><div class="week-product-grid" style="margin-top:13px"><div class="field"><label>Precio unitario (CY)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="price" value="${esc(state.prices[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div><div class="field"><label>Total manual (CZ)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="week-total" value="${esc(state.weekTotals[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div></div><div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${money(qty*(state.prices[period.id]?.[pr.id]||0))}</strong></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:'';
+ return `${heading('CAPTURA DE DATOS','Registro semanal','Elige un cliente y registra productos del catálogo. Usa Alt + flechas para navegar entre las casillas.',`<button class="btn" data-action="edit-period">Editar período</button><button class="btn btn-primary" data-action="new-period">+ Semana</button>`)}
  <div class="week-tabs" role="tablist" aria-label="Períodos">${state.periods.map(p=>`<button class="week-tab ${p.id===period.id?'active':''}" data-period-tab="${esc(p.id)}" role="tab" aria-selected="${p.id===period.id}">${esc(p.label)}${p.locked?' · 🔒':''}</button>`).join('')}</div>
  <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos de la semana: <strong>${count}</strong></span></div></div>
- <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-picker"${locked?' disabled':''}>+ Añadir productos</button></div></div>
+ <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
- <p class="table-hint">Desplazamiento horizontal y vertical. Enter ↓ · Alt + flechas para navegar. En móvil: tarjetas.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
+ <div class="weekly-client-entries" role="group" aria-label="Registrar por cliente"><strong>Registrar por cliente</strong>${slots.map(client=>weeklyClientButton(period,client)).join('')}</div>
+ <p class="table-hint">Toca una casilla para elegir el producto y cambiar su cantidad.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
 }
 function renderFinal(){
  const filteredProducts=productsFiltered(),all=filteredProducts.filter(p=>{const n=C.result(state,p).N;return finalFilter==='all'||(finalFilter==='positive'?n>0:finalFilter==='zero'?n===0:n<0);}),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
@@ -905,7 +834,7 @@ function renderProducts(){
  <label>Grupo <select class="form-control" id="catalog-group"><option value="">Todos</option>${salesOptions(groups,catalogGroup,group=>group.name)}</select></label>
  ${byGroup.has(catalogGroup)?groupBadge(byGroup.get(catalogGroup)):''}</div>
  ${sel.rows.length?`<div class="card catalog-table"><div class="table-scroll"><table class="data-table" aria-label="Productos"><thead><tr><th scope="col">Número de embarcación</th><th scope="col">Número de caja</th><th scope="col" class="num">Cantidad de productos por caja</th><th scope="col">Número de producto</th><th scope="col" class="num">Precio por unidad</th><th scope="col">Acciones</th></tr></thead><tbody>
- ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${p.catalogRack?`<small class="muted">Rack ${Number(p.catalogRack)}</small>`:''}${p.groupIds?.length?`<div class="catalog-tag-list">${p.groupIds.map(id=>byGroup.get(id)).filter(Boolean).map(groupBadge).join('')}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
+ ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${p.catalogRack?`<small class="muted">Rack ${Number(p.catalogRack)}</small>`:''}${p.groupIds?.length?`<div class="catalog-tag-list">${p.groupIds.map(id=>byGroup.get(id)).filter(Boolean).map(groupBadge).join('')}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
  </tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con los filtros.':'Añade un producto para empezar a registrar tus cajas.','new-product','Añadir producto')}`;
 }
 function renderClients(){
@@ -962,7 +891,6 @@ function productModal(productId){
  ${field('productNumber','Número de producto','Ej. PR-204')}
  <label class="field">Precio por unidad (${esc(state.settings.currency||'COP')})<input type="number" class="form-control" name="value" min="0" max="1000000000000000" step="any" value="${esc(product?.value??'')}" placeholder="Ej. 12500" required></label>
  <label class="field">Rack en bodega <select class="form-control" name="catalogRack"${product?'':' required'}><option value="">${product?'Sin rack asignado':'Selecciona un rack'}</option>${[1,2,3].map(number=>`<option value="${number}"${Number(product?.catalogRack)===number?' selected':''}>Rack ${number}</option>`).join('')}</select></label>
- ${product&&(state.lots||[]).some(lot=>lot.productId===product.id)?'<p class="field-help full">Para mover lotes ya recibidos, abre Seguimiento y trasládalos desde allí.</p>':''}
  ${productGroupChoices(product)}
  </div></form>`,
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${product?'Guardar cambios':'Crear producto'}</button>`);
@@ -1024,7 +952,7 @@ async function removalCheckpoint(label){
  await DB.backup(snapshot);await refreshBackups();
 }
 async function removeProduct(productId){
- if(state.lots?.some(lot=>lot.productId===productId)){toast('Este producto tiene historial de lotes y se conserva para mantener la trazabilidad.');return;}
+ if(state.lots?.some(lot=>lot.productId===productId)||purchases().some(sale=>!sale.voided&&sale.productId===productId)){toast('Este producto tiene compras o lotes vinculados. Se conserva para mantener el historial.');return;}
  const p=state.products.find(x=>x.id===productId);if(!p)return;
  if(!confirm(`¿Eliminar «${p.name}»? Se borrarán sus cantidades, precios y totales semanales. Se creará una copia interna preventiva.`))return;
  await removalCheckpoint('antes de eliminar producto');
@@ -1032,14 +960,14 @@ async function removeProduct(productId){
 }
 async function removePeriod(pId){
  const p=state.periods.find(x=>x.id===pId);if(!p||state.periods.length<=1)return;
- if(!confirm(`¿Eliminar «${p.label}» y todos sus registros, precios y totales? Se creará una copia interna preventiva.`))return;
+ if(!confirm(`¿Eliminar «${p.label}» y todos sus registros, compras, precios y totales? Se creará una copia interna preventiva.`))return;
  await removalCheckpoint('antes de eliminar período');
- mutation(`Período eliminado: ${p.label}`,()=>{state.periods=state.periods.filter(x=>x.id!==pId);delete state.movements[pId];delete state.prices[pId];delete state.weekTotals[pId];if(periodId===pId)periodId=state.periods[0].id;});closeModal();
+ mutation(`Período eliminado: ${p.label}`,()=>{state.periods=state.periods.filter(x=>x.id!==pId);delete state.movements[pId];delete state.prices[pId];delete state.weekTotals[pId];for(const [key,entry] of Object.entries(state.weeklyOrigins||{}))if(entry.periodId===pId)delete state.weeklyOrigins[key];if(periodId===pId)periodId=state.periods[0].id;});closeModal();
 }
 function editValue(el){
  const type=el.dataset.edit;
  if(!type)return;
- const pId=el.dataset.product,wId=el.dataset.period,cId=el.dataset.client;
+ const pId=el.dataset.product,wId=el.dataset.period;
  const p=state.products.find(p=>p.id===pId),w=state.periods.find(p=>p.id===wId);
  if(type==='client-name'){
   const c=state.clients.find(c=>c.id===el.dataset.id);if(!c)return;const name=el.value.trim().slice(0,90);
@@ -1054,14 +982,6 @@ function editValue(el){
  const raw=el.value.trim();const n=raw===''?null:nf(raw);
  if(n!==null && (n===null||Math.abs(n)>1e15)){toast('Introduce un número válido.');render();return;}
  if(raw!==''&&n===null){toast('Introduce un número válido.');render();return;}
- if(type==='movement'){
-  const c=state.clients.find(c=>c.id===cId);if(!c)return;
-  const prev=state.movements[wId]?.[pId]?.[cId];if((raw===''&&prev===undefined)||(raw!==''&&prev===n))return;
-  mutation(`${w.label}: ${p.name}, ${c.name||c.code} → ${n===null?'vacío':n}`,()=>{
-   if(!state.movements[wId])state.movements[wId]={};if(!state.movements[wId][pId])state.movements[wId][pId]={};
-   if(n===null)delete state.movements[wId][pId][cId];else state.movements[wId][pId][cId]=n;
-  });return;
- }
  if(type==='price'||type==='week-total'){
   const key=type==='price'?'prices':'weekTotals';const prev=state[key][wId]?.[pId];
   if((raw===''&&prev===undefined)||(raw!==''&&prev===n))return;
@@ -1112,6 +1032,21 @@ async function decryptPackage(wrapped){
  try{const salt=fromB64(wrapped.salt),iv=fromB64(wrapped.iv),cipher=fromB64(wrapped.payload);if(salt.length!==16||iv.length!==12||cipher.length>60*1024*1024)throw new Error('Archivo cifrado no válido.');
  const key=await encryptionKey(secret,salt,wrapped.iterations,'decrypt'),plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,cipher);return JSON.parse(new TextDecoder().decode(plain));
  }catch{throw new Error('Contraseña incorrecta o archivo cifrado dañado.');}
+}
+function normalizePlace(input){
+ const area=String(input?.area??'').trim().slice(0,120),rack=Number(input?.rack);
+ const level=rack?Number(input?.level):0,position=rack?Number(input?.position):0;
+ if(!calendarDate(input?.date)||!area||![0,1,2,3].includes(rack)||(rack&&(![1,2].includes(level)||!Number.isInteger(position)||position<1||position>8)))throw new Error('Revisa la fecha, el lugar y la posición.');
+ return {date:input.date,area,rack,level,position,at:typeof input.at==='string'&&Number.isFinite(Date.parse(input.at))?new Date(input.at).toISOString():''};
+}
+function normalizePurchaseOrigin(raw){
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))return undefined;
+ const text=(value,length)=>String(value??'').slice(0,length);
+ return {
+  productNumber:text(raw.productNumber,80),boxNumber:text(raw.boxNumber,80),vesselNumber:text(raw.vesselNumber,80),
+  lotCode:text(raw.lotCode,80),container:text(raw.container,80),rack:text(raw.rack,80),catalogLot:raw.catalogLot===true,
+  groups:Array.isArray(raw.groups)?raw.groups.filter(group=>group&&typeof group.name==='string'&&typeof group.color==='string'&&/^#[0-9a-f]{6}$/i.test(group.color)).map(group=>({name:text(group.name,50),color:group.color})):[]
+ };
 }
 function normalizeImported(raw){
  if(!raw||typeof raw!=='object'||!Array.isArray(raw.products)||!Array.isArray(raw.clients)||!Array.isArray(raw.periods))throw new Error('Este archivo no contiene un respaldo compatible de Inventarios GU.');
@@ -1168,14 +1103,27 @@ function normalizeImported(raw){
   const price=sale.price==null?null:decimal(sale.price);
   const lotId=sale.lotId??'';
   if((lotId&&(typeof lotId!=='string'||!safeid(lotId)))||(price!==null&&(price<0||price>1e12)))throw new Error('Una venta tiene precio o lote no válido.');
-  const rawOrigin=sale.origin;
-  const origin=rawOrigin&&typeof rawOrigin==='object'&&!Array.isArray(rawOrigin)?{
-   productNumber:string(rawOrigin.productNumber,80),boxNumber:string(rawOrigin.boxNumber,80),vesselNumber:string(rawOrigin.vesselNumber,80),
-   lotCode:string(rawOrigin.lotCode,80),container:string(rawOrigin.container,80),
-   groups:Array.isArray(rawOrigin.groups)?rawOrigin.groups.filter(group=>group&&typeof group.name==='string'&&typeof group.color==='string'&&/^#[0-9a-f]{6}$/i.test(group.color)).map(group=>({name:string(group.name,50),color:group.color})):[]
-  }:undefined;
+  const origin=normalizePurchaseOrigin(sale.origin);
   return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,lotId,location:string(sale.location,220),price,currency:['COP','USD','EUR','MXN','CNY'].includes(sale.currency)?sale.currency:'COP',reference:string(sale.reference,120),origin,voided:sale.voided===true};
  });
+ clean.weeklyOrigins={};
+ const savedOrigins=raw.weeklyOrigins;
+ if(savedOrigins!==undefined&&(!savedOrigins||typeof savedOrigins!=='object'||Array.isArray(savedOrigins)))throw new Error('Procedencia semanal no válida.');
+ let originCount=0;
+ for(const entry of Object.values(savedOrigins||{})){
+  if(++originCount>500000)throw new Error('Demasiados registros de procedencia semanal.');
+  if(!entry||!periodIDs.has(entry.periodId)||!productIDs.has(entry.productId)||!clientIDs.has(entry.clientId)||!calendarDate(entry.date))continue;
+  const {periodId,productId,clientId}=entry;
+  const key=Trace.weeklyKey(periodId,productId,clientId);
+  if(clean.weeklyOrigins[key])throw new Error('Procedencia semanal duplicada.');
+  const deleted=entry.deleted===true,dates=Date.parse(entry.updatedAt);
+  if(deleted&&clean.movements[periodId]?.[productId])delete clean.movements[periodId][productId][clientId];
+  clean.weeklyOrigins[key]={
+   periodId,productId,clientId,deleted,date:entry.date,updatedAt:Number.isFinite(dates)?new Date(dates).toISOString():entry.date+'T00:00:00.000Z',
+   productName:string(entry.productName,110),clientName:string(entry.clientName,130),origin:normalizePurchaseOrigin(entry.origin),
+   price:entry.price==null?null:decimal(entry.price),currency:['COP','USD','EUR','MXN','CNY'].includes(entry.currency)?entry.currency:'COP'
+  };
+ }
  reconcileCatalogGroups(clean);
  Trace?.validate(clean);
  clean.gu4=GU4?.normalizeGu4(raw.gu4,clean)||newState().gu4;return clean;
@@ -1211,6 +1159,22 @@ function mergeStates(local,remote){
     else out[root][wid][pid]=value;
    }
   }
+ }
+ const weeklyOrigins=new Map(Object.entries(local.weeklyOrigins||{}).map(([key,entry])=>[key,{entry,source:local}]));
+ for(const [key,entry] of Object.entries(remote.weeklyOrigins||{})){
+  if(!weeklyOrigins.has(key)||entry.updatedAt>=weeklyOrigins.get(key).entry.updatedAt)weeklyOrigins.set(key,{entry,source:remote});
+ }
+ out.weeklyOrigins={};
+ for(const [key,{entry,source}] of weeklyOrigins){
+  const {periodId,productId,clientId}=entry;
+  const units=source.movements[periodId]?.[productId]?.[clientId];
+  if(entry.deleted||!(units>0)){
+   if(out.movements[periodId]?.[productId])delete out.movements[periodId][productId][clientId];
+  }else{
+   const products=(out.movements[periodId]??={});
+   (products[productId]??={})[clientId]=units;
+  }
+  out.weeklyOrigins[key]=entry;
  }
  const salesById=new Map((local.sales||[]).map(sale=>[sale.id,sale]));
  for(const sale of remote.sales||[]){
@@ -1319,16 +1283,11 @@ document.addEventListener('click',async e=>{
  const action=btn.dataset.action,targetId=btn.dataset.id;
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
-  case 'weekly-picker':weeklyCatalogPicker();break;
+  case 'weekly-cell':weeklyCellModal(btn.dataset.period,btn.dataset.client,targetId);break;
   case 'weekly-catalog':closeModal();navigate('products');break;
   case 'new-product':productModal();break;
-  case 'product-trace':productTrace(targetId);break;
   case 'client-trace':clientTrace(targetId);break;
-  case 'receive-lot':lotModal(targetId);break;
-  case 'move-lot':lotModal(targetId,true);break;
-  case 'sale-products':closeModal();navigate('products');break;
   case 'unit-report':openUnitReport(targetId||'sales');break;
-  case 'record-sale':saleModal(targetId);break;
   case 'void-sale':voidSale(targetId);break;
   case 'product-groups':productGroupsModal(targetId);break;
   case 'catalog-groups':catalogGroupEditor();break;
@@ -1369,8 +1328,8 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',e=>{
  const form=e.target;if(form.id==='product-groups-form'){e.preventDefault();submitProductGroups(form);return;}
  if(form.id==='catalog-group-form'){e.preventDefault();saveCatalogGroup(form);return;}
- if(form.id==='lot-form'){e.preventDefault();submitLot(form);return;}
- if(['sales-filters','sales-speed','sale-form'].includes(form.id)){e.preventDefault();submitSales(form);return;}
+ if(form.id==='weekly-cell-form'){e.preventDefault();saveWeeklyCell(form);return;}
+ if(['sales-filters','sales-speed'].includes(form.id)){e.preventDefault();submitSales(form);return;}
  if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
  if(form.id==='product-form')submitProduct(form);
  if(form.id==='period-form')submitPeriod(form);
@@ -1392,12 +1351,6 @@ document.addEventListener('change',e=>{
   field.hidden=el.value!=='__new_category__';input.disabled=field.hidden;input.required=!field.hidden;
   if(!field.hidden)input.focus();return;
  }
- if(el.id==='trace-client-month'){clientTrace(el.dataset.id,el.value);return;}
- if(el.form?.id==='sale-form'&&['productId','date','lotId'].includes(el.name)){
-  const {productId,date,lotId}=el.form.elements;
-  if(el.name!=='lotId')lotId.innerHTML=saleLotChoices(productId.value,date.value);
-  $('#sale-origin').innerHTML=saleOriginPreview(productId.value,lotId.value);return;
- }
  if(el.matches('[data-edit]')){editValue(el);return;}
  if(el.id==='slot-count'){slotCount=Number(el.value);slotOffset=0;page=0;render();return;}
    if(el.id==='product-sort'){productSort=el.value;page=0;render();return;}
@@ -1415,11 +1368,11 @@ document.addEventListener('input',e=>{
 document.addEventListener('keydown',e=>{
  if(document.getElementById('dashboard-menu')?.open)return;
  const cell=e.target.closest?.('.week-scroll-2d td');
- if(cell&&e.target.matches('input[data-edit]')&&(e.key==='Enter'||(e.altKey&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)))){
+ if(cell&&((e.target.matches('input[data-edit]')&&e.key==='Enter')||(e.altKey&&e.target.matches('input[data-edit],button.weekly-cell-button')&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)))){
   const tr=cell.closest('tr'), tbody=tr?.parentElement, rows=tbody?.querySelectorAll('tr');
   if(tr&&rows){const dy=e.key==='Enter'||e.key==='ArrowDown'?1:e.key==='ArrowUp'?-1:0;const dx=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
    const ri=Array.from(rows).indexOf(tr),nextRow=rows[ri+dy],ti=cell.cellIndex+dx;
-   const target=nextRow?.cells?.[ti]?.querySelector('input:not(:disabled)');
+   const target=nextRow?.cells?.[ti]?.querySelector('input:not(:disabled),button.weekly-cell-button:not(:disabled)');
    if(target){e.preventDefault();weeklyFocusNext={r:ri+dy,c:ti};target.focus();target.select?.();requestAnimationFrame(()=>{if(weeklyFocusNext){weeklyFocusNext=null;}});return;}
   }
  }

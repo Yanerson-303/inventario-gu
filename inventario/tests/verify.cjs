@@ -43,7 +43,7 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  assert.match(element('#main-content').innerHTML,/Sobre cupo detectado/);
  assert.match(element('#main-content').innerHTML,/Stock<\/div><div class="stat-value mono">589<\/div>/);
  await click('nav',{nav:'weekly'});
- assert.match(element('#main-content').innerHTML,/data-edit="movement"/);
+ assert.match(element('#main-content').innerHTML,/data-action="weekly-cell"/);
  await click('nav',{nav:'final'});
  assert.match(element('#main-content').innerHTML,/Cantidad.N/);
  await click('nav',{nav:'backup'});

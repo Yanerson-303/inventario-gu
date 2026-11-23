@@ -17,6 +17,28 @@ function calendarDate(value){
  const date=new Date(value+'T00:00:00Z');
  return Number.isFinite(+date)&&date.toISOString().slice(0,10)===value;
 }
+function weeklyKey(periodId,productId,clientId){return [periodId,productId,clientId].join('|');}
+function weeklyPurchases(state){
+ const periods=new Map((state.periods||[]).map(period=>[period.id,period]));
+ const purchases=[];
+ for(const entry of Object.values(state.weeklyOrigins||{})){
+  if(!entry||entry.deleted)continue;
+  const {periodId,productId,clientId,productName,clientName,origin,price,currency}=entry;
+  const period=periods.get(periodId);
+  if(!period)continue;
+  const units=state.movements?.[periodId]?.[productId]?.[clientId];
+  if(!Number.isFinite(units)||units<=0)continue;
+  const date=calendarDate(period.start)?period.start:entry.date;
+  if(!calendarDate(date))continue;
+  purchases.push({
+   id:'weekly-'+weeklyKey(periodId,productId,clientId),weeklyPeriodId:periodId,weeklyPeriodLabel:period.label,
+   productId,clientId,productName,clientName,date,origin,units,price:price??null,currency,lotId:'',voided:false,
+   location:typeof origin?.rack==='string'?origin.rack:''
+  });
+ }
+ return purchases;
+}
+function purchases(state){return [...(state.sales||[]),...weeklyPurchases(state)];}
 function validate(state){
  const grouped=new Map(),keys=new Set();
  for(const lot of state.lots||[]){
@@ -81,5 +103,5 @@ function soldOut(lot,sales){
  }
  return null;
 }
-window.GUTrace={balance,location,label,lotKey,calendarDate,validate,warehouse,soldOut};
+window.GUTrace={balance,location,label,lotKey,calendarDate,weeklyKey,weeklyPurchases,purchases,validate,warehouse,soldOut};
 })();

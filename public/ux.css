@@ -447,9 +447,9 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .sale-origin:empty { display: none; }
 .purchase-product-number { display: block; }
 
-/* Selector de productos para el registro semanal. */
-.modal:has(.weekly-picker) { width: min(100%, 860px); }
-.weekly-picker-scroll { max-height: 52dvh; }
-.weekly-picker-scroll .data-table { min-width: 630px; }
-.weekly-picker-scroll tbody th { text-align: left; text-transform: none; }
-.weekly-picker-scroll input { accent-color: var(--accent); }
+
+
+/* Entrada por cliente en el registro semanal. */
+.weekly-client-entries { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 10px; }
+.weekly-cell-button { text-align: right; cursor: pointer; min-height: 34px; }
+.weekly-cell-button:disabled { cursor: default; }
