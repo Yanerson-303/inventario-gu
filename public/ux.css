@@ -453,3 +453,13 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .weekly-client-entries { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 10px; }
 .weekly-cell-button { text-align: right; cursor: pointer; min-height: 34px; }
 .weekly-cell-button:disabled { cursor: default; }
+
+/* Buscador desplegable y revisión de procedencia. */
+.weekly-product-select summary { cursor: pointer; padding: 9px 12px; }
+.weekly-product-options { padding: 8px 0; }
+#weekly-product-results { max-height: 220px; overflow: auto; margin-top: 6px; }
+.weekly-product-option { display: block; width: 100%; text-align: left; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 3px; padding: 8px; cursor: pointer; }
+.weekly-product-option:hover, .weekly-product-option[aria-pressed="true"] { background: var(--accent-soft); }
+.product-provenance h3 { margin: 0 0 5px; }
+.product-provenance .data-table { min-width: 0; }
+#catalog-provenance-review { margin-top: 12px; scroll-margin: 12px; }

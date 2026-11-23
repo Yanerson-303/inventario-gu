@@ -60,6 +60,9 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  console.log('✓ Renderizado inicial, demostración, 6 vistas, ampliación de clientes, auto-guardado.');
  const firstProduct=lastSaved.products[0].id;
  await click('action',{action:'remove-product',id:firstProduct});
+ assert.match(element('#modal-root').innerHTML,/Registro de procedencia/);
+ assert.equal(lastSaved.products.length,6);
+ await click('action',{action:'confirm-remove-product',id:firstProduct});
  await new Promise(r=>setTimeout(r,350));
  assert.equal(lastSaved.products.length,5);
  assert(backups.some(b=>b.label.startsWith('Copia preventiva')&&b.data.products.length===6));

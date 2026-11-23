@@ -758,6 +758,18 @@ body.gu-entry-active{overflow:hidden}
 .weekly-cell-button { text-align: right; cursor: pointer; min-height: 34px; }
 .weekly-cell-button:disabled { cursor: default; }
 </style>
+<style>
+
+/* Buscador desplegable y revisión de procedencia. */
+.weekly-product-select summary { cursor: pointer; padding: 9px 12px; }
+.weekly-product-options { padding: 8px 0; }
+#weekly-product-results { max-height: 220px; overflow: auto; margin-top: 6px; }
+.weekly-product-option { display: block; width: 100%; text-align: left; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 6px; margin-bottom: 3px; padding: 8px; cursor: pointer; }
+.weekly-product-option:hover, .weekly-product-option[aria-pressed="true"] { background: var(--accent-soft); }
+.product-provenance h3 { margin: 0 0 5px; }
+.product-provenance .data-table { min-width: 0; }
+#catalog-provenance-review { margin-top: 12px; scroll-margin: 12px; }
+</style>
 </head>
 <body data-palette="almond" data-mode="light">
   <div id="gu-entry" role="status" aria-label="Preparando Inventarios GU, acceso automático">
@@ -2278,6 +2290,15 @@ function originBadges(groups){
 function saleProductLabel(product){
  return [product.name,product.productNumber,product.boxNumber?`Caja ${product.boxNumber}`:'',product.vesselNumber?`Embarcación ${product.vesselNumber}`:''].filter(Boolean).join(' · ');
 }
+function provenanceTable(name,origin,date='',extra=[]){
+ const when=date||'—';
+ const data=[
+  ['Producto',esc(name)],['Número de producto',esc(origin.productNumber||'—')],['Caja',esc(origin.boxNumber||'—')],
+  ['Lote',esc(origin.lotCode||'—')],['Embarcación',esc(origin.vesselNumber||'—')],['Rack',esc(origin.rack||'—')],
+  ['Grupos',originBadges(origin.groups)],['Fecha de registro',esc(when)],...extra
+ ];
+ return `<section class="product-provenance" aria-label="Registro de procedencia"><h3>Registro de procedencia</h3>${traceTable(['Dato','Registro'],data)}</section>`;
+}
 function tracePurchases(sales,entity){
  if(!sales.length)return '<p class="muted">Todavía no hay compras registradas.</p>';
  const lots=new Map((state.lots||[]).map(lot=>[lot.id,lot]));
@@ -2511,8 +2532,15 @@ function weeklyCellModal(weekId,clientId,productId=''){
  }
  showModal(`${period.label} · ${salesClientLabel(client)}`,`<form id="weekly-cell-form" class="modal-body" data-period="${esc(weekId)}" data-client="${esc(clientId)}">
  <div class="modal-grid">
- <label class="field full">Buscar en Productos<input class="form-control" type="search" id="weekly-cell-search" placeholder="Nombre, producto, caja o embarcación"></label>
- <label class="field full">Producto<select class="form-control" name="productId" required></select></label>
+ <div class="field full">
+ <details class="weekly-product-select" id="weekly-product-select">
+ <summary class="form-control" id="weekly-product-label">Selecciona un producto</summary>
+ <div class="weekly-product-options">
+  <label class="field">Buscar en el selector<input class="form-control" type="search" id="weekly-cell-search" placeholder="Nombre, producto, caja o embarcación" autocomplete="off"></label>
+  <div id="weekly-product-results"></div>
+ </div>
+ </details><input type="hidden" name="productId">
+ </div>
  <div class="field full sale-origin" data-weekly-origin aria-live="polite"></div>
  <label class="switch-line full"><input type="checkbox" name="confirmOrigin" disabled required> Revisé la procedencia de este producto.</label>
  <label class="field full">Cantidad de este producto para el cliente<input class="form-control" type="number" name="units" min="0" max="1000000000000" step="0.000001" disabled required></label>
@@ -2539,19 +2567,36 @@ function weeklyCellModal(weekId,clientId,productId=''){
   units.value=state.movements[weekId]?.[product.id]?.[clientId]??'';
   review.value=product.id;
   review.disabled=!complete;
-  originField.innerHTML=`<span>Origen · Caja: <strong>${esc(origin.boxNumber||'—')}</strong> · Lote: <strong>${esc(origin.lotCode||'—')}</strong> · Embarcación: <strong>${esc(origin.vesselNumber||'—')}</strong> · Rack: <strong>${esc(origin.rack||'—')}</strong></span>
-   ${origin.groups?.length?originBadges(origin.groups):''}${complete?'':'<span role="status">Completa la caja, la embarcación y el rack en Productos para registrar o cambiar esta cantidad.</span>'}`;
+  const saved=state.weeklyOrigins?.[Trace.weeklyKey(weekId,product.id,clientId)];
+  originField.innerHTML=provenanceTable(product.name,origin,saved&&!saved.deleted?saved.date:(product.createdAt?stamp(product.createdAt):''))+(complete?'':'<span role="status">Completa la caja, la embarcación y el rack en Productos para registrar o cambiar esta cantidad.</span>');
   updateControls();
  };
- const showProducts=(selected='')=>{
+ const results=$('#weekly-product-results'),dropdown=$('#weekly-product-select'),summary=$('#weekly-product-label');
+ const showProducts=()=>{
   const term=search.value.trim().toLocaleLowerCase('es');
   const products=state.products.filter(p=>saleProductLabel(p).toLocaleLowerCase('es').includes(term));
-  picker.innerHTML='<option value="">Selecciona un producto</option>'+salesOptions(products,selected,saleProductLabel);
-  if(picker.value!==selected)updateProduct();
+  results.innerHTML=products.length?products.slice(0,60).map(p=>`<button type="button" class="weekly-product-option" data-weekly-option="${esc(p.id)}" aria-pressed="${p.id===picker.value}">${esc(saleProductLabel(p))}</button>`).join(''):'<p class="muted" role="status">No hay productos que coincidan.</p>';
+  if(products.length>60)results.insertAdjacentHTML('beforeend','<p class="muted">Acota la búsqueda para ver otros productos.</p>');
  };
- showProducts(productId);updateProduct();
- search.addEventListener('input',()=>showProducts(picker.value));
- picker.addEventListener('change',updateProduct);
+ const choose=(id)=>{
+  const product=state.products.find(p=>p.id===id);
+  picker.value=product?.id||'';
+  summary.textContent=product?saleProductLabel(product):'Selecciona un producto';
+  updateProduct();showProducts();
+ };
+ choose(productId);
+ search.addEventListener('input',showProducts);
+ dropdown.addEventListener('toggle',()=>{if(dropdown.open)search.focus();});
+ results.addEventListener('click',event=>{
+  const option=event.target.closest('[data-weekly-option]');if(!option)return;
+  choose(option.dataset.weeklyOption);
+  dropdown.open=false;
+  summary.focus();
+ });
+ dropdown.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||!dropdown.open)return;
+  event.stopPropagation();dropdown.open=false;summary.focus();
+ });
  review.addEventListener('change',updateControls);
 }
 function saveWeeklyCell(form){
@@ -2763,8 +2808,9 @@ function renderSettings(){return `${heading('PERSONALIZACIÓN','Configuración',
  ${window.GUInstall?`<div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Aplicación para PC, Android y iPhone</h3><p>Instalable desde el navegador, con modo sin conexión y datos locales.</p></div></div><button class="btn btn-primary" type="button" data-action="install-app">Instalar / preparar offline</button><p class="muted" style="margin-top:10px">Para usar en otro dispositivo, instala allí y transfiere los datos mediante Copias y migración.</p></div>`:''}
  <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">La demostración crea productos ficticios con cantidades de ejemplo. No debe confundirse con el Excel original.</p><button class="btn" data-action="demo">Añadir datos de demostración</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
 // Formularios de edición.
-function showModal(title,body,foot=''){const root=$('#modal-root');root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;setTimeout(()=>root.querySelector('input:not([type="hidden"]),select')?.focus(),10);}
-function closeModal(){$('#modal-root').innerHTML='';}
+let productRemovalReview=null;
+function showModal(title,body,foot=''){productRemovalReview=null;const root=$('#modal-root');root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;setTimeout(()=>root.querySelector('input:not([type="hidden"]),select')?.focus(),10);}
+function closeModal(){productRemovalReview=null;$('#modal-root').innerHTML='';}
 function catalogUnitPrice(value){
  return new Intl.NumberFormat('es-CO',{style:'currency',currency:state.settings.currency||'COP',maximumFractionDigits:9}).format(C.num(value));
 }
@@ -2781,8 +2827,8 @@ function productModal(productId){
  <label class="field">Precio por unidad (${esc(state.settings.currency||'COP')})<input type="number" class="form-control" name="value" min="0" max="1000000000000000" step="any" value="${esc(product?.value??'')}" placeholder="Ej. 12500" required></label>
  <label class="field">Rack en bodega <select class="form-control" name="catalogRack"${product?'':' required'}><option value="">${product?'Sin rack asignado':'Selecciona un rack'}</option>${[1,2,3].map(number=>`<option value="${number}"${Number(product?.catalogRack)===number?' selected':''}>Rack ${number}</option>`).join('')}</select></label>
  ${productGroupChoices(product)}
- </div></form>`,
- `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${product?'Guardar cambios':'Crear producto'}</button>`);
+ </div><div id="catalog-provenance-review" tabindex="-1" hidden></div></form>`,
+ `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary" id="catalog-product-save">Revisar procedencia</button>`);
 }
 function productGroupsModal(productId){
  const product=state.products.find(item=>item.id===productId);
@@ -2810,6 +2856,19 @@ function submitProduct(form){
  if(!price||value===null||value<0||value>1e15)return toast('Escribe un precio por unidad válido.');
  const existing=editId?state.products.find(item=>item.id===editId):null;
  if(editId&&!existing)return toast('Producto no encontrado.');
+ const draft={name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds,catalogRack};
+ const fingerprint=JSON.stringify(draft);
+ const confirmation=$('#catalog-provenance-review'),submit=$('#catalog-product-save');
+ if(form.dataset.provenanceReviewed!==fingerprint){
+  confirmation.innerHTML=provenanceTable(name,purchaseOrigin(draft),existing?.createdAt?stamp(existing.createdAt):localSaleDate(),[
+   ['Cantidad por caja',format(boxes,9)],['Precio por unidad',catalogUnitPrice(value)]
+  ]);
+  confirmation.hidden=false;
+  form.dataset.provenanceReviewed=fingerprint;
+  submit.textContent=editId?'Confirmar cambios':'Confirmar y agregar';
+  confirmation.focus();
+  return;
+ }
  if(mutation(editId?`Producto editado: ${name}`:`Producto creado: ${name}`,()=>{
   const product=existing||{id:id('prod'),createdAt:new Date().toISOString(),category:'',unit:'unidad',quantityN:0,quantityV:0,average:0};
   Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds,catalogRack});
@@ -2840,12 +2899,32 @@ async function removalCheckpoint(label){
  const snapshot={id:id('safety'),createdAt:new Date().toISOString(),type:'manual',label:'Copia preventiva · '+label,data:clone(state)};
  await DB.backup(snapshot);await refreshBackups();
 }
+function canRemoveProduct(productId){
+ return !state.lots?.some(lot=>lot.productId===productId)&&!purchases().some(sale=>!sale.voided&&sale.productId===productId);
+}
+function reviewProductRemoval(productId){
+ const product=state.products.find(item=>item.id===productId);if(!product)return;
+ if(!canRemoveProduct(productId))return toast('Este producto tiene compras o lotes vinculados. Se conserva para mantener el historial.');
+ showModal(`Eliminar · ${product.name}`,`<div class="modal-body">
+ ${provenanceTable(product.name,purchaseOrigin(product),product.createdAt?stamp(product.createdAt):'')}
+ <p>Se borrarán sus cantidades, precios y totales semanales. Se creará una copia interna preventiva.</p></div>`,
+ `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="button" class="btn btn-danger" data-action="confirm-remove-product" data-id="${esc(product.id)}">Confirmar eliminación</button>`);
+ productRemovalReview={id:product.id,fingerprint:JSON.stringify(product)};
+}
 async function removeProduct(productId){
- if(state.lots?.some(lot=>lot.productId===productId)||purchases().some(sale=>!sale.voided&&sale.productId===productId)){toast('Este producto tiene compras o lotes vinculados. Se conserva para mantener el historial.');return;}
- const p=state.products.find(x=>x.id===productId);if(!p)return;
- if(!confirm(`¿Eliminar «${p.name}»? Se borrarán sus cantidades, precios y totales semanales. Se creará una copia interna preventiva.`))return;
+ const product=state.products.find(item=>item.id===productId);
+ const review=productRemovalReview;
+ if(!product||review?.id!==productId||review.fingerprint!==JSON.stringify(product))return;
+ if(!canRemoveProduct(productId))return toast('Este producto tiene compras o lotes vinculados.');
  await removalCheckpoint('antes de eliminar producto');
- mutation(`Producto eliminado: ${p.name}`,()=>{state.products=state.products.filter(x=>x.id!==productId);for(const period of state.periods)if(period.productIds)period.productIds=period.productIds.filter(id=>id!==productId);if(state.gu4?.locations)state.gu4.locations=state.gu4.locations.filter(x=>x.productId!==productId);for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];});
+ if(productRemovalReview!==review||review.fingerprint!==JSON.stringify(state.products.find(item=>item.id===productId)))return;
+ if(!canRemoveProduct(productId))return toast('Este producto tiene compras o lotes vinculados.');
+ if(mutation(`Producto eliminado: ${product.name}`,()=>{
+  state.products=state.products.filter(item=>item.id!==productId);
+  for(const period of state.periods)if(period.productIds)period.productIds=period.productIds.filter(id=>id!==productId);
+  if(state.gu4?.locations)state.gu4.locations=state.gu4.locations.filter(location=>location.productId!==productId);
+  for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];
+ }))closeModal();
 }
 async function removePeriod(pId){
  const p=state.periods.find(x=>x.id===pId);if(!p||state.periods.length<=1)return;
@@ -3182,7 +3261,8 @@ document.addEventListener('click',async e=>{
   case 'catalog-groups':catalogGroupEditor();break;
   case 'remove-catalog-group':removeCatalogGroup(targetId);break;
   case 'edit-product':productModal(targetId);break;
-  case 'remove-product':await removeProduct(targetId);break;
+  case 'remove-product':reviewProductRemoval(targetId);break;
+  case 'confirm-remove-product':await removeProduct(targetId);break;
   case 'new-period':periodModal();break;
   case 'edit-period':periodModal(activePeriod());break;
   case 'remove-period':await removePeriod(targetId);break;
@@ -3250,6 +3330,11 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('input',e=>{
  const el=e.target;
+ if(el.form?.id==='product-form'&&el.form.dataset.provenanceReviewed){
+  delete el.form.dataset.provenanceReviewed;
+  $('#catalog-provenance-review').hidden=true;
+  $('#catalog-product-save').textContent='Revisar procedencia';
+ }
  if(el.id==='product-search'){const pos=el.selectionStart;query=el.value;page=0;render();const next=$('#product-search');if(next){next.focus();try{next.setSelectionRange(pos,pos);}catch{}}}
  if(el.id==='client-search'){const pos=el.selectionStart;clientQuery=el.value;render();const next=$('#client-search');if(next){next.focus();try{next.setSelectionRange(pos,pos);}catch{}}}
  if(el.id==='audit-search'){const pos=el.selectionStart;auditQuery=el.value;render();const next=$('#audit-search');if(next){next.focus();try{next.setSelectionRange(pos,pos);}catch{}}}
