@@ -142,17 +142,47 @@ function openDashboardMenu(trigger){
  };
  dialog.showModal();
 }
+function catalogCapacity(rows,sales){
+ const soldByProduct=new Map();
+ for(const sale of sales){
+  if(!sale.voided)soldByProduct.set(sale.productId,(soldByProduct.get(sale.productId)||0)+C.num(sale.units));
+ }
+ const products=rows.map(({product,H})=>{
+  const registered=Math.max(0,C.num(product.boxes));
+  const weekly=Math.max(0,H),sold=C.round(soldByProduct.get(product.id)||0);
+  return {product,registered,weekly,sold,excess:C.round(Math.max(weekly,sold)-registered)};
+ });
+ const totals=products.reduce((sum,row)=>{
+  sum.registered+=row.registered;sum.weekly+=row.weekly;sum.sold+=row.sold;
+  return sum;
+ },{registered:0,weekly:0,sold:0});
+ return {products,totals,exceeded:products.filter(row=>row.excess>0).sort((a,b)=>b.excess-a.excess)};
+}
+function renderCapacityAlert(exceeded){
+ if(!exceeded.length)return '';
+ const units=value=>format(value,9);
+ return `<section class="banner alert capacity-alert" aria-labelledby="capacity-alert-title">
+ <div role="alert"><h3 id="capacity-alert-title">Sobre cupo detectado</h3>
+ <p>${format(exceeded.length,0)} ${exceeded.length===1?'producto supera':'productos superan'} las unidades guardadas en Productos.</p></div>
+ <details><summary>Ver productos y cantidades</summary>
+ ${traceTable(['Producto','Cupo registrado','Usadas en semanas','Vendidas','Unidades de exceso'],exceeded.map(row=>[
+  esc(row.product.name),units(row.registered),units(row.weekly),units(row.sold),units(row.excess)
+ ]))}
+ <p>El exceso se calcula por producto usando la mayor cantidad entre Registro semanal y ventas.</p>
+ </details></section>`;
+}
 function renderDashboard(){
  const all=C.totals(state,state.products);
- const registered=state.products.map(product=>({label:product.name,value:Math.max(0,C.num(product.boxes))}));
- const registeredUnits=C.round(registered.reduce((sum,row)=>sum+row.value,0));
- const registeredBars=registered.filter(row=>row.value>0).sort((a,b)=>b.value-a.value).slice(0,5);
+ const capacity=catalogCapacity(all.rows,state.sales||[]);
+ const {registered,weekly,sold}=capacity.totals;
+ const registeredBars=capacity.products.filter(row=>row.registered>0).sort((a,b)=>b.registered-a.registered).slice(0,5).map(row=>({label:row.product.name,value:row.registered}));
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.')}
+ ${renderCapacityAlert(capacity.exceeded)}
  ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Abre Inventario para añadir productos o cargar la demostración.</p></div></div>`:''}
  ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
- ${metricBox('volumen',statCard(metricLabels.volumen,format(registeredUnits,9),'Suma de las cantidades por caja guardadas en Productos','▦',unitReportCard('sales',M.barRows(registeredBars,'Unidades guardadas por producto',{empty:'Aún no hay unidades guardadas en Productos'}))))}
+ ${metricBox('volumen',statCard(metricLabels.volumen,format(registered,9),'Total de unidades guardadas en Productos.','▦',unitReportCard('sales',M.barRows(registeredBars,'Unidades guardadas por producto',{empty:'Aún no hay unidades guardadas en Productos'}), `Usadas en semanas: ${format(weekly,9)} · Vendidas: ${format(sold,9)}`)))}
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows))))}
  ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',unitReportCard('value',M.valueMix(all.rows))))}
  </section>
@@ -285,9 +315,9 @@ function unitReportRows(model,report){
   return `<tr><th scope="row"><label><input type="checkbox" data-unit-series value="${esc(item.id)}" ${color?'checked':''}>${color?`<i class="unit-report-dot" style="background-color:${color}"></i>`:''}<span>${esc(item.label)}</span></label></th>${model.periods.map(period=>`<td>${reportAmount(report,result?.values.get(period.key)||0)}</td>`).join('')}<td><strong>${reportAmount(report,result?.total||0)}</strong></td></tr>`;
  }).join('')}</tbody></table></div><div class="unit-report-pages"><span>${start+1}–${Math.min(start+size,rows.length)} de ${rows.length}</span><button class="btn btn-small" type="button" data-unit-page="-1" ${start===0?'disabled':''}>Anterior</button><button class="btn btn-small" type="button" data-unit-page="1" ${start/size>=last?'disabled':''}>Siguiente</button></div>`;
 }
-function unitReportCard(source,originalChart){
+function unitReportCard(source,originalChart,summary=''){
  const report=unitReports[source];
- return `<div class="unit-report-card"><div id="unit-report-preview-${source}">${report.active?reportChart(unitReportModel(report),report,true):originalChart}</div><button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button></div>`;
+ return `<div class="unit-report-card"><div id="unit-report-preview-${source}">${report.active?reportChart(unitReportModel(report),report,true):originalChart}</div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button></div>`;
 }
 function openUnitReport(source){
  const report=unitReports[source],info=unitReportSources[source];

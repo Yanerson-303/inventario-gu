@@ -392,3 +392,10 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
   background: color-mix(in srgb, var(--group-color) 16%, var(--surface));
 }
 .catalog-group-badge i { background: var(--group-color); }
+
+/* Aviso de sobrecupo en el Panel general. */
+.capacity-alert { display: block; }
+.capacity-alert summary { cursor: pointer; font-weight: 700; margin-top: 8px; }
+.capacity-alert .data-table { min-width: 490px; }
+.capacity-alert .data-table td { color: var(--text); }
+.capacity-summary { margin: 0; font-size: 12px; }

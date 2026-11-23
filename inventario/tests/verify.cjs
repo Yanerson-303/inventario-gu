@@ -40,6 +40,7 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  assert.match(element('#main-content').innerHTML,/Panel de control/);
  await click('action',{action:'demo'});
  assert.match(element('#main-content').innerHTML,/Unidades registradas<\/div><div class="stat-value mono">60<\/div>/);
+ assert.match(element('#main-content').innerHTML,/Sobre cupo detectado/);
  assert.match(element('#main-content').innerHTML,/Stock<\/div><div class="stat-value mono">589<\/div>/);
  await click('nav',{nav:'weekly'});
  assert.match(element('#main-content').innerHTML,/data-edit="movement"/);
