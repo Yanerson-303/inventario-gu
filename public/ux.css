@@ -436,3 +436,13 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
   .warehouse-viewport[data-capacity-alarm]::after,
   .gu-entry-stage[data-capacity-alarm]::after { animation: none; opacity: .23; }
 }
+
+/* Totales generales y procedencia en las ventas por cliente. */
+.final-week-totals { margin-bottom: 14px; }
+.final-week-totals h2 { margin: 0 0 8px; }
+.final-week-totals-scroll { max-height: 18rem; overflow: auto; }
+.final-week-totals .data-table { width: 100%; min-width: 0; }
+.final-week-totals tbody th, .final-week-totals tfoot th { text-align: left; text-transform: none; }
+.final-week-totals tfoot { font-weight: 750; background: var(--surface2); }
+.sale-origin:empty { display: none; }
+.purchase-product-number { display: block; }

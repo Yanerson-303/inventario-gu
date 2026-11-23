@@ -735,6 +735,18 @@ body.gu-entry-active{overflow:hidden}
   .gu-entry-stage[data-capacity-alarm]::after { animation: none; opacity: .23; }
 }
 </style>
+<style>
+
+/* Totales generales y procedencia en las ventas por cliente. */
+.final-week-totals { margin-bottom: 14px; }
+.final-week-totals h2 { margin: 0 0 8px; }
+.final-week-totals-scroll { max-height: 18rem; overflow: auto; }
+.final-week-totals .data-table { width: 100%; min-width: 0; }
+.final-week-totals tbody th, .final-week-totals tfoot th { text-align: left; text-transform: none; }
+.final-week-totals tfoot { font-weight: 750; background: var(--surface2); }
+.sale-origin:empty { display: none; }
+.purchase-product-number { display: block; }
+</style>
 </head>
 <body data-palette="almond" data-mode="light">
   <div id="gu-entry" role="status" aria-label="Preparando Inventarios GU, acceso automático">
@@ -2218,13 +2230,37 @@ function traceTable(headings,rows){
 function traceProductName(lot){return state.products.find(p=>p.id===lot.productId)?.name||lot.productName;}
 function traceLotLabel(lot){return `${traceProductName(lot)} · Lote ${lot.code} · Contenedor ${lot.container}`;}
 function traceMoney(sale,amount){return new Intl.NumberFormat('es-CO',{style:'currency',currency:sale.currency||'COP'}).format(amount);}
+function purchaseOrigin(product,lot){
+ const groups=new Map(catalogGroups().map(group=>[group.id,group]));
+ return {
+  productNumber:product.productNumber||'',boxNumber:product.boxNumber||'',vesselNumber:product.vesselNumber||'',
+  lotCode:lot?.code||'',container:lot?.container||'',
+  groups:(product.groupIds||[]).map(id=>groups.get(id)).filter(Boolean).map(({name,color})=>({name,color}))
+ };
+}
+function originBadges(groups){
+ return groups?.length?`<div class="catalog-tag-list">${groups.map(groupBadge).join('')}</div>`:'—';
+}
+function saleProductLabel(product){
+ return [product.name,product.productNumber,product.boxNumber?`Caja ${product.boxNumber}`:'',product.vesselNumber?`Embarcación ${product.vesselNumber}`:''].filter(Boolean).join(' · ');
+}
+function saleOriginPreview(productId,lotId){
+ const product=state.products.find(item=>item.id===productId);
+ if(!product)return '';
+ const lot=(state.lots||[]).find(item=>item.id===lotId&&item.productId===productId);
+ const origin=purchaseOrigin(product,lot);
+ return `<span>Caja: <strong>${esc(origin.boxNumber||'—')}</strong> · Embarcación: <strong>${esc(origin.vesselNumber||'—')}</strong>${lot?` · Lote: <strong>${esc(origin.lotCode)}</strong> · Contenedor: <strong>${esc(origin.container)}</strong>`:''}</span>${origin.groups.length?originBadges(origin.groups):''}`;
+}
 function tracePurchases(sales,entity){
  if(!sales.length)return '<p class="muted">Todavía no hay compras registradas.</p>';
  const lots=new Map((state.lots||[]).map(lot=>[lot.id,lot]));
- return traceTable(['Fecha',entity==='client'?'Producto':'Cliente','Lote / contenedor','Ubicación de salida','Unidades','Precio unitario','Total','Referencia'],sales.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(sale=>{
+ return traceTable(['Fecha',entity==='client'?'Producto':'Cliente','Número de caja','Lote / contenedor','Embarcación','Grupos','Ubicación de salida','Unidades','Precio unitario','Total','Referencia'],sales.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(sale=>{
+  const origin=sale.origin;
   const lot=lots.get(sale.lotId);
-  const name=entity==='client'?(state.products.find(p=>p.id===sale.productId)?.name||sale.productName):(state.clients.find(c=>c.id===sale.clientId)?.name||sale.clientName);
-  return [sale.date,esc(name),lot?esc(`${lot.code} / ${lot.container}`):'Sin lote registrado',esc(sale.location||'—'),traceQuantity(sale.units),sale.price==null?'—':traceMoney(sale,sale.price),sale.price==null?'—':traceMoney(sale,sale.price*sale.units),esc(sale.reference||'—')];
+  const name=entity==='client'?(sale.productName||state.products.find(p=>p.id===sale.productId)?.name):(sale.clientName||state.clients.find(c=>c.id===sale.clientId)?.name);
+  const number=entity==='client'&&origin?.productNumber?`<small class="muted purchase-product-number">${esc(origin.productNumber)}</small>`:'';
+  const lotCode=origin?.lotCode||lot?.code,container=origin?.container||lot?.container;
+  return [sale.date,esc(name||'—')+number,esc(origin?.boxNumber||'—'),lotCode?esc(container?`${lotCode} / ${container}`:lotCode):'Sin lote registrado',esc(origin?.vesselNumber||'—'),originBadges(origin?.groups),esc(sale.location||'—'),format(sale.units,6),sale.price==null?'—':traceMoney(sale,sale.price),sale.price==null?'—':traceMoney(sale,sale.price*sale.units),esc(sale.reference||'—')];
  }));
 }
 function productTrace(productId){
@@ -2245,7 +2281,7 @@ function clientTrace(clientId,month=''){
  const sales=(state.sales||[]).filter(sale=>sale.clientId===clientId&&!sale.voided);
  const months=[...new Set(sales.map(sale=>sale.date.slice(0,7)))].sort().reverse();
  const visible=month?sales.filter(sale=>sale.date.startsWith(month)):sales;
- showModal(`Compras · ${salesClientLabel(client)}`,`<div class="modal-body trace-body">${months.length?`<label class="field">Mes <select class="form-control" id="trace-client-month" data-id="${esc(clientId)}"><option value="">Todos los meses</option>${months.map(key=>`<option value="${key}"${key===month?' selected':''}>${key}</option>`).join('')}</select></label><p><strong>${traceQuantity(sumSales(visible))} unidades compradas</strong></p>`:''}${tracePurchases(visible,'client')}</div>`,`<button type="button" class="btn" data-action="close-modal">Cerrar</button>`);
+ showModal(`Compras · ${salesClientLabel(client)}`,`<div class="modal-body trace-body">${months.length?`<label class="field">Mes <select class="form-control" id="trace-client-month" data-id="${esc(clientId)}"><option value="">Todos los meses</option>${months.map(key=>`<option value="${key}"${key===month?' selected':''}>${key}</option>`).join('')}</select></label><p><strong>${traceQuantity(sumSales(visible))} unidades compradas</strong></p>`:''}${tracePurchases(visible,'client')}</div>`,`<button type="button" class="btn" data-action="close-modal">Cerrar</button><button type="button" class="btn btn-primary" data-action="record-sale" data-id="${esc(client.id)}">Registrar venta</button>`);
 }
 function locationFields(place={}){
  const numbers=(name,label,max)=>`<label class="field">${label}<select class="form-control" name="${name}">${Array.from({length:max},(_,i)=>i+1).map(n=>`<option value="${n}"${place[name]===n?' selected':''}>${n}</option>`).join('')}</select></label>`;
@@ -2389,8 +2425,8 @@ function renderSales(){
  <section class="card card-pad sales-section"><h2>Ventas registradas · ${month}</h2>
  ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Lote','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${esc(lotsById.get(s.lotId)?.code||'Sin lote registrado')}</td><td>${traceQuantity(s.units)}</td><td><button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button></td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
 }
-function saleModal(){
- if(!state.products.length)return;
+function saleModal(clientId=''){
+ const fixedClient=state.clients.find(client=>client.id===clientId);
  const remaining=Trace.balance(state);
  const availableProducts=new Set((state.lots||[]).filter(lot=>remaining.get(lot.id)>0).map(lot=>lot.productId));
  const products=state.products.filter(p=>availableProducts.has(p.id));
@@ -2399,10 +2435,11 @@ function saleModal(){
   showModal('Registrar venta','<div class="modal-body"><p>Para registrar una venta, primero registra la llegada de un lote con existencias desde el seguimiento del producto.</p></div>', '<button class="btn" data-action="close-modal">Cerrar</button><button class="btn btn-primary" data-action="sale-products">Ir a Productos</button>');
   return;
  }
- showModal('Registrar venta',`<form id="sale-form" class="modal-body"><div class="modal-grid">
- <label class="field">Producto <select class="form-control" name="productId" required>${salesOptions(products,product.id,p=>p.name)}</select></label>
+ showModal(fixedClient?`Registrar venta · ${salesClientLabel(fixedClient)}`:'Registrar venta',`<form id="sale-form" data-client="${esc(fixedClient?.id||'')}" class="modal-body"><div class="modal-grid">
+ <label class="field">Producto <select class="form-control" name="productId" required>${salesOptions(products,product.id,saleProductLabel)}</select></label>
  <label class="field">Lote <select class="form-control" name="lotId" required>${saleLotChoices(product.id,localSaleDate())}</select></label>
- <label class="field">Cliente externo <select class="form-control" name="clientId" required>${salesOptions(state.clients,salesFilters.firstClient,salesClientLabel)}</select></label>
+ ${fixedClient?`<div class="field">Cliente externo <strong>${esc(salesClientLabel(fixedClient))}</strong><input type="hidden" name="clientId" value="${esc(fixedClient.id)}"></div>`:`<label class="field">Cliente externo <select class="form-control" name="clientId" required>${salesOptions(state.clients,salesFilters.firstClient,salesClientLabel)}</select></label>`}
+ <div class="field full sale-origin" id="sale-origin">${saleOriginPreview(product.id,'')}</div>
  <label class="field">Fecha de venta <input class="form-control" type="date" name="date" value="${localSaleDate()}" min="0001-02-01" max="${localSaleDate()}" required></label>
  <label class="field">Unidades vendidas <input class="form-control" type="number" name="units" min="0.000001" max="1000000000000" step="0.000001" required></label>
  <label class="field">Precio unitario (${esc(state.settings.currency||'COP')}) <input class="form-control" type="number" name="price" min="0" max="1000000000000" step="any" placeholder="Opcional"></label>
@@ -2422,15 +2459,17 @@ function submitSales(form){
  }
  const units=Number(data.units);
  if(!calendarDate(data.date)||data.date<'0001-02-01'||data.date>localSaleDate()||!Number.isFinite(units)||units<0.000001||units>1e12)return toast('Revisa la fecha y la cantidad.');
- const product=state.products.find(p=>p.id===data.productId),client=state.clients.find(c=>c.id===data.clientId);
+ const product=state.products.find(p=>p.id===data.productId),client=state.clients.find(c=>c.id===(form.dataset.client||data.clientId));
  const lot=(state.lots||[]).find(item=>item.id===data.lotId&&item.productId===data.productId);
  if(!product||!client||!lot||data.date<lot.receipt.date)return toast('Selecciona un producto, un cliente y un lote recibido para esa fecha.');
  if(units>Trace.balance(state).get(lot.id)||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Revisa la cantidad disponible del lote. Se admiten hasta seis decimales.');
  const price=data.price===''?null:Number(data.price);
  if(price!==null&&(!Number.isFinite(price)||price<0||price>1e12))return toast('Revisa el precio de venta.');
  const place=[lot.receipt,...lot.moves].findLast(item=>item.date<=data.date);
- const sale={id:id('sale'),date:data.date,productId:product.id,productName:product.name,clientId:client.id,clientName:salesClientLabel(client),units,lotId:lot.id,location:Trace.label(place),price,currency:state.settings.currency||'COP',reference:data.reference.trim().slice(0,120),voided:false};
- if(mutation(`Venta registrada: ${product.name} · Lote ${lot.code}`,()=>{(state.sales??=[]).push(sale);salesFilters.month=sale.date.slice(0,7);page=0;}))closeModal();
+ const sale={id:id('sale'),date:data.date,productId:product.id,productName:product.name,clientId:client.id,clientName:salesClientLabel(client),units,lotId:lot.id,location:Trace.label(place),price,currency:state.settings.currency||'COP',reference:data.reference.trim().slice(0,120),origin:purchaseOrigin(product,lot),voided:false};
+ if(mutation(`Venta registrada: ${product.name} · Lote ${lot.code}`,()=>{(state.sales??=[]).push(sale);salesFilters.month=sale.date.slice(0,7);page=0;})){
+  if(form.dataset.client)clientTrace(client.id,sale.date.slice(0,7));else closeModal();
+ }
 }
 function voidSale(saleId){
  const sale=(state.sales||[]).find(item=>item.id===saleId&&!item.voided);
@@ -2503,12 +2542,17 @@ function renderWeekly(){
 }
 function renderFinal(){
  const filteredProducts=productsFiltered(),all=filteredProducts.filter(p=>{const n=C.result(state,p).N;return finalFilter==='all'||(finalFilter==='positive'?n>0:finalFilter==='zero'?n===0:n<0);}),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
+ const weeklyTotals=state.periods.map((_,index)=>C.round(allTotals.rows.reduce((total,row)=>total+row.weekly[index],0)));
  const columns=[['quantityN','Cantidad.N (L)'],['quantityV','Cantidad.V (M)'],['value','Valor (O)'],['average','Promedio (S)'],['boxes','Cajas (U)']];
  const editable=(p,field)=>numInput('product-field',p[field]??0,`data-product="${esc(p.id)}" data-field="${field}" aria-label="${esc(field)} de ${esc(p.name)}"`);
  const table=sel.rows.length?`<div class="card final-table"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${state.periods.map(p=>`<th class="num">${esc(p.label)}</th>`).join('')}<th class="num">Registrado H</th><th class="num">Cantidad.N</th><th class="num">Cantidad.V</th><th class="num">L+M (J)</th><th class="num">Saldo N</th><th class="num">Valor O</th><th class="num">Total P</th><th class="num">Q</th><th class="num">R = -Q</th><th class="num">Promedio S</th><th class="num">Meses T</th><th class="num">Cajas U</th><th>CYU (V)</th></tr></thead><tbody>${sel.rows.map(pr=>{const r=C.result(state,pr);return `<tr><td class="sticky-first">${productButton(pr)}</td>${r.weekly.map((n,i)=>`<td class="num"><button class="product-link mono" data-action="jump-week" data-id="${esc(pr.id)}" data-period="${esc(state.periods[i].id)}">${format(n)}</button></td>`).join('')}<td class="num t-em">${format(r.H)}</td><td>${editable(pr,'quantityN')}</td><td>${editable(pr,'quantityV')}</td><td class="num">${format(r.J)}</td><td class="num t-em">${statusBalance(r.N)}</td><td>${editable(pr,'value')}</td><td class="num t-em">${money(r.P)}</td><td class="num">${format(r.Q)}</td><td class="num">${format(r.R)}</td><td>${editable(pr,'average')}</td><td class="num">${r.T===null?'<span class="badge warn">Sin promedio</span>':format(r.T)}</td><td>${editable(pr,'boxes')}</td><td>${r.V===null?'<span class="badge warn">Sin cajas</span>':esc(r.V)}</td></tr>`;}).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay resultados',state.products.length?'No hay coincidencias con ese nombre.':'Agrega un producto o importa una copia de tus datos.','new-product','Añadir producto');
  const cards=sel.rows.length?`<div class="final-mobile">${sel.rows.map(p=>{const r=C.result(state,p);return `<article class="card card-pad"><div class="week-product-head">${productButton(p)}<span class="badge ${r.N<0?'danger':'good'}">Saldo: ${format(r.N)}</span></div><div class="mini-summary-grid"><div><small>Registrado (H)</small><b>${format(r.H)}</b></div><div><small>Valorización (P)</small><b>${money(r.P)}</b></div><div><small>Meses (T)</small><b>${r.T===null?'—':format(r.T)}</b></div><div><small>Cajas / unidades</small><b>${esc(r.V??'—')}</b></div></div><div class="week-product-grid">${columns.map(([key,label])=>`<div class="field"><label>${esc(label)}</label><input class="form-control" type="number" inputmode="decimal" step="any" value="${esc(p[key]??0)}" data-edit="product-field" data-field="${key}" data-product="${esc(p.id)}"></div>`).join('')}</div><div class="week-product-foot"><span>Ver registro semanal</span><button class="btn btn-small" data-action="jump-week" data-id="${esc(p.id)}" data-period="${esc(state.periods[0].id)}">Abrir →</button></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:`<div class="final-mobile">${empty('Sin resultados','Crea productos o importa una copia de tus datos.','new-product','Añadir producto')}</div>`;
  return `${heading('CONSOLIDADO / FINAL','Consolidado','Saldos y valorización calculados según las fórmulas originales.',`<button class="btn" data-action="csv-final">Exportar CSV</button><button class="btn btn-primary" data-nav="weekly">Ir a semanas</button>`)}
  <div class="final-summary"><div class="mini-kpi">H · Registro total<strong>${format(allTotals.quantity)}</strong></div><div class="mini-kpi">N · Saldo total<strong class="${allTotals.balance<0?'text-danger':''}">${format(allTotals.balance)}</strong></div><div class="mini-kpi">P · Valor global<strong>${money(allTotals.value)}</strong></div><div class="mini-kpi">Productos filtrados<strong>${all.length} de ${state.products.length}</strong></div></div>
+ <section class="card card-pad final-week-totals" aria-labelledby="final-week-totals-title"><h2 id="final-week-totals-title">Totales por semana</h2>
+ <div class="final-week-totals-scroll"><table class="data-table"><thead><tr><th scope="col">Semana</th><th scope="col" class="num">Total de unidades</th></tr></thead>
+ <tbody>${state.periods.map((period,index)=>`<tr><th scope="row">${esc(period.label)}</th><td class="num">${format(weeklyTotals[index],9)}</td></tr>`).join('')}</tbody>
+ <tfoot><tr><th scope="row">Todas las semanas</th><td class="num">${format(allTotals.quantity,9)}</td></tr></tfoot></table></div></section>
  <div class="tool-strip"><div class="left">${searchBar()}</div><div class="right"><span class="muted" style="font-size:11px">Subtotal: ${money(visibleTotals.value)}</span></div></div>
  <div class="gu-filterbar" role="group" aria-label="Filtrar saldos"><span class="gu-filter-label">Saldo</span>${[['all','Todos'],['positive','Positivo'],['zero','En cero'],['negative','Negativo']].map(([k,label])=>`<button type="button" data-final-filter="${k}" aria-pressed="${finalFilter===k}">${label}</button>`).join('')}<span class="muted">${all.length} referencias</span></div>
  <div class="final-desktop">${table}</div>${cards}<div class="help-note"><b>Reglas originales:</b> H = Σ semanas; J = L + M; N = H − J; P = N × O; Q = N; R = −Q; T = R / S (vacío si S = 0); V = COCIENTE(R,U) / RESIDUO(R,U), con aviso si U ≤ 0. El saldo puede ser negativo y no se convierte en valor absoluto.</div>`;
@@ -2879,7 +2923,13 @@ function normalizeImported(raw){
   const price=sale.price==null?null:decimal(sale.price);
   const lotId=sale.lotId??'';
   if((lotId&&(typeof lotId!=='string'||!safeid(lotId)))||(price!==null&&(price<0||price>1e12)))throw new Error('Una venta tiene precio o lote no válido.');
-  return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,lotId,location:string(sale.location,220),price,currency:['COP','USD','EUR','MXN','CNY'].includes(sale.currency)?sale.currency:'COP',reference:string(sale.reference,120),voided:sale.voided===true};
+  const rawOrigin=sale.origin;
+  const origin=rawOrigin&&typeof rawOrigin==='object'&&!Array.isArray(rawOrigin)?{
+   productNumber:string(rawOrigin.productNumber,80),boxNumber:string(rawOrigin.boxNumber,80),vesselNumber:string(rawOrigin.vesselNumber,80),
+   lotCode:string(rawOrigin.lotCode,80),container:string(rawOrigin.container,80),
+   groups:Array.isArray(rawOrigin.groups)?rawOrigin.groups.filter(group=>group&&typeof group.name==='string'&&typeof group.color==='string'&&/^#[0-9a-f]{6}$/i.test(group.color)).map(group=>({name:string(group.name,50),color:group.color})):[]
+  }:undefined;
+  return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,lotId,location:string(sale.location,220),price,currency:['COP','USD','EUR','MXN','CNY'].includes(sale.currency)?sale.currency:'COP',reference:string(sale.reference,120),origin,voided:sale.voided===true};
  });
  reconcileCatalogGroups(clean);
  Trace?.validate(clean);
@@ -2914,7 +2964,7 @@ function mergeStates(local,remote){
  const salesById=new Map((local.sales||[]).map(sale=>[sale.id,sale]));
  for(const sale of remote.sales||[]){
   const matching=salesById.get(sale.id);
-  salesById.set(sale.id,{...sale,voided:sale.voided||matching?.voided||false});
+  salesById.set(sale.id,{...sale,origin:sale.origin??matching?.origin,voided:sale.voided||matching?.voided||false});
  }
  out.sales=[...salesById.values()];
  const lotsById=new Map((local.lots||[]).map(lot=>[lot.id,lot]));
@@ -3025,7 +3075,7 @@ document.addEventListener('click',async e=>{
   case 'move-lot':lotModal(targetId,true);break;
   case 'sale-products':closeModal();navigate('products');break;
   case 'unit-report':openUnitReport(targetId||'sales');break;
-  case 'record-sale':saleModal();break;
+  case 'record-sale':saleModal(targetId);break;
   case 'void-sale':voidSale(targetId);break;
   case 'product-groups':productGroupsModal(targetId);break;
   case 'catalog-groups':catalogGroupEditor();break;
@@ -3090,8 +3140,10 @@ document.addEventListener('change',e=>{
   if(!field.hidden)input.focus();return;
  }
  if(el.id==='trace-client-month'){clientTrace(el.dataset.id,el.value);return;}
- if(el.form?.id==='sale-form'&&['productId','date'].includes(el.name)){
-  el.form.elements.lotId.innerHTML=saleLotChoices(el.form.elements.productId.value,el.form.elements.date.value);return;
+ if(el.form?.id==='sale-form'&&['productId','date','lotId'].includes(el.name)){
+  const {productId,date,lotId}=el.form.elements;
+  if(el.name!=='lotId')lotId.innerHTML=saleLotChoices(productId.value,date.value);
+  $('#sale-origin').innerHTML=saleOriginPreview(productId.value,lotId.value);return;
  }
  if(el.matches('[data-edit]')){editValue(el);return;}
  if(el.id==='slot-count'){slotCount=Number(el.value);slotOffset=0;page=0;render();return;}
