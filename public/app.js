@@ -24,7 +24,7 @@ let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,st
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
 function newState(){
- return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],lots:[],catalogTags:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
+ return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],lots:[],catalogTags:[],catalogGroups:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
 function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
@@ -703,23 +703,73 @@ function reconcileCatalogTags(state){
  const known=new Set(state.catalogTags.map(tag=>tag.id));
  state.products=state.products.map(p=>({...p,tagIds:[...new Set((p.tagIds||[]).map(id=>aliases.get(id)||id).filter(id=>known.has(id)))]}));
 }
+let catalogGroup='';
+function catalogGroups(){
+ return (state.catalogGroups||[]).filter(group=>!group.deleted).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+}
+function catalogGroupEditor(groupId=''){
+ const groups=catalogGroups(),group=groups.find(item=>item.id===groupId);
+ showModal('Grupos de productos',`<form id="catalog-group-form" class="modal-body">
+ <label class="field">Grupo <select class="form-control" id="catalog-group-edit" name="groupId"><option value="">+ Nuevo grupo</option>${salesOptions(groups,group?.id,item=>item.name)}</select></label>
+ <div class="catalog-tag-create"><label class="field">Nombre del grupo <input class="form-control" name="name" maxlength="50" value="${esc(group?.name||'')}" required></label>
+ <label class="field">Color <input type="color" name="color" value="${esc(group?.color||'#4f6fae')}" required></label></div></form>`,
+ `<button type="button" class="btn" data-action="close-modal">Cerrar</button>
+ ${group?`<button type="button" class="btn btn-danger" data-action="remove-catalog-group" data-id="${esc(group.id)}">Eliminar grupo</button>`:''}
+ <button type="submit" form="catalog-group-form" class="btn btn-primary">${group?'Guardar cambios':'Crear grupo'}</button>`);
+}
+function saveCatalogGroup(form){
+ const data=new FormData(form),name=String(data.get('name')||'').trim().slice(0,50),color=String(data.get('color')||'');
+ const groupId=String(data.get('groupId')||''),groups=catalogGroups(),group=groups.find(item=>item.id===groupId);
+ if(groupId&&!group)return toast('El grupo ya no está disponible.');
+ if(!name||!/^#[0-9a-f]{6}$/i.test(color))return toast('Escribe un nombre y elige un color.');
+ if(groups.some(item=>item.id!==groupId&&groupKey(item.name)===groupKey(name)))return toast('Ya existe un grupo con ese nombre.');
+ const savedId=group?.id||id('group');
+ if(mutation(`Grupo ${group?'editado':'creado'}: ${name}`,()=>{
+  if(group)Object.assign(group,{name,color});else (state.catalogGroups??=[]).push({id:savedId,name,color});
+ }))catalogGroupEditor(savedId);
+}
+function removeCatalogGroup(groupId){
+ const group=catalogGroups().find(item=>item.id===groupId);if(!group)return;
+ if(!confirm(`¿Eliminar el grupo «${group.name}»? Los productos de este grupo quedarán sin grupo.`))return;
+ if(mutation(`Grupo eliminado: ${group.name}`,()=>{
+  group.deleted=true;
+  for(const product of state.products)if(product.groupId===groupId)product.groupId='';
+ }))catalogGroupEditor();
+}
+function reconcileCatalogGroups(snapshot){
+ const names=new Map(),aliases=new Map(),removed=[];
+ for(const group of snapshot.catalogGroups||[]){
+  if(group.deleted){removed.push(group);continue;}
+  const key=groupKey(group.name),existing=names.get(key);
+  if(existing)aliases.set(group.id,existing.id);else names.set(key,group);
+ }
+ const current=[...names.values()],known=new Set(current.map(group=>group.id));
+ snapshot.catalogGroups=[...current,...removed];
+ snapshot.products=snapshot.products.map(product=>{
+  if(!product.groupId)return product;
+  const groupId=aliases.get(product.groupId)||product.groupId;
+  return {...product,groupId:known.has(groupId)?groupId:''};
+ });
+}
 function renderProducts(){
- const tags=catalogTags(),byTag=new Map(tags.map(tag=>[tag.id,tag])),categories=catalogCategories();
+ const tags=catalogTags(),byTag=new Map(tags.map(tag=>[tag.id,tag])),categories=catalogCategories(),groups=catalogGroups(),byGroup=new Map(groups.map(group=>[group.id,group]));
+ if(catalogGroup&&!byGroup.has(catalogGroup))catalogGroup='';
  if(catalogTag&&!byTag.has(catalogTag))catalogTag='';
  if(catalogCategory&&!categories.some(name=>groupKey(name)===catalogCategory))catalogCategory='';
- const all=productsFiltered().filter(p=>(!catalogCategory||groupKey(p.category||'')===catalogCategory)&&(!catalogTag||p.tagIds?.includes(catalogTag)));
+ const all=productsFiltered().filter(p=>(!catalogCategory||groupKey(p.category||'')===catalogCategory)&&(!catalogTag||p.tagIds?.includes(catalogTag))&&(!catalogGroup||p.groupId===catalogGroup));
  if(productSort==='name')all.sort((a,b)=>(a.productNumber||a.name).localeCompare(b.productNumber||b.name,'es',{numeric:true}));
  else if(productSort==='stock')all.sort((a,b)=>C.result(state,a).N-C.result(state,b).N);
  else if(productSort==='value')all.sort((a,b)=>C.result(state,b).P-C.result(state,a).P);
  const sel=selection(all);
- return `${heading('CATÁLOGO MAESTRO','Productos','Consulta los números de embarcación, caja y producto junto con la cantidad y el precio unitario.',`<button class="btn btn-primary" data-action="new-product">+ Añadir producto</button><button class="btn" data-action="catalog-tags">Gestionar etiquetas</button>`)}
+ return `${heading('CATÁLOGO MAESTRO','Productos','Consulta los números de embarcación, caja y producto junto con la cantidad y el precio unitario.',`<button class="btn btn-primary" data-action="new-product">+ Añadir producto</button><button class="btn" data-action="catalog-tags">Gestionar etiquetas</button><button class="btn" data-action="catalog-groups">Gestionar grupos</button>`)}
  <div class="tool-strip"><div class="left">${searchBar('Buscar por producto, embarcación o caja…')}</div><div class="right"><label class="gu-sort-label"><span class="muted">Ordenar</span><select class="form-control" id="product-sort"><option value="original" ${productSort==='original'?'selected':''}>Registro</option><option value="name" ${productSort==='name'?'selected':''}>Número de producto</option><option value="stock" ${productSort==='stock'?'selected':''}>Menor stock</option><option value="value" ${productSort==='value'?'selected':''}>Mayor valor</option></select></label><span class="muted">${all.length} / ${state.products.length}</span></div></div>
  <div class="catalog-group-filters">
  <label>Categoría <select class="form-control" id="catalog-category"><option value="">Todas</option>${categories.map(name=>`<option value="${esc(groupKey(name))}"${catalogCategory===groupKey(name)?' selected':''}>${esc(name)}</option>`).join('')}</select></label>
  <label>Etiqueta <select class="form-control" id="catalog-tag"><option value="">Todas</option>${salesOptions(tags,catalogTag,tag=>tag.name)}</select></label>
+ <label>Grupo <select class="form-control" id="catalog-group"><option value="">Todos</option>${salesOptions(groups,catalogGroup,group=>group.name)}</select></label>
  ${byTag.has(catalogTag)?tagBadge(byTag.get(catalogTag)):''}</div>
  ${sel.rows.length?`<div class="card catalog-table"><div class="table-scroll"><table class="data-table" aria-label="Productos"><thead><tr><th scope="col">Número de embarcación</th><th scope="col">Número de caja</th><th scope="col" class="num">Cantidad de productos por caja</th><th scope="col">Número de producto</th><th scope="col" class="num">Precio por unidad</th><th scope="col">Acciones</th></tr></thead><tbody>
- ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría y etiquetas</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
+ ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${byGroup.has(p.groupId)?`<div class="catalog-tag-list">${tagBadge(byGroup.get(p.groupId))}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría y etiquetas</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
  </tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con los filtros.':'Añade un producto para empezar a registrar tus cajas.','new-product','Añadir producto')}`;
 }
 function renderClients(){
@@ -774,6 +824,7 @@ function productModal(productId){
  <label class="field">Cantidad de productos por caja<input type="number" class="form-control" name="boxes" min="1" max="1000000000000000" step="1" value="${esc(product?.boxes||'')}" placeholder="Ej. 24" required></label>
  ${field('productNumber','Número de producto','Ej. PR-204')}
  <label class="field">Precio por unidad (${esc(state.settings.currency||'COP')})<input type="number" class="form-control" name="value" min="0" max="1000000000000000" step="any" value="${esc(product?.value??'')}" placeholder="Ej. 12500" required></label>
+ <label class="field">Grupo <select class="form-control" name="groupId"><option value="">Sin grupo</option>${salesOptions(catalogGroups(),product?product.groupId:catalogGroup,group=>group.name)}</select></label>
  </div></form>`,
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${product?'Guardar cambios':'Crear producto'}</button>`);
 }
@@ -792,7 +843,8 @@ function submitProduct(form){
  const identifier=key=>String(data.get(key)||'').trim().slice(0,80);
  const vesselNumber=identifier('vesselNumber'),boxNumber=identifier('boxNumber'),productNumber=identifier('productNumber');
  const quantity=String(data.get('boxes')??'').trim(),price=String(data.get('value')??'').trim();
- const boxes=nf(quantity),value=nf(price);
+ const boxes=nf(quantity),value=nf(price),requestedGroup=String(data.get('groupId')||'');
+ if(requestedGroup&&!catalogGroups().some(group=>group.id===requestedGroup))return toast('Selecciona un grupo válido.');
  if(!vesselNumber||!boxNumber||!productNumber)return toast('Completa los números de embarcación, caja y producto.');
  if(!quantity||!Number.isSafeInteger(boxes)||boxes<1||boxes>1e15)return toast('Escribe una cantidad entera mayor que cero por caja.');
  if(!price||value===null||value<0||value>1e15)return toast('Escribe un precio por unidad válido.');
@@ -801,7 +853,7 @@ function submitProduct(form){
  const name=existing?.name&&existing.name!==existing.productNumber?existing.name:productNumber;
  if(mutation(editId?`Producto editado: ${name}`:`Producto creado: ${name}`,()=>{
   const product=existing||{id:id('prod'),createdAt:new Date().toISOString(),category:'',unit:'unidad',tagIds:[],quantityN:0,quantityV:0,average:0};
-  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value});
+  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupId:requestedGroup});
   if(!existing)state.products.push(product);
  }))closeModal();
 }
@@ -942,7 +994,12 @@ function normalizeImported(raw){
   if(!name||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Etiqueta de producto no válida.');
   return {id:tag.id,name,color};
  });
- const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
+ const catalogGroups=makeUnique(Array.isArray(raw.catalogGroups)?raw.catalogGroups:[],'Grupo',group=>{
+  const name=string(group.name,50).trim(),color=string(group.color,7);
+  if(!name||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Grupo de productos no válido.');
+  return {id:group.id,name,color,deleted:group.deleted===true};
+ });
+ const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
  const clients=makeUnique(raw.clients,'Cliente',c=>({id:c.id,code:string(c.code,35)||c.id,name:string(c.name,90),active:c.active!==false}));
  const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked}));
  const periodIDs=new Set(periods.map(p=>p.id)),productIDs=new Set(products.map(p=>p.id)),clientIDs=new Set(clients.map(c=>c.id));
@@ -964,7 +1021,7 @@ function normalizeImported(raw){
  const currency=['COP','USD','EUR','MXN','CNY'].includes(settings.currency)?settings.currency:'COP';
  const pageSize=[10,20,40,80].includes(settings.pageSize)?settings.pageSize:20;
  const audit=Array.isArray(raw.audit)?raw.audit.slice(0,350).map(e=>({id:safeid(e.id)?e.id:id('evt'),label:string(e.label,240),actor:'Este dispositivo',at:string(e.at,50)})):[];
- const clean={version:1,createdAt:string(raw.createdAt,40)||new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette,mode,currency,pageSize,density:['compact','comfortable'].includes(settings.density)?settings.density:'comfortable',lastAutoBackup:0},products,clients,periods,catalogTags,movements:normalizeMatrix(raw.movements,true),prices:normalizeMatrix(raw.prices,false),weekTotals:normalizeMatrix(raw.weekTotals,false),audit};
+ const clean={version:1,createdAt:string(raw.createdAt,40)||new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette,mode,currency,pageSize,density:['compact','comfortable'].includes(settings.density)?settings.density:'comfortable',lastAutoBackup:0},products,clients,periods,catalogTags,catalogGroups,movements:normalizeMatrix(raw.movements,true),prices:normalizeMatrix(raw.prices,false),weekTotals:normalizeMatrix(raw.weekTotals,false),audit};
  if(raw.sales!==undefined&&(!Array.isArray(raw.sales)||raw.sales.length>500000))throw new Error('Registro de ventas no válido.');
  if(raw.lots!==undefined&&(!Array.isArray(raw.lots)||raw.lots.length>100000))throw new Error('Registro de lotes no válido.');
  clean.lots=makeUnique(raw.lots||[],'Lote',lot=>{
@@ -982,7 +1039,7 @@ function normalizeImported(raw){
   if((lotId&&(typeof lotId!=='string'||!safeid(lotId)))||(price!==null&&(price<0||price>1e12)))throw new Error('Una venta tiene precio o lote no válido.');
   return {id:sale.id,date:sale.date,productId:sale.productId,productName:string(sale.productName,110),clientId:sale.clientId,clientName:string(sale.clientName,130),units,lotId,location:string(sale.location,220),price,currency:['COP','USD','EUR','MXN','CNY'].includes(sale.currency)?sale.currency:'COP',reference:string(sale.reference,120),voided:sale.voided===true};
  });
- reconcileCatalogTags(clean);
+ reconcileCatalogTags(clean);reconcileCatalogGroups(clean);
  Trace?.validate(clean);
  clean.gu4=GU4?.normalizeGu4(raw.gu4,clean)||newState().gu4;return clean;
 }
@@ -993,10 +1050,17 @@ function mergeStates(local,remote){
  out.products=mergeList(local.products,remote.products).map(product=>{
   const prior=localProducts.get(product.id);
   if(!prior)return product;
-  return {...product,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
+  return {...product,groupId:product.groupId??prior.groupId,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
  });
  out.clients=mergeList(local.clients,remote.clients);out.periods=mergeList(local.periods,remote.periods);
  out.catalogTags=mergeList(local.catalogTags||[],remote.catalogTags||[]);reconcileCatalogTags(out);
+ const groupsById=new Map((local.catalogGroups||[]).map(group=>[group.id,group]));
+ for(const group of remote.catalogGroups||[]){
+  const previous=groupsById.get(group.id);
+  groupsById.set(group.id,{...group,deleted:group.deleted||previous?.deleted||false});
+ }
+ out.catalogGroups=[...groupsById.values()];
+ reconcileCatalogGroups(out);
  for(const root of ['movements','prices','weekTotals']){
   for(const [wid,records] of Object.entries(remote[root])){
    if(!out[root][wid])out[root][wid]={};
@@ -1123,6 +1187,8 @@ document.addEventListener('click',async e=>{
   case 'record-sale':saleModal();break;
   case 'void-sale':voidSale(targetId);break;
   case 'product-groups':productGroupsModal(targetId);break;
+  case 'catalog-groups':catalogGroupEditor();break;
+  case 'remove-catalog-group':removeCatalogGroup(targetId);break;
   case 'catalog-tags':tagEditor();break;
   case 'edit-product':productModal(targetId);break;
   case 'remove-product':await removeProduct(targetId);break;
@@ -1159,6 +1225,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('submit',e=>{
  const form=e.target;if(form.id==='product-groups-form'){e.preventDefault();submitProductGroups(form);return;}
+ if(form.id==='catalog-group-form'){e.preventDefault();saveCatalogGroup(form);return;}
  if(form.id==='catalog-tag-form'){e.preventDefault();saveTag(form);return;}
  if(form.id==='lot-form'){e.preventDefault();submitLot(form);return;}
  if(['sales-filters','sales-speed','sale-form'].includes(form.id)){e.preventDefault();submitSales(form);return;}
@@ -1173,10 +1240,11 @@ document.addEventListener('submit',e=>{
 });
 document.addEventListener('change',e=>{
  const el=e.target;
- if(el.id==='catalog-category'||el.id==='catalog-tag'){
-  if(el.id==='catalog-category')catalogCategory=el.value;else catalogTag=el.value;
+ if(el.id==='catalog-category'||el.id==='catalog-tag'||el.id==='catalog-group'){
+  if(el.id==='catalog-category')catalogCategory=el.value;else if(el.id==='catalog-tag')catalogTag=el.value;else catalogGroup=el.value;
   page=0;render();document.getElementById(el.id)?.focus();return;
  }
+ if(el.id==='catalog-group-edit'){catalogGroupEditor(el.value);return;}
  if(el.id==='catalog-tag-edit'){tagEditor(el.value);return;}
  if(el.form?.id==='product-groups-form'&&el.name==='category'){
   const field=$('#new-category-field'),input=el.form.elements.newCategory;
