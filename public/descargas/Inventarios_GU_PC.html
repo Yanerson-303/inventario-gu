@@ -669,6 +669,15 @@ body.gu-entry-active{overflow:hidden}
 .catalog-tag-create { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 #new-category-field[hidden] { display: none; }
 </style>
+<style>
+
+/* Tabla de identificación y precios del catálogo. */
+.catalog-table .data-table { min-width: 740px; }
+.catalog-table .catalog-product-number { text-align: left; text-transform: none; }
+.catalog-product-number small { display: block; font-weight: 500; }
+.catalog-table tbody th, .catalog-table td { overflow-wrap: anywhere; }
+.catalog-table .catalog-actions { flex-wrap: wrap; }
+</style>
 </head>
 <body data-palette="almond" data-mode="light">
   <div id="gu-entry" role="status" aria-label="Preparando Inventarios GU, acceso automático">
@@ -1730,7 +1739,7 @@ function updateHeader(){
 }
 function navigate(destination){if(!titleMap[destination])return;view=destination;query='';page=0;render();window.scrollTo({top:0,behavior:'instant'});}
 function switchPeriod(next){if(!state.periods.some(p=>p.id===next))return;periodId=next;page=0;render();}
-function productsFiltered(){const q=query.toLocaleLowerCase('es').trim();return state.products.filter(p=>`${p.name} ${p.category||''} ${p.unit||''}`.toLocaleLowerCase('es').includes(q));}
+function productsFiltered(){const q=query.toLocaleLowerCase('es').trim();return state.products.filter(p=>`${p.name} ${p.category||''} ${p.productNumber||''} ${p.vesselNumber||''} ${p.boxNumber||''} ${p.unit||''}`.toLocaleLowerCase('es').includes(q));}
 function selection(items){const limit=state.settings.pageSize||20;const last=Math.max(0,Math.ceil(items.length/limit)-1);page=Math.min(page,last);return {rows:items.slice(page*limit,(page+1)*limit),total:items.length,last};}
 function pageFoot(sel,label){return `<div class="table-footer"><span><b>${sel.total}</b> ${esc(label)} · página ${page+1} de ${sel.last+1}</span><div class="pager"><button data-page="prev" ${page<=0?'disabled':''}>Anterior</button><button data-page="next" ${page>=sel.last?'disabled':''}>Siguiente</button></div></div>`;}
 function empty(title,description,action='',name=''){return `<div class="empty-state"><div class="empty-icon">◇</div><h2>${esc(title)}</h2><p>${esc(description)}</p>${action?`<button class="btn btn-primary" data-action="${esc(action)}">${esc(name)}</button>`:''}</div>`;}
@@ -2330,9 +2339,6 @@ function productGroupFields(product){
 function tagBadge(tag){
  return `<span class="catalog-tag"><i style="background-color:${esc(tag.color)}"></i>${esc(tag.name)}</span>`;
 }
-function productTagBadges(product,tags){
- return (product.tagIds||[]).map(id=>tags.get(id)).filter(Boolean).map(tagBadge).join('');
-}
 function tagEditor(editId=''){
  const tags=catalogTags(),current=tags.find(tag=>tag.id===editId);
  showModal('Etiquetas de productos',`<form id="catalog-tag-form" class="modal-body">
@@ -2364,17 +2370,19 @@ function renderProducts(){
  if(catalogTag&&!byTag.has(catalogTag))catalogTag='';
  if(catalogCategory&&!categories.some(name=>groupKey(name)===catalogCategory))catalogCategory='';
  const all=productsFiltered().filter(p=>(!catalogCategory||groupKey(p.category||'')===catalogCategory)&&(!catalogTag||p.tagIds?.includes(catalogTag)));
- if(productSort==='name')all.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ if(productSort==='name')all.sort((a,b)=>(a.productNumber||a.name).localeCompare(b.productNumber||b.name,'es',{numeric:true}));
  else if(productSort==='stock')all.sort((a,b)=>C.result(state,a).N-C.result(state,b).N);
  else if(productSort==='value')all.sort((a,b)=>C.result(state,b).P-C.result(state,a).P);
  const sel=selection(all);
- return `${heading('CATÁLOGO MAESTRO','Productos','Catálogo y parámetros por referencia.',`<button class="btn btn-primary" data-action="new-product">+ Añadir producto</button><button class="btn" data-action="catalog-tags">Gestionar etiquetas</button>`)}
- <div class="tool-strip"><div class="left">${searchBar('Buscar en el catálogo…')}</div><div class="right"><label class="gu-sort-label"><span class="muted">Ordenar</span><select class="form-control" id="product-sort"><option value="original" ${productSort==='original'?'selected':''}>Registro</option><option value="name" ${productSort==='name'?'selected':''}>Nombre</option><option value="stock" ${productSort==='stock'?'selected':''}>Menor stock</option><option value="value" ${productSort==='value'?'selected':''}>Mayor valor</option></select></label><span class="muted">${all.length} / ${state.products.length}</span></div></div>
+ return `${heading('CATÁLOGO MAESTRO','Productos','Consulta los números de embarcación, caja y producto junto con la cantidad y el precio unitario.',`<button class="btn btn-primary" data-action="new-product">+ Añadir producto</button><button class="btn" data-action="catalog-tags">Gestionar etiquetas</button>`)}
+ <div class="tool-strip"><div class="left">${searchBar('Buscar por producto, embarcación o caja…')}</div><div class="right"><label class="gu-sort-label"><span class="muted">Ordenar</span><select class="form-control" id="product-sort"><option value="original" ${productSort==='original'?'selected':''}>Registro</option><option value="name" ${productSort==='name'?'selected':''}>Número de producto</option><option value="stock" ${productSort==='stock'?'selected':''}>Menor stock</option><option value="value" ${productSort==='value'?'selected':''}>Mayor valor</option></select></label><span class="muted">${all.length} / ${state.products.length}</span></div></div>
  <div class="catalog-group-filters">
  <label>Categoría <select class="form-control" id="catalog-category"><option value="">Todas</option>${categories.map(name=>`<option value="${esc(groupKey(name))}"${catalogCategory===groupKey(name)?' selected':''}>${esc(name)}</option>`).join('')}</select></label>
  <label>Etiqueta <select class="form-control" id="catalog-tag"><option value="">Todas</option>${salesOptions(tags,catalogTag,tag=>tag.name)}</select></label>
  ${byTag.has(catalogTag)?tagBadge(byTag.get(catalogTag)):''}</div>
- ${sel.rows.length?`<div class="list-cards">${sel.rows.map(p=>{const r=C.result(state,p);return `<article class="card catalog-row"><div><div class="catalog-name">${esc(p.name)}</div><div class="catalog-meta">${esc(p.category||'Sin categoría')} · ${esc(p.unit||'unidad')} · ${esc(p.id.slice(0,13))}</div>${p.tagIds?.length?`<div class="catalog-tag-list">${productTagBadges(p,byTag)}</div>`:''}</div><div class="catalog-value">Registrado <b>${format(r.H)}</b></div><div class="catalog-value">Saldo <b class="${r.N<0?'text-danger':''}">${format(r.N)}</b></div><div class="catalog-value">Valorización <b>${money(r.P)}</b></div><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" title="Editar producto">✎</button><button class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" title="Eliminar producto">×</button></div></article>`;}).join('')}</div>${pageFoot(sel,'productos')}`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con los filtros.':'No se incorporaron nombres porque el PDF no contiene el inventario real.','new-product','Crear mi primer producto')}`;
+ ${sel.rows.length?`<div class="card catalog-table"><div class="table-scroll"><table class="data-table" aria-label="Productos"><thead><tr><th scope="col">Número de embarcación</th><th scope="col">Número de caja</th><th scope="col" class="num">Cantidad de productos por caja</th><th scope="col">Número de producto</th><th scope="col" class="num">Precio por unidad</th><th scope="col">Acciones</th></tr></thead><tbody>
+ ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría y etiquetas</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
+ </tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con los filtros.':'Añade un producto para empezar a registrar tus cajas.','new-product','Añadir producto')}`;
 }
 function renderClients(){
  const q=clientQuery.toLocaleLowerCase('es').trim();const all=state.clients.filter(c=>(clientFilter==='all'||(clientFilter==='named'?!!c.name?.trim():!c.name?.trim()))&&`${c.code} ${c.name||''}`.toLocaleLowerCase('es').includes(q));
@@ -2415,40 +2423,70 @@ function renderSettings(){return `${heading('PERSONALIZACIÓN','Configuración',
 // Formularios de edición.
 function showModal(title,body,foot=''){const root=$('#modal-root');root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;setTimeout(()=>root.querySelector('input:not([type="hidden"]),select')?.focus(),10);}
 function closeModal(){$('#modal-root').innerHTML='';}
+function catalogUnitPrice(value){
+ return new Intl.NumberFormat('es-CO',{style:'currency',currency:state.settings.currency||'COP',maximumFractionDigits:9}).format(C.num(value));
+}
 function productModal(productId){
- const p=state.products.find(p=>p.id===productId);const isEdit=Boolean(p);
- const val=(k,def='')=>esc(p?.[k]??def);
- showModal(isEdit?'Editar producto':'Añadir producto',`<form id="product-form" data-id="${esc(productId||'')}" class="modal-body"><div class="modal-grid"><div class="field full"><label>Nombre del producto *</label><input name="name" class="form-control" maxlength="110" required value="${val('name')}" placeholder="Por ejemplo: Té de jazmín"></div>${productGroupFields(p)}<div class="field"><label>Unidad de medida</label><input name="unit" class="form-control" maxlength="30" value="${val('unit','unidad')}" placeholder="unidad"></div><div class="field"><label>Cantidad.N (L)</label><input type="number" step="any" name="quantityN" class="form-control" value="${val('quantityN',0)}"></div><div class="field"><label>Cantidad.V (M)</label><input type="number" step="any" name="quantityV" class="form-control" value="${val('quantityV',0)}"></div><div class="field"><label>Valor unitario (O)</label><input type="number" step="any" name="value" class="form-control" value="${val('value',0)}"></div><div class="field"><label>Promedio (S)</label><input type="number" step="any" name="average" class="form-control" value="${val('average',0)}"></div><div class="field full"><label>Unidades por caja (U)</label><input type="number" step="any" name="boxes" class="form-control" value="${val('boxes',0)}"><div class="field-help">Deja 0 si aún no has definido la presentación. El cálculo de cajas se mostrará como pendiente.</div></div></div></form>`,`<button class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${isEdit?'Guardar cambios':'Crear producto'}</button>`);
+ const product=state.products.find(item=>item.id===productId);
+ const field=(name,label,example)=>`<label class="field">${label}<input type="text" class="form-control" name="${name}" maxlength="80" value="${esc(product?.[name]||'')}" placeholder="${example}" required></label>`;
+ showModal(product?'Editar producto':'Añadir producto',`<form id="product-form" data-id="${esc(productId||'')}" class="modal-body">
+ <div class="modal-grid">
+ ${field('vesselNumber','Número de embarcación','Ej. EMB-001')}
+ ${field('boxNumber','Número de caja','Ej. 015')}
+ <label class="field">Cantidad de productos por caja<input type="number" class="form-control" name="boxes" min="1" max="1000000000000000" step="1" value="${esc(product?.boxes||'')}" placeholder="Ej. 24" required></label>
+ ${field('productNumber','Número de producto','Ej. PR-204')}
+ <label class="field">Precio por unidad (${esc(state.settings.currency||'COP')})<input type="number" class="form-control" name="value" min="0" max="1000000000000000" step="any" value="${esc(product?.value??'')}" placeholder="Ej. 12500" required></label>
+ </div></form>`,
+ `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${product?'Guardar cambios':'Crear producto'}</button>`);
+}
+function productGroupsModal(productId){
+ const product=state.products.find(item=>item.id===productId);
+ if(!product)return;
+ showModal(`Categoría y etiquetas · ${product.name}`,`<form id="product-groups-form" data-id="${esc(productId)}" class="modal-body"><div class="modal-grid">${productGroupFields(product)}</div></form>`,
+ `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="product-groups-form" class="btn btn-primary">Guardar grupos</button>`);
 }
 function periodModal(existing){
  const p=existing||{label:'Semana '+(state.periods.length+1),start:'',end:'',locked:false};
  showModal(existing?'Editar período':'Añadir período',`<form id="period-form" data-id="${esc(existing?.id||'')}" class="modal-body"><div class="modal-grid"><div class="field full"><label>Nombre del período</label><input name="label" maxlength="70" required class="form-control" value="${esc(p.label)}"></div><div class="field"><label>Fecha de inicio</label><input type="date" name="start" class="form-control" value="${esc(p.start)}"></div><div class="field"><label>Fecha de finalización</label><input type="date" name="end" class="form-control" value="${esc(p.end)}"></div>${existing?`<div class="field full"><label class="switch-line"><input type="checkbox" name="locked" ${p.locked?'checked':''}> Bloquear edición de cantidades, precios y total semanal</label></div>`:''}</div><p>Al bloquear un período no se eliminan registros; podrás reabrirlo después. Las fechas son independientes del número de semana.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button>${existing&&state.periods.length>1?`<button class="btn btn-danger" data-action="remove-period" data-id="${esc(p.id)}">Eliminar</button>`:''}<button type="submit" form="period-form" class="btn btn-primary">Guardar período</button>`);
 }
-function getFormNum(form,key){const value=String(new FormData(form).get(key)??'').trim();if(value==='')return 0;const n=nf(value);if(n===null||Math.abs(n)>1e15)throw new Error(`«${key}» debe contener un número válido.`);return n;}
 function submitProduct(form){
- const data=new FormData(form),name=String(data.get('name')||'').trim(),idToEdit=form.dataset.id;
- if(!name){toast('Escribe un nombre de producto.');return;}
- let numbers;try{numbers={quantityN:getFormNum(form,'quantityN'),quantityV:getFormNum(form,'quantityV'),value:getFormNum(form,'value'),average:getFormNum(form,'average'),boxes:getFormNum(form,'boxes')};}catch(e){toast(e.message);return;}
- const chosenCategory=String(data.get('category')||''),requestedCategory=String(data.get('newCategory')||'').trim();
+ const data=new FormData(form),editId=form.dataset.id;
+ const identifier=key=>String(data.get(key)||'').trim().slice(0,80);
+ const vesselNumber=identifier('vesselNumber'),boxNumber=identifier('boxNumber'),productNumber=identifier('productNumber');
+ const quantity=String(data.get('boxes')??'').trim(),price=String(data.get('value')??'').trim();
+ const boxes=nf(quantity),value=nf(price);
+ if(!vesselNumber||!boxNumber||!productNumber)return toast('Completa los números de embarcación, caja y producto.');
+ if(!quantity||!Number.isSafeInteger(boxes)||boxes<1||boxes>1e15)return toast('Escribe una cantidad entera mayor que cero por caja.');
+ if(!price||value===null||value<0||value>1e15)return toast('Escribe un precio por unidad válido.');
+ const existing=editId?state.products.find(item=>item.id===editId):null;
+ if(editId&&!existing)return toast('Producto no encontrado.');
+ const name=existing?.name&&existing.name!==existing.productNumber?existing.name:productNumber;
+ if(mutation(editId?`Producto editado: ${name}`:`Producto creado: ${name}`,()=>{
+  const product=existing||{id:id('prod'),createdAt:new Date().toISOString(),category:'',unit:'unidad',tagIds:[],quantityN:0,quantityV:0,average:0};
+  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value});
+  if(!existing)state.products.push(product);
+ }))closeModal();
+}
+function submitProductGroups(form){
+ const product=state.products.find(item=>item.id===form.dataset.id);
+ if(!product)return toast('Producto no encontrado.');
+ const data=new FormData(form);
+ const chosenCategory=String(data.get('category')||''),requestedCategory=String(data.get('newCategory')||'').trim().slice(0,70);
  const category=chosenCategory==='__new_category__'?(catalogCategories().find(name=>groupKey(name)===groupKey(requestedCategory))||requestedCategory):chosenCategory.slice(9);
  if(chosenCategory==='__new_category__'&&!category)return toast('Escribe el nombre de la categoría.');
- const unit=String(data.get('unit')||'unidad').trim()||'unidad';
  const tags=catalogTags(),known=new Set(tags.map(tag=>tag.id));
  const tagIds=data.getAll('tagIds').filter(id=>known.has(id));
- const tagName=String(data.get('newTag')||'').trim(),tagColor=String(data.get('newTagColor')||'');
+ const tagName=String(data.get('newTag')||'').trim().slice(0,50),tagColor=String(data.get('newTagColor')||'');
  const existingTag=tagName?tags.find(tag=>groupKey(tag.name)===groupKey(tagName)):null;
  if(tagName&&!/^#[0-9a-f]{6}$/i.test(tagColor))return toast('Elige un color válido.');
- mutation(idToEdit?`Producto editado: ${name}`:`Producto creado: ${name}`,()=>{
-  const p=idToEdit?state.products.find(x=>x.id===idToEdit):{id:id('prod'),createdAt:new Date().toISOString()};
-  if(!p)throw new Error('Producto no encontrado.');
+ if(mutation(`Grupos actualizados: ${product.name}`,()=>{
   if(tagName){
    const tag=existingTag||{id:id('tag'),name:tagName,color:tagColor};
    if(!existingTag)(state.catalogTags??=[]).push(tag);
    if(!tagIds.includes(tag.id))tagIds.push(tag.id);
   }
-  Object.assign(p,{name,category,unit,tagIds,...numbers});
-  if(!idToEdit)state.products.push(p);
- });closeModal();
+  Object.assign(product,{category,tagIds});
+ }))closeModal();
 }
 function submitPeriod(form){
  const data=new FormData(form),label=String(data.get('label')||'').trim(),start=String(data.get('start')||''),end=String(data.get('end')||'');
@@ -2566,7 +2604,7 @@ function normalizeImported(raw){
   if(!name||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Etiqueta de producto no válida.');
   return {id:tag.id,name,color};
  });
- const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
+ const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
  const clients=makeUnique(raw.clients,'Cliente',c=>({id:c.id,code:string(c.code,35)||c.id,name:string(c.name,90),active:c.active!==false}));
  const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked}));
  const periodIDs=new Set(periods.map(p=>p.id)),productIDs=new Set(products.map(p=>p.id)),clientIDs=new Set(clients.map(c=>c.id));
@@ -2613,7 +2651,13 @@ function normalizeImported(raw){
 function mergeStates(local,remote){
  const mergeList=(a,b)=>{const byId=new Map(a.map(v=>[v.id,v]));for(const value of b)byId.set(value.id,value);return [...byId.values()];};
  const out=clone(local);
- out.products=mergeList(local.products,remote.products);out.clients=mergeList(local.clients,remote.clients);out.periods=mergeList(local.periods,remote.periods);
+ const localProducts=new Map(local.products.map(product=>[product.id,product]));
+ out.products=mergeList(local.products,remote.products).map(product=>{
+  const prior=localProducts.get(product.id);
+  if(!prior)return product;
+  return {...product,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
+ });
+ out.clients=mergeList(local.clients,remote.clients);out.periods=mergeList(local.periods,remote.periods);
  out.catalogTags=mergeList(local.catalogTags||[],remote.catalogTags||[]);reconcileCatalogTags(out);
  for(const root of ['movements','prices','weekTotals']){
   for(const [wid,records] of Object.entries(remote[root])){
@@ -2695,7 +2739,7 @@ function paletteOptions(){
  const input=$('#palette-input');if(!input||!state)return;
  const q=input.value.trim().toLocaleLowerCase('es');
  const menu=searchTargets.filter(x=>x[1].toLocaleLowerCase('es').includes(q)).slice(0,8);
- const products=state.products.filter(p=>`${p.name} ${p.category||''}`.toLocaleLowerCase('es').includes(q)).slice(0,12);
+ const products=state.products.filter(p=>`${p.name} ${p.category||''} ${p.productNumber||''} ${p.vesselNumber||''} ${p.boxNumber||''}`.toLocaleLowerCase('es').includes(q)).slice(0,12);
  const html=[...menu.map(([key,label])=>`<button type="button" class="command-result" data-command-view="${key}" role="option"><span class="command-kind">SECCIÓN</span><span>${esc(label)}</span><span class="command-arrow">↵</span></button>`),...products.map(p=>`<button type="button" class="command-result" data-command-product="${esc(p.id)}" role="option"><span class="command-kind">PRODUCTO</span><span>${esc(p.name)} <small>${esc(p.category||'')}</small></span><span class="command-arrow">↵</span></button>`)].join('');
  $('#palette-results').innerHTML=html||'<div class="command-empty">No hay resultados. Busca una sección o producto.</div>';
 }
@@ -2740,6 +2784,7 @@ document.addEventListener('click',async e=>{
   case 'unit-report':openUnitReport(targetId||'sales');break;
   case 'record-sale':saleModal();break;
   case 'void-sale':voidSale(targetId);break;
+  case 'product-groups':productGroupsModal(targetId);break;
   case 'catalog-tags':tagEditor();break;
   case 'edit-product':productModal(targetId);break;
   case 'remove-product':await removeProduct(targetId);break;
@@ -2775,7 +2820,8 @@ document.addEventListener('click',async e=>{
  }}catch(err){toast('No se pudo completar la acción: '+err.message);}
 });
 document.addEventListener('submit',e=>{
- const form=e.target;if(form.id==='catalog-tag-form'){e.preventDefault();saveTag(form);return;}
+ const form=e.target;if(form.id==='product-groups-form'){e.preventDefault();submitProductGroups(form);return;}
+ if(form.id==='catalog-tag-form'){e.preventDefault();saveTag(form);return;}
  if(form.id==='lot-form'){e.preventDefault();submitLot(form);return;}
  if(['sales-filters','sales-speed','sale-form'].includes(form.id)){e.preventDefault();submitSales(form);return;}
  if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
@@ -2794,7 +2840,7 @@ document.addEventListener('change',e=>{
   page=0;render();document.getElementById(el.id)?.focus();return;
  }
  if(el.id==='catalog-tag-edit'){tagEditor(el.value);return;}
- if(el.form?.id==='product-form'&&el.name==='category'){
+ if(el.form?.id==='product-groups-form'&&el.name==='category'){
   const field=$('#new-category-field'),input=el.form.elements.newCategory;
   field.hidden=el.value!=='__new_category__';input.disabled=field.hidden;input.required=!field.hidden;
   if(!field.hidden)input.focus();return;
