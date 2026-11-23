@@ -451,8 +451,6 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 
 /* Entrada por cliente en el registro semanal. */
 .weekly-client-entries { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 10px; }
-.weekly-cell-button { text-align: right; cursor: pointer; min-height: 34px; }
-.weekly-cell-button:disabled { cursor: default; }
 
 /* Buscador desplegable y revisión de procedencia. */
 .weekly-product-select summary { cursor: pointer; padding: 9px 12px; }

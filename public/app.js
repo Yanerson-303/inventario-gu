@@ -20,7 +20,7 @@ const cookie=(k,v)=>{try{document.cookie=`${k}=${encodeURIComponent(v)}; max-age
 const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null;};
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
 let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
-let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false,weeklyFocusNext=null;
+let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false;
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
 function newState(){
@@ -100,7 +100,6 @@ function render(){
   window.GUFeedback?.setCapacityAlarm?.(overCapacity);
   window.AlmendraWarehouse?.mount();
  }else window.GUFeedback?.setCapacityAlarm?.(false);
- if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled),button.weekly-cell-button:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
 const metricLabels={volumen:'Unidades registradas',saldo:'Stock',valor:'Valor total del inventario',productos:'Productos',stock:'Unidades en stock',referencias:'Referencias con stock',bodega:'Bodega 3D',proyecciones:'Proyecciones', 'grafico-semanal':'Gráfico semanal','grafico-productos':'Productos destacados',revision:'Revisión',tendencias:'Comparativa', 'vista-rapida':'Vista rápida',actividad:'Actividad'};
@@ -634,10 +633,40 @@ function weeklyProductIds(period){
  for(const id of Object.keys(state.weekTotals[period.id]||{}))ids.add(id);
  return ids;
 }
-function weeklyCellButton(period,client,product){
- const units=state.movements[period.id]?.[product.id]?.[client.id];
- const label=`${product.name} · ${salesClientLabel(client)}`;
- return `<button type="button" class="form-control weekly-cell-button" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" data-id="${esc(product.id)}" aria-label="${esc(label)}" ${period.locked?'disabled':''}>${units==null?'—':format(units,9)}</button>`;
+const weeklyNumber=value=>value==null?'—':format(value,9);
+function editWeeklyValues(){
+ const period=activePeriod();
+ if(period.locked)return toast('Reabre el período para editar el precio y el total.');
+ if(!state.products.length)return toast('Añade un producto al catálogo primero.');
+ showModal(`Precio y total · ${period.label}`,`<form id="weekly-values-form" class="modal-body" data-period="${esc(period.id)}"><div class="modal-grid">
+ <label class="field full">Producto<select class="form-control" name="productId" required><option value="">Selecciona un producto</option>${salesOptions(state.products,null,saleProductLabel)}</select></label>
+ <label class="field">Precio unitario (CY)<input class="form-control" type="number" name="price" step="any" disabled></label>
+ <label class="field">Total manual (CZ)<input class="form-control" type="number" name="weekTotal" step="any" disabled></label>
+ </div></form>`,'<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-primary" form="weekly-values-form">Guardar</button>');
+ const form=$('#weekly-values-form'),{productId,price,weekTotal}=form.elements;
+ productId.addEventListener('change',()=>{
+  price.disabled=weekTotal.disabled=!productId.value;
+  price.value=state.prices[period.id]?.[productId.value]??'';
+  weekTotal.value=state.weekTotals[period.id]?.[productId.value]??'';
+ });
+}
+function saveWeeklyValues(form){
+ const period=state.periods.find(item=>item.id===form.dataset.period);
+ if(!period||period.locked)return toast('El período está cerrado o ya no existe.');
+ const data=new FormData(form),product=state.products.find(item=>item.id===data.get('productId'));
+ if(!product)return toast('Selecciona un producto.');
+ const values=[['prices','price'],['weekTotals','weekTotal']].map(([store,field])=>{
+  const raw=String(data.get(field)??'').trim();
+  return {store,value:raw===''?undefined:nf(raw)};
+ });
+ if(values.some(({value})=>value===null||Math.abs(value)>1e15))return toast('Introduce valores válidos.');
+ if(values.every(({store,value})=>state[store][period.id]?.[product.id]===value)){closeModal();return;}
+ if(mutation(`${period.label}: precio y total de ${product.name}`,()=>{
+  for(const {store,value} of values){
+   if(value===undefined){if(state[store][period.id])delete state[store][period.id][product.id];}
+   else (state[store][period.id]??={})[product.id]=value;
+  }
+ }))closeModal();
 }
 function weeklyClientButton(period,client){
  return `<button type="button" class="btn btn-small" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" ${period.locked?'disabled':''}>${esc(salesClientLabel(client))}</button>`;
@@ -762,18 +791,24 @@ function renderWeekly(){
  const count=state.products.filter(p=>ids.has(p.id)).length;
  const weekQty=state.products.reduce((s,p)=>s+C.qty(state,period.id,p.id),0);
  const cols=slots.map(cl=>`<th class="slot-col" title="${esc(cl.name||cl.code)}">${esc(cl.name||cl.code)}</th>`).join('');
- const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal con desplazamiento horizontal y vertical"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
+ const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal de solo lectura"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
   const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
-  return `<tr><td class="sticky-first">${productButton(pr)}</td>${slots.map(cl=>`<td class="week-cell">${numInput('movement',state.movements[period.id]?.[pr.id]?.[cl.id]??'',`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" data-client="${esc(cl.id)}" aria-label="${esc(pr.name)} / ${esc(cl.name||cl.code)}" ${locked?'disabled':''}`)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="week-cell">${numInput('price',prc,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Precio ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="week-cell">${numInput('week-total',total,`data-period="${esc(period.id)}" data-product="${esc(pr.id)}" aria-label="Total manual ${esc(pr.name)}" ${locked?'disabled':''}`)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
+  return `<tr><td class="sticky-first">${esc(pr.name)}</td>${slots.map(cl=>`<td class="num">${weeklyNumber(state.movements[period.id]?.[pr.id]?.[cl.id])}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="num">${weeklyNumber(prc===''?null:prc)}</td><td class="num">${weeklyNumber(total===''?null:total)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
  }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
- const mobile=sel.rows.length?`<div class="week-mobile">${sel.rows.map(pr=>{const qty=C.qty(state,period.id,pr.id);return `<article class="card week-product"><div class="week-product-head"><h3>${productButton(pr)}</h3><span class="badge ${qty<0?'danger':qty>0?'good':''}">Total ${format(qty)}</span></div><div class="week-product-grid">${slots.map(cl=>`<div class="field"><label>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</label>${weeklyCellButton(period,cl,pr)}</div>`).join('')}</div><div class="week-product-grid" style="margin-top:13px"><div class="field"><label>Precio unitario (CY)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="price" value="${esc(state.prices[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div><div class="field"><label>Total manual (CZ)</label><input class="form-control" type="number" inputmode="decimal" step="any" data-edit="week-total" value="${esc(state.weekTotals[period.id]?.[pr.id]??'')}" data-period="${esc(period.id)}" data-product="${esc(pr.id)}" ${locked?'disabled':''}></div></div><div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${money(qty*(state.prices[period.id]?.[pr.id]||0))}</strong></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:'';
- return `${heading('CAPTURA DE DATOS','Registro semanal','Elige un cliente y registra productos del catálogo. Usa Alt + flechas para navegar entre las casillas.',`<button class="btn" data-action="edit-period">Editar período</button><button class="btn btn-primary" data-action="new-period">+ Semana</button>`)}
+ const mobile=sel.rows.length?`<div class="week-mobile">${sel.rows.map(pr=>{
+  const qty=C.qty(state,period.id,pr.id),price=state.prices[period.id]?.[pr.id],total=state.weekTotals[period.id]?.[pr.id];
+  return `<article class="card week-product"><div class="week-product-head"><h3>${esc(pr.name)}</h3><span class="badge ${qty<0?'danger':qty>0?'good':''}">Total ${format(qty)}</span></div>
+  <div class="week-product-grid">${slots.map(cl=>`<div class="field"><span>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</span><strong class="mono">${weeklyNumber(state.movements[period.id]?.[pr.id]?.[cl.id])}</strong></div>`).join('')}</div>
+  <div class="week-product-grid" style="margin-top:13px"><div class="field"><span>Precio unitario (CY)</span><strong>${weeklyNumber(price)}</strong></div><div class="field"><span>Total manual (CZ)</span><strong>${weeklyNumber(total)}</strong></div></div>
+  <div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${money(qty*(price||0))}</strong></div></article>`;
+ }).join('')}${pageFoot(sel,'productos')}</div>`:'';
+ return `${heading('CAPTURA DE DATOS','Registro semanal','Consulta las cantidades de la semana y usa Registrar por cliente para cambiarlas.',`<button class="btn" data-action="edit-period">Editar período</button><button class="btn btn-primary" data-action="new-period">+ Semana</button>`)}
  <div class="week-tabs" role="tablist" aria-label="Períodos">${state.periods.map(p=>`<button class="week-tab ${p.id===period.id?'active':''}" data-period-tab="${esc(p.id)}" role="tab" aria-selected="${p.id===period.id}">${esc(p.label)}${p.locked?' · 🔒':''}</button>`).join('')}</div>
  <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos de la semana: <strong>${count}</strong></span></div></div>
- <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button></div></div>
+ <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-values"${locked?' disabled':''}>Editar precio y total</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
  <div class="weekly-client-entries" role="group" aria-label="Registrar por cliente"><strong>Registrar por cliente</strong>${slots.map(client=>weeklyClientButton(period,client)).join('')}</div>
- <p class="table-hint">Toca una casilla para elegir el producto y cambiar su cantidad.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» reproduce el campo editable CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
+ <p class="table-hint">La tabla es de solo lectura. Elige el cliente en Registrar por cliente para agregar o modificar cantidades.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» corresponde al campo CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
 }
 function renderFinal(){
  const filteredProducts=productsFiltered(),all=filteredProducts.filter(p=>{const n=C.result(state,p).N;return finalFilter==='all'||(finalFilter==='positive'?n>0:finalFilter==='zero'?n===0:n<0);}),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
@@ -1063,8 +1098,8 @@ async function removePeriod(pId){
 function editValue(el){
  const type=el.dataset.edit;
  if(!type)return;
- const pId=el.dataset.product,wId=el.dataset.period;
- const p=state.products.find(p=>p.id===pId),w=state.periods.find(p=>p.id===wId);
+ const pId=el.dataset.product;
+ const p=state.products.find(p=>p.id===pId);
  if(type==='client-name'){
   const c=state.clients.find(c=>c.id===el.dataset.id);if(!c)return;const name=el.value.trim().slice(0,90);
   if(name===c.name)return;mutation(`Espacio ${c.code} renombrado`,()=>c.name=name);return;
@@ -1073,17 +1108,6 @@ function editValue(el){
   const field=el.dataset.field;if(!p||!['quantityN','quantityV','value','average','boxes'].includes(field))return;
   const n=nf(el.value.trim()||'0');if(n===null||Math.abs(n)>1e15){toast('Introduce un número válido.');render();return;}
   if(p[field]===n)return;mutation(`${p.name}: ${field} cambió de ${p[field]||0} a ${n}`,()=>p[field]=n);return;
- }
- if(!p||!w)return;if(w.locked){toast('Este período está cerrado.');render();return;}
- const raw=el.value.trim();const n=raw===''?null:nf(raw);
- if(n!==null && (n===null||Math.abs(n)>1e15)){toast('Introduce un número válido.');render();return;}
- if(raw!==''&&n===null){toast('Introduce un número válido.');render();return;}
- if(type==='price'||type==='week-total'){
-  const key=type==='price'?'prices':'weekTotals';const prev=state[key][wId]?.[pId];
-  if((raw===''&&prev===undefined)||(raw!==''&&prev===n))return;
-  mutation(`${w.label}: ${type==='price'?'Precio':'Total manual'} de ${p.name} → ${n===null?'vacío':n}`,()=>{
-   if(!state[key][wId])state[key][wId]={};if(n===null)delete state[key][wId][pId];else state[key][wId][pId]=n;
-  });
  }
 }
 function sampleData(){
@@ -1379,6 +1403,7 @@ document.addEventListener('click',async e=>{
  const action=btn.dataset.action,targetId=btn.dataset.id;
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
+  case 'weekly-values':editWeeklyValues();break;
   case 'weekly-cell':weeklyCellModal(btn.dataset.period,btn.dataset.client,targetId);break;
   case 'weekly-catalog':closeModal();navigate('products');break;
   case 'new-product':productModal();break;
@@ -1425,6 +1450,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('submit',e=>{
  const form=e.target;if(form.id==='product-groups-form'){e.preventDefault();submitProductGroups(form);return;}
  if(form.id==='catalog-group-form'){e.preventDefault();saveCatalogGroup(form);return;}
+ if(form.id==='weekly-values-form'){e.preventDefault();saveWeeklyValues(form);return;}
  if(form.id==='weekly-cell-form'){e.preventDefault();saveWeeklyCell(form);return;}
  if(['sales-filters','sales-speed'].includes(form.id)){e.preventDefault();submitSales(form);return;}
  if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
@@ -1469,15 +1495,6 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('keydown',e=>{
  if(document.getElementById('dashboard-menu')?.open)return;
- const cell=e.target.closest?.('.week-scroll-2d td');
- if(cell&&((e.target.matches('input[data-edit]')&&e.key==='Enter')||(e.altKey&&e.target.matches('input[data-edit],button.weekly-cell-button')&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)))){
-  const tr=cell.closest('tr'), tbody=tr?.parentElement, rows=tbody?.querySelectorAll('tr');
-  if(tr&&rows){const dy=e.key==='Enter'||e.key==='ArrowDown'?1:e.key==='ArrowUp'?-1:0;const dx=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
-   const ri=Array.from(rows).indexOf(tr),nextRow=rows[ri+dy],ti=cell.cellIndex+dx;
-   const target=nextRow?.cells?.[ti]?.querySelector('input:not(:disabled),button.weekly-cell-button:not(:disabled)');
-   if(target){e.preventDefault();weeklyFocusNext={r:ri+dy,c:ti};target.focus();target.select?.();requestAnimationFrame(()=>{if(weeklyFocusNext){weeklyFocusNext=null;}});return;}
-  }
- }
  if(e.key==='Escape' &&!$('#command-palette')?.hidden){closePalette();return;}
  if(e.key==='Escape'&&$('#modal-root').innerHTML){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}}
  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();return;}
