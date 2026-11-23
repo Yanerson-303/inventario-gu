@@ -6,6 +6,7 @@
  const MIN=3000,start=performance.now(),reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
  let ready=false,failed=false,finished=false,raf=0,angle=-.59,target=-.59,zoom=1,drag=null,last=0,size={w:0,h:0,dpr:1};
  let positions=[[],[],[]],totals=[0,0,0],records=0;
+ const countFormat=new Intl.NumberFormat('es-CO',{maximumFractionDigits:6});
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
  const finish=()=>{if(finished||!ready||performance.now()-start<MIN)return;finished=true;entry.classList.add('gu-entry-exit');entry.setAttribute('aria-hidden','true');document.body.classList.remove('gu-entry-active');setTimeout(()=>{cancelAnimationFrame(raf);entry.remove();},550);};
  function resized(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;const dpr=clamp(window.devicePixelRatio||1,1,2);if(Math.abs(rect.width-size.w)>.5||Math.abs(rect.height-size.h)>.5||dpr!==size.dpr){size={w:rect.width,h:rect.height,dpr};canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}}
@@ -43,6 +44,7 @@
     const level=slot.level-1,cell=slot.position-1,col=cell%2,row=Math.floor(cell/2);
     const xx=x+9+col*47,yy=y+10+row*53,zz=level?69:14;
     cube(xx,yy,zz,37,39,37,'#ebc69c','#b27c52','#d99c68');line([xx+18,yy,zz+37],[xx+18,yy+39,zz+37],'#bd956e',2);
+    if(slot.catalogBoxes&&Number.isFinite(slot.qty))label(countFormat.format(slot.qty),xx+18,yy+19,zz+43,'#fff',11);
    }
    label(String(totals[r]),x+dx*.5,y+dy*.5,148,'#fff',23);label('RACK '+(r+1),x+dx*.5,y+dy*.5,168,'#ffdb8a',12);
   }
@@ -54,6 +56,7 @@
   if(ready){status.textContent=failed?'Revisa el estado de la aplicación':'Inventario preparado';meta.textContent=failed?'Se mostrará la información de recuperación.':`${records} productos · ${totals.reduce((a,b)=>a+b,0)} unidades ubicadas`;finish();}
  }
  function complete(detail){if(ready)return;ready=true;failed=!detail?.ok;
+  if(detail?.capacityAlarm)entry.querySelector('.gu-entry-stage')?.setAttribute('data-capacity-alarm','true');
   if(detail?.ok){records=Number(detail.products)||0;const next=detail.racks||[];totals=[0,1,2].map(i=>Math.max(0,Number(next[i])||0));positions=[0,1,2].map(i=>(detail.positions?.[i]||[]).filter(slot=>[1,2].includes(slot.level)&&slot.position>=1&&slot.position<=8));}
   if(!ctx){setTimeout(()=>{entry.remove();document.body.classList.remove('gu-entry-active');},Math.max(0,MIN-(performance.now()-start)));return;}
   finish();}

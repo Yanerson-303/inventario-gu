@@ -5,8 +5,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 let scene=null,raf=0,idleTimer=0;let lastFrame=0;
 function render(state){
  const {racks,positions,totals}=window.GUTrace.warehouse(state);
- scene={racks,positions,totals,angle:-.72,zoom:1,selected:-1,paused:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false};
- return `<section class="card warehouse-card" aria-label="Bodega virtual interactiva"><div class="warehouse-heading"><div><span class="eyebrow">ALMACÉN DIGITAL · VISTA 3D</span><h2>Bodega virtual</h2></div><div class="warehouse-total"><strong>${fmt(totals.reduce((a,b)=>a+b,0))}</strong><span>unidades disponibles</span></div></div><details class="warehouse-settings"><summary>Controles 3D</summary><div class="warehouse-controls"><button type="button" data-warehouse="left" title="Girar a la izquierda" aria-label="Girar a la izquierda">↶</button><button type="button" data-warehouse="right" title="Girar a la derecha" aria-label="Girar a la derecha">↷</button><button type="button" data-warehouse="in" title="Acercar" aria-label="Acercar">+</button><button type="button" data-warehouse="out" title="Alejar" aria-label="Alejar">−</button><button type="button" data-warehouse="reset" title="Restablecer vista" aria-label="Restablecer vista">⌂</button></div><div class="warehouse-mini-racks">${totals.map((n,i)=>`<button type="button" class="warehouse-mini-rack" data-warehouse="rack${i}" aria-label="Ver rack ${i+1}"><span class="warehouse-mini-dot"></span><span>Rack ${i+1}</span><strong>${fmt(n)}</strong></button>`).join('')}</div></details><div class="warehouse-viewport"><canvas id="warehouse-canvas" role="img" aria-label="Bodega isométrica interactiva con tres racks, oficina, trabajador y zona de preparación"></canvas><span class="warehouse-hint">Girar · Zoom · Racks</span></div><div id="warehouse-detail" class="warehouse-detail" aria-live="polite">Toca un rack para ver sus productos, lotes y unidades disponibles.</div></section>`;
+ scene={racks,positions,totals,angle:-.72,zoom:1,selected:-1,frame:0,paused:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false};
+ return `<section class="card warehouse-card" aria-label="Bodega virtual interactiva"><div class="warehouse-heading"><div><span class="eyebrow">ALMACÉN DIGITAL · VISTA 3D</span><h2>Bodega virtual</h2></div><div class="warehouse-total"><strong>${fmt(totals.reduce((a,b)=>a+b,0))}</strong><span>unidades en racks</span></div></div><details class="warehouse-settings"><summary>Controles 3D</summary><div class="warehouse-controls"><button type="button" data-warehouse="left" title="Girar a la izquierda" aria-label="Girar a la izquierda">↶</button><button type="button" data-warehouse="right" title="Girar a la derecha" aria-label="Girar a la derecha">↷</button><button type="button" data-warehouse="in" title="Acercar" aria-label="Acercar">+</button><button type="button" data-warehouse="out" title="Alejar" aria-label="Alejar">−</button><button type="button" data-warehouse="reset" title="Restablecer vista" aria-label="Restablecer vista">⌂</button></div><div class="warehouse-mini-racks">${totals.map((n,i)=>`<button type="button" class="warehouse-mini-rack" data-warehouse="rack${i}" aria-label="Ver rack ${i+1}"><span class="warehouse-mini-dot"></span><span>Rack ${i+1}</span><strong>${fmt(n)}</strong></button>`).join('')}</div></details><div class="warehouse-viewport"><canvas id="warehouse-canvas" role="img" aria-label="Bodega isométrica interactiva con tres racks, oficina, trabajador y zona de preparación"></canvas><span class="warehouse-hint">Girar · Zoom · Racks</span></div><div id="warehouse-detail" class="warehouse-detail" aria-live="polite">Toca un rack para ver sus productos, lotes y cajas.</div></section>`;
 }
 function mount(){
  cancelAnimationFrame(raf);clearTimeout(idleTimer);const canvas=document.getElementById('warehouse-canvas');if(!canvas||!scene)return;
@@ -37,12 +37,18 @@ function mount(){
  cube(195,105,0,65,28,17,['#d4b28a','#9a7453','#b28a60']);cube(200,108,17,20,15,17,['#eac18b','#b57e4e','#d49b61']);cube(227,112,17,19,13,13,['#eac18b','#b57e4e','#d49b61']);cube(281,117,0,35,24,9,['#d4b28a','#9a7453','#b28a60']);line([318,115,2],[318,115,34],'#f5b12b',4);text('PREPARACIÓN',247,167,3,'#fff',10);
  hit=[];
  // Estanterías: 3 filas de dos niveles, cajas reales limitadas por rack.
- for(let k=0;k<3;k++){const x=-290+k*230,y=-100,w=100,d=190,n=s.totals[k],count=Math.min(16,Math.floor(n));
+ for(let k=0;k<3;k++){const x=-290+k*230,y=-100,w=100,d=190,n=s.totals[k];
  polygon([[x-9,y-10,1],[x+w+9,y-10,1],[x+w+9,y+d+10,1],[x-9,y+d+10,1]],s.selected===k?'#b3aa79':'#788991',s.selected===k?'#ffe082':'#d1ad40',2);
  for(const z of [4,48]){cube(x,y,z,w,d,5,['#f0a13b','#c47827','#d98c2f']);}
  for(const xx of [x,x+w])for(const yy of [y,y+d])cube(xx-3,yy-3,0,6,6,101,['#3983b5','#225b88','#276da0']);
  const displayed=s.positions[k];
- for(const pos of displayed){const slot=pos.position-1,level=pos.level-1,col=slot%2,row=Math.floor(slot/2);cube(x+9+col*43,y+9+row*43,level?54:10,34,32,29,['#edc08a','#bb8151','#d79d65']);}
+ for(const pos of displayed){
+  const slot=pos.position-1,xx=x+9+(slot%2)*43,yy=y+9+Math.floor(slot/2)*43,z=pos.level===2?54:10;
+  const colors=['#edc08a','#bb8151','#d79d65'],stacked=pos.count>1;
+  cube(xx,yy,z,34,32,stacked?15:29,colors);
+  if(stacked)cube(xx+3,yy+3,z+16,28,26,13,colors);
+  if(pos.catalogBoxes)text(fmt(pos.qty),xx+17,yy+16,z+32,'#ffffff',11);
+ }
  for(const z of [4,48]){line([x,y,z],[x+w,y,z],'#ffc36a',2);line([x,y+d,z],[x+w,y+d,z],'#ffc36a',2);}
  text(fmt(n),x+w/2,y+d/2,119,'#ffffff',19);text(`RACK ${k+1}`,x+w/2,y+d/2,137,'#ffdb83',11);
  hit.push({k,p:project(x+w/2,y+d/2,75)});
@@ -52,7 +58,19 @@ function mount(){
  text('ENTRADA',0,183,2,'#fff',12);
  if(!s.paused)s.frame++;raf=requestAnimationFrame(draw);
  }
- function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${p.level?`N${p.level} · P${p.position} · `:''}${esc(p.name)}${p.lot?` · Lote ${esc(p.lot)} · Contenedor ${esc(p.container)} · ${esc(p.area)}`:''}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;document.dispatchEvent(new CustomEvent('gu:warehouse-rack-select',{detail:{rack:k+1}}));}
+ function detail(k){
+  s.selected=k;
+  document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));
+  const el=document.getElementById('warehouse-detail');if(!el)return;
+  const products=s.racks[k],entries=products.map(product=>{
+   const pos=product.level?`N${product.level} · P${product.position} · `:'';
+   const box=product.boxNumber?` · Caja ${esc(product.boxNumber)}`:'';
+   const lot=product.lot?` · Lote ${esc(product.lot)} · Contenedor ${esc(product.container)} · ${esc(product.area)}`:'';
+   return `${pos}${esc(product.name)}${box}${lot}: ${fmt(product.qty)} ${product.catalog?'unidades registradas':'unidades disponibles'}`;
+  });
+  el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${entries.join(' · ')||'Sin productos asignados'}</span>`;
+  document.dispatchEvent(new CustomEvent('gu:warehouse-rack-select',{detail:{rack:k+1}}));
+ }
  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);canvas._drag={x:e.clientX,y:e.clientY,angle:s.angle,moved:false};});
  canvas.addEventListener('pointermove',e=>{if(!canvas._drag)return;const dx=e.clientX-canvas._drag.x;if(Math.abs(dx)>4)canvas._drag.moved=true;s.angle=canvas._drag.angle+dx*.007;});
  canvas.addEventListener('pointerup',e=>{const d=canvas._drag;canvas._drag=null;if(!d||d.moved)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let best=null,dist=Infinity;for(const h of hit){const dd=Math.hypot(x-h.p[0],y-h.p[1]);if(dd<dist){dist=dd;best=h.k;}}if(dist<85*scale&&best!==null)detail(best);});

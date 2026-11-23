@@ -696,6 +696,45 @@ body.gu-entry-active{overflow:hidden}
 .capacity-alert .data-table td { color: var(--text); }
 .capacity-summary { margin: 0; font-size: 12px; }
 </style>
+<style>
+
+/* Luz de emergencia de transición lenta, visible sin tapar el modelo. */
+.warehouse-viewport[data-capacity-alarm],
+.gu-entry-stage[data-capacity-alarm] { outline: 2px solid #e34447; outline-offset: -2px; }
+.warehouse-viewport[data-capacity-alarm]::after,
+.gu-entry-stage[data-capacity-alarm]::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(125deg, #ff222c 0%, #ad0c19 60%, #fa2934 100%);
+  box-shadow: inset 0 0 60px #ff1414;
+  opacity: .17;
+  animation: warehouse-emergency-pulse 4s ease-in-out infinite;
+}
+@keyframes warehouse-emergency-pulse {
+  0%, 100% { opacity: .13; }
+  50% { opacity: .32; }
+}
+.warehouse-emergency {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #7d1a24;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .warehouse-viewport[data-capacity-alarm]::after,
+  .gu-entry-stage[data-capacity-alarm]::after { animation: none; opacity: .23; }
+}
+</style>
 </head>
 <body data-palette="almond" data-mode="light">
   <div id="gu-entry" role="status" aria-label="Preparando Inventarios GU, acceso automático">
@@ -745,6 +784,7 @@ body.gu-entry-active{overflow:hidden}
  const MIN=3000,start=performance.now(),reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
  let ready=false,failed=false,finished=false,raf=0,angle=-.59,target=-.59,zoom=1,drag=null,last=0,size={w:0,h:0,dpr:1};
  let positions=[[],[],[]],totals=[0,0,0],records=0;
+ const countFormat=new Intl.NumberFormat('es-CO',{maximumFractionDigits:6});
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
  const finish=()=>{if(finished||!ready||performance.now()-start<MIN)return;finished=true;entry.classList.add('gu-entry-exit');entry.setAttribute('aria-hidden','true');document.body.classList.remove('gu-entry-active');setTimeout(()=>{cancelAnimationFrame(raf);entry.remove();},550);};
  function resized(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;const dpr=clamp(window.devicePixelRatio||1,1,2);if(Math.abs(rect.width-size.w)>.5||Math.abs(rect.height-size.h)>.5||dpr!==size.dpr){size={w:rect.width,h:rect.height,dpr};canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}}
@@ -782,6 +822,7 @@ body.gu-entry-active{overflow:hidden}
     const level=slot.level-1,cell=slot.position-1,col=cell%2,row=Math.floor(cell/2);
     const xx=x+9+col*47,yy=y+10+row*53,zz=level?69:14;
     cube(xx,yy,zz,37,39,37,'#ebc69c','#b27c52','#d99c68');line([xx+18,yy,zz+37],[xx+18,yy+39,zz+37],'#bd956e',2);
+    if(slot.catalogBoxes&&Number.isFinite(slot.qty))label(countFormat.format(slot.qty),xx+18,yy+19,zz+43,'#fff',11);
    }
    label(String(totals[r]),x+dx*.5,y+dy*.5,148,'#fff',23);label('RACK '+(r+1),x+dx*.5,y+dy*.5,168,'#ffdb8a',12);
   }
@@ -793,6 +834,7 @@ body.gu-entry-active{overflow:hidden}
   if(ready){status.textContent=failed?'Revisa el estado de la aplicación':'Inventario preparado';meta.textContent=failed?'Se mostrará la información de recuperación.':`${records} productos · ${totals.reduce((a,b)=>a+b,0)} unidades ubicadas`;finish();}
  }
  function complete(detail){if(ready)return;ready=true;failed=!detail?.ok;
+  if(detail?.capacityAlarm)entry.querySelector('.gu-entry-stage')?.setAttribute('data-capacity-alarm','true');
   if(detail?.ok){records=Number(detail.products)||0;const next=detail.racks||[];totals=[0,1,2].map(i=>Math.max(0,Number(next[i])||0));positions=[0,1,2].map(i=>(detail.positions?.[i]||[]).filter(slot=>[1,2].includes(slot.level)&&slot.position>=1&&slot.position<=8));}
   if(!ctx){setTimeout(()=>{entry.remove();document.body.classList.remove('gu-entry-active');},Math.max(0,MIN-(performance.now()-start)));return;}
   finish();}
@@ -808,7 +850,6 @@ body.gu-entry-active{overflow:hidden}
  // No se exige pulsar entrar: si el navegador no finaliza la carga, aparece el mensaje de recuperación.
  setTimeout(()=>{if(ready||finished)return;ready=true;failed=true;status.textContent='La carga está tardando';meta.textContent='Comprueba la información de recuperación';const main=document.getElementById('main-content');if(main?.querySelector('.loading-view'))main.innerHTML='<section class="card card-pad"><h2>No se pudo completar la carga</h2><p>Revisa el almacenamiento del navegador o recarga la página. Conserva tu respaldo JSON.</p></section>';finish();},20000);
 })();
-
 </script>
 <script>
 /* Iconografía vectorial local, sin solicitudes externas. */
@@ -863,6 +904,7 @@ const KEY='inventarios-gu-sonido-suave-v33';
 let enabled=true;
 try{enabled=localStorage.getItem(KEY)!=='off';}catch{}
 let context=null,last=0;
+let capacityAlarmActive=false,capacityAlarmPending=false,capacityVoice=null;
 function play(type='tap'){
  if(!enabled||document.hidden)return;
  const time=Date.now();if(time-last<420)return;last=time;
@@ -883,8 +925,62 @@ function play(type='tap'){
   osc.start(now);osc.stop(now+.135);
  }catch{} // Dispositivos sin Web Audio siguen funcionando
 }
-function setEnabled(value){enabled=Boolean(value);try{localStorage.setItem(KEY,enabled?'on':'off')}catch{};return enabled;}
+function stopCapacityAlarm(){
+ capacityAlarmPending=false;
+ if(!capacityVoice)return;
+ try{capacityVoice.stop();}catch{}
+ capacityVoice=null;
+}
+function flushCapacityAlarm(fromGesture=false){
+ if(!enabled||!capacityAlarmPending||document.hidden)return;
+ const Ctx=window.AudioContext||window.webkitAudioContext;
+ if(!Ctx)return;
+ if(context?.state!=='running'&&!fromGesture&&!window.navigator?.userActivation?.isActive)return;
+ try{
+  if(!context)context=new Ctx();
+  if(context.state!=='running'){
+   context.resume().then(()=>{
+    if(context.state==='running')flushCapacityAlarm();
+   }).catch(()=>{});
+   return;
+  }
+  capacityAlarmPending=false;
+  const now=context.currentTime,osc=context.createOscillator(),volume=context.createGain();
+  osc.type='triangle';
+  osc.frequency.setValueAtTime(245,now);
+  osc.frequency.exponentialRampToValueAtTime(520,now+.55);
+  osc.frequency.exponentialRampToValueAtTime(275,now+1.05);
+  osc.frequency.exponentialRampToValueAtTime(475,now+1.48);
+  osc.frequency.exponentialRampToValueAtTime(240,now+1.92);
+  volume.gain.setValueAtTime(.0001,now);
+  volume.gain.linearRampToValueAtTime(.022,now+.18);
+  volume.gain.setValueAtTime(.022,now+1.4);
+  volume.gain.exponentialRampToValueAtTime(.0001,now+1.92);
+  osc.connect(volume).connect(context.destination);
+  osc.onended=()=>{if(capacityVoice===osc)capacityVoice=null;};
+  capacityVoice=osc;
+  osc.start(now);osc.stop(now+1.96);
+ }catch{}
+}
+function setCapacityAlarm(value){
+ const active=Boolean(value);
+ if(active===capacityAlarmActive)return;
+ capacityAlarmActive=active;
+ if(!active){stopCapacityAlarm();return;}
+ capacityAlarmPending=enabled;
+ flushCapacityAlarm();
+}
+function setEnabled(value){
+ enabled=Boolean(value);
+ if(!enabled)stopCapacityAlarm();
+ try{localStorage.setItem(KEY,enabled?'on':'off');}catch{}
+ return enabled;
+}
 function isEnabled(){return enabled;}
+function unlockCapacityAlarm(event){if(event.isTrusted)flushCapacityAlarm(true);}
+document.addEventListener('click',unlockCapacityAlarm,true);
+document.addEventListener('keydown',unlockCapacityAlarm,true);
+document.addEventListener('visibilitychange',()=>flushCapacityAlarm());
 // Se usan solo eventos poco frecuentes; NUNCA cada hover ni edición de celda.
 document.addEventListener('click',event=>{
  const btn=event.target.closest('[data-gu-sound]');
@@ -895,9 +991,8 @@ document.addEventListener('click',event=>{
  document.querySelectorAll('[data-gu-sound]').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.guSound==='on')===enabled)));
  if(enabled)play('info');
 });
-window.GUFeedback={play,setEnabled,isEnabled};
+window.GUFeedback={play,setEnabled,isEnabled,setCapacityAlarm};
 })();
-
 </script>
 <script>
 /* Inventarios GU 3.4 — ayuda al pulsar títulos, sin símbolo informativo visible. */
@@ -1377,17 +1472,40 @@ function warehouse(state){
  const racks=[[],[],[]],remaining=balance(state),products=new Map(state.products.map(p=>[p.id,p.name]));
  const tracked=new Set((state.lots||[]).map(lot=>lot.productId));
  const legacy=(state.gu4?.locations||[]).filter(loc=>!tracked.has(loc.productId));
+ const located=new Set();
  for(const loc of legacy){
   const name=products.get(loc.productId),rack=racks[loc.rack-1];
-  if(name&&rack&&loc.qty>0)rack.push({name,qty:Number(loc.qty),level:loc.level,position:loc.position});
+  if(name&&rack&&loc.qty>0){
+   rack.push({name,qty:Number(loc.qty),level:loc.level,position:loc.position});
+   located.add(loc.productId);
+  }
  }
  for(const lot of state.lots||[]){
   const place=location(lot),qty=remaining.get(lot.id),rack=racks[place.rack-1];
   if(rack&&qty>0)rack.push({name:products.get(lot.productId)||lot.productName,qty,level:place.level,position:place.position,lot:lot.code,container:lot.container,area:place.area});
  }
+ const positions=racks.map(rack=>{
+  const slots=Array.from({length:16},(_,i)=>({level:Math.floor(i/8)+1,position:i%8+1,qty:0,count:0,catalogBoxes:0}));
+  for(const entry of rack){
+   if(![1,2].includes(entry.level)||!Number.isInteger(entry.position)||entry.position<1||entry.position>8)continue;
+   const slot=slots[(entry.level-1)*8+entry.position-1];
+   slot.count++;
+   slot.qty+=entry.qty;
+  }
+  return slots;
+ });
+ for(const product of state.products){
+  const rackIndex=product.catalogRack-1,slots=positions[rackIndex],qty=Number(product.boxes);
+  if(!slots||!Number.isFinite(qty)||qty<=0||tracked.has(product.id)||located.has(product.id))continue;
+  // Las ubicaciones de lotes tienen prioridad. Si se ocupan los 16 espacios, se agrupan cajas.
+  const slot=slots.reduce((first,next)=>next.count<first.count?next:first);
+  racks[rackIndex].push({name:product.name,qty,level:slot.level,position:slot.position,boxNumber:product.boxNumber,catalog:true});
+  slot.count++;
+  slot.catalogBoxes++;
+  slot.qty+=qty;
+ }
  const totals=racks.map(rack=>round(rack.reduce((sum,entry)=>sum+entry.qty,0)));
- const positions=racks.map(rack=>[...new Map(rack.map(entry=>[`${entry.level}-${entry.position}`,{level:entry.level,position:entry.position}])).values()]);
- return {racks,totals,positions};
+ return {racks,totals,positions:positions.map(slots=>slots.filter(slot=>slot.count>0))};
 }
 function soldOut(lot,sales){
  if(!lot)return null;
@@ -1410,8 +1528,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 let scene=null,raf=0,idleTimer=0;let lastFrame=0;
 function render(state){
  const {racks,positions,totals}=window.GUTrace.warehouse(state);
- scene={racks,positions,totals,angle:-.72,zoom:1,selected:-1,paused:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false};
- return `<section class="card warehouse-card" aria-label="Bodega virtual interactiva"><div class="warehouse-heading"><div><span class="eyebrow">ALMACÉN DIGITAL · VISTA 3D</span><h2>Bodega virtual</h2></div><div class="warehouse-total"><strong>${fmt(totals.reduce((a,b)=>a+b,0))}</strong><span>unidades disponibles</span></div></div><details class="warehouse-settings"><summary>Controles 3D</summary><div class="warehouse-controls"><button type="button" data-warehouse="left" title="Girar a la izquierda" aria-label="Girar a la izquierda">↶</button><button type="button" data-warehouse="right" title="Girar a la derecha" aria-label="Girar a la derecha">↷</button><button type="button" data-warehouse="in" title="Acercar" aria-label="Acercar">+</button><button type="button" data-warehouse="out" title="Alejar" aria-label="Alejar">−</button><button type="button" data-warehouse="reset" title="Restablecer vista" aria-label="Restablecer vista">⌂</button></div><div class="warehouse-mini-racks">${totals.map((n,i)=>`<button type="button" class="warehouse-mini-rack" data-warehouse="rack${i}" aria-label="Ver rack ${i+1}"><span class="warehouse-mini-dot"></span><span>Rack ${i+1}</span><strong>${fmt(n)}</strong></button>`).join('')}</div></details><div class="warehouse-viewport"><canvas id="warehouse-canvas" role="img" aria-label="Bodega isométrica interactiva con tres racks, oficina, trabajador y zona de preparación"></canvas><span class="warehouse-hint">Girar · Zoom · Racks</span></div><div id="warehouse-detail" class="warehouse-detail" aria-live="polite">Toca un rack para ver sus productos, lotes y unidades disponibles.</div></section>`;
+ scene={racks,positions,totals,angle:-.72,zoom:1,selected:-1,frame:0,paused:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false};
+ return `<section class="card warehouse-card" aria-label="Bodega virtual interactiva"><div class="warehouse-heading"><div><span class="eyebrow">ALMACÉN DIGITAL · VISTA 3D</span><h2>Bodega virtual</h2></div><div class="warehouse-total"><strong>${fmt(totals.reduce((a,b)=>a+b,0))}</strong><span>unidades en racks</span></div></div><details class="warehouse-settings"><summary>Controles 3D</summary><div class="warehouse-controls"><button type="button" data-warehouse="left" title="Girar a la izquierda" aria-label="Girar a la izquierda">↶</button><button type="button" data-warehouse="right" title="Girar a la derecha" aria-label="Girar a la derecha">↷</button><button type="button" data-warehouse="in" title="Acercar" aria-label="Acercar">+</button><button type="button" data-warehouse="out" title="Alejar" aria-label="Alejar">−</button><button type="button" data-warehouse="reset" title="Restablecer vista" aria-label="Restablecer vista">⌂</button></div><div class="warehouse-mini-racks">${totals.map((n,i)=>`<button type="button" class="warehouse-mini-rack" data-warehouse="rack${i}" aria-label="Ver rack ${i+1}"><span class="warehouse-mini-dot"></span><span>Rack ${i+1}</span><strong>${fmt(n)}</strong></button>`).join('')}</div></details><div class="warehouse-viewport"><canvas id="warehouse-canvas" role="img" aria-label="Bodega isométrica interactiva con tres racks, oficina, trabajador y zona de preparación"></canvas><span class="warehouse-hint">Girar · Zoom · Racks</span></div><div id="warehouse-detail" class="warehouse-detail" aria-live="polite">Toca un rack para ver sus productos, lotes y cajas.</div></section>`;
 }
 function mount(){
  cancelAnimationFrame(raf);clearTimeout(idleTimer);const canvas=document.getElementById('warehouse-canvas');if(!canvas||!scene)return;
@@ -1442,12 +1560,18 @@ function mount(){
  cube(195,105,0,65,28,17,['#d4b28a','#9a7453','#b28a60']);cube(200,108,17,20,15,17,['#eac18b','#b57e4e','#d49b61']);cube(227,112,17,19,13,13,['#eac18b','#b57e4e','#d49b61']);cube(281,117,0,35,24,9,['#d4b28a','#9a7453','#b28a60']);line([318,115,2],[318,115,34],'#f5b12b',4);text('PREPARACIÓN',247,167,3,'#fff',10);
  hit=[];
  // Estanterías: 3 filas de dos niveles, cajas reales limitadas por rack.
- for(let k=0;k<3;k++){const x=-290+k*230,y=-100,w=100,d=190,n=s.totals[k],count=Math.min(16,Math.floor(n));
+ for(let k=0;k<3;k++){const x=-290+k*230,y=-100,w=100,d=190,n=s.totals[k];
  polygon([[x-9,y-10,1],[x+w+9,y-10,1],[x+w+9,y+d+10,1],[x-9,y+d+10,1]],s.selected===k?'#b3aa79':'#788991',s.selected===k?'#ffe082':'#d1ad40',2);
  for(const z of [4,48]){cube(x,y,z,w,d,5,['#f0a13b','#c47827','#d98c2f']);}
  for(const xx of [x,x+w])for(const yy of [y,y+d])cube(xx-3,yy-3,0,6,6,101,['#3983b5','#225b88','#276da0']);
  const displayed=s.positions[k];
- for(const pos of displayed){const slot=pos.position-1,level=pos.level-1,col=slot%2,row=Math.floor(slot/2);cube(x+9+col*43,y+9+row*43,level?54:10,34,32,29,['#edc08a','#bb8151','#d79d65']);}
+ for(const pos of displayed){
+  const slot=pos.position-1,xx=x+9+(slot%2)*43,yy=y+9+Math.floor(slot/2)*43,z=pos.level===2?54:10;
+  const colors=['#edc08a','#bb8151','#d79d65'],stacked=pos.count>1;
+  cube(xx,yy,z,34,32,stacked?15:29,colors);
+  if(stacked)cube(xx+3,yy+3,z+16,28,26,13,colors);
+  if(pos.catalogBoxes)text(fmt(pos.qty),xx+17,yy+16,z+32,'#ffffff',11);
+ }
  for(const z of [4,48]){line([x,y,z],[x+w,y,z],'#ffc36a',2);line([x,y+d,z],[x+w,y+d,z],'#ffc36a',2);}
  text(fmt(n),x+w/2,y+d/2,119,'#ffffff',19);text(`RACK ${k+1}`,x+w/2,y+d/2,137,'#ffdb83',11);
  hit.push({k,p:project(x+w/2,y+d/2,75)});
@@ -1457,7 +1581,19 @@ function mount(){
  text('ENTRADA',0,183,2,'#fff',12);
  if(!s.paused)s.frame++;raf=requestAnimationFrame(draw);
  }
- function detail(k){s.selected=k;document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));const el=document.getElementById('warehouse-detail');if(!el)return;const ps=s.racks[k];el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${ps.length?ps.map(p=>`${p.level?`N${p.level} · P${p.position} · `:''}${esc(p.name)}${p.lot?` · Lote ${esc(p.lot)} · Contenedor ${esc(p.container)} · ${esc(p.area)}`:''}: ${fmt(p.qty)}`).join(' · '):'Sin productos asignados'}</span>`;document.dispatchEvent(new CustomEvent('gu:warehouse-rack-select',{detail:{rack:k+1}}));}
+ function detail(k){
+  s.selected=k;
+  document.querySelectorAll('.warehouse-mini-rack').forEach((b,i)=>b.classList.toggle('active',i===k));
+  const el=document.getElementById('warehouse-detail');if(!el)return;
+  const products=s.racks[k],entries=products.map(product=>{
+   const pos=product.level?`N${product.level} · P${product.position} · `:'';
+   const box=product.boxNumber?` · Caja ${esc(product.boxNumber)}`:'';
+   const lot=product.lot?` · Lote ${esc(product.lot)} · Contenedor ${esc(product.container)} · ${esc(product.area)}`:'';
+   return `${pos}${esc(product.name)}${box}${lot}: ${fmt(product.qty)} ${product.catalog?'unidades registradas':'unidades disponibles'}`;
+  });
+  el.innerHTML=`<strong>Rack ${k+1} · ${fmt(s.totals[k])} unidades</strong><span>${entries.join(' · ')||'Sin productos asignados'}</span>`;
+  document.dispatchEvent(new CustomEvent('gu:warehouse-rack-select',{detail:{rack:k+1}}));
+ }
  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);canvas._drag={x:e.clientX,y:e.clientY,angle:s.angle,moved:false};});
  canvas.addEventListener('pointermove',e=>{if(!canvas._drag)return;const dx=e.clientX-canvas._drag.x;if(Math.abs(dx)>4)canvas._drag.moved=true;s.angle=canvas._drag.angle+dx*.007;});
  canvas.addEventListener('pointerup',e=>{const d=canvas._drag;canvas._drag=null;if(!d||d.moved)return;const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;let best=null,dist=Infinity;for(const h of hit){const dd=Math.hypot(x-h.p[0],y-h.p[1]);if(dd<dist){dist=dd;best=h.k;}}if(dist<85*scale&&best!==null)detail(best);});
@@ -1468,7 +1604,6 @@ function mount(){
  }
  window.AlmendraWarehouse={render,mount};
 })();
-
 </script>
 <script>
 /* Inventarios GU 4.0 — motor independiente. No modifica las fórmulas de 3.4. */
@@ -1770,7 +1905,16 @@ function render(){
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,sales:renderSales};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
- if(view==='dashboard'||view==='sales')window.AlmendraWarehouse?.mount();
+ const warehouse=$('#main-content').querySelector('.warehouse-viewport');
+ if(warehouse){
+  const overCapacity=view==='dashboard'?!!$('#main-content').querySelector('#capacity-alert-title'):catalogCapacity(C.totals(state,state.products).rows,state.sales||[]).exceeded.length>0;
+  if(overCapacity){
+   warehouse.dataset.capacityAlarm='true';
+   warehouse.insertAdjacentHTML('beforeend','<span class="warehouse-emergency">Emergencia · Sobrecupo</span>');
+  }
+  window.GUFeedback?.setCapacityAlarm?.(overCapacity);
+  window.AlmendraWarehouse?.mount();
+ }else window.GUFeedback?.setCapacityAlarm?.(false);
  if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
@@ -2473,7 +2617,7 @@ function renderProducts(){
  <label>Grupo <select class="form-control" id="catalog-group"><option value="">Todos</option>${salesOptions(groups,catalogGroup,group=>group.name)}</select></label>
  ${byGroup.has(catalogGroup)?groupBadge(byGroup.get(catalogGroup)):''}</div>
  ${sel.rows.length?`<div class="card catalog-table"><div class="table-scroll"><table class="data-table" aria-label="Productos"><thead><tr><th scope="col">Número de embarcación</th><th scope="col">Número de caja</th><th scope="col" class="num">Cantidad de productos por caja</th><th scope="col">Número de producto</th><th scope="col" class="num">Precio por unidad</th><th scope="col">Acciones</th></tr></thead><tbody>
- ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${p.groupIds?.length?`<div class="catalog-tag-list">${p.groupIds.map(id=>byGroup.get(id)).filter(Boolean).map(groupBadge).join('')}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
+ ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${p.catalogRack?`<small class="muted">Rack ${Number(p.catalogRack)}</small>`:''}${p.groupIds?.length?`<div class="catalog-tag-list">${p.groupIds.map(id=>byGroup.get(id)).filter(Boolean).map(groupBadge).join('')}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
  </tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con los filtros.':'Añade un producto para empezar a registrar tus cajas.','new-product','Añadir producto')}`;
 }
 function renderClients(){
@@ -2529,6 +2673,8 @@ function productModal(productId){
  <label class="field">Cantidad de productos por caja<input type="number" class="form-control" name="boxes" min="1" max="1000000000000000" step="1" value="${esc(product?.boxes||'')}" placeholder="Ej. 24" required></label>
  ${field('productNumber','Número de producto','Ej. PR-204')}
  <label class="field">Precio por unidad (${esc(state.settings.currency||'COP')})<input type="number" class="form-control" name="value" min="0" max="1000000000000000" step="any" value="${esc(product?.value??'')}" placeholder="Ej. 12500" required></label>
+ <label class="field">Rack en bodega <select class="form-control" name="catalogRack"${product?'':' required'}><option value="">${product?'Sin rack asignado':'Selecciona un rack'}</option>${[1,2,3].map(number=>`<option value="${number}"${Number(product?.catalogRack)===number?' selected':''}>Rack ${number}</option>`).join('')}</select></label>
+ ${product&&(state.lots||[]).some(lot=>lot.productId===product.id)?'<p class="field-help full">Para mover lotes ya recibidos, abre Seguimiento y trasládalos desde allí.</p>':''}
  ${productGroupChoices(product)}
  </div></form>`,
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${product?'Guardar cambios':'Crear producto'}</button>`);
@@ -2548,9 +2694,11 @@ function submitProduct(form){
  const identifier=key=>String(data.get(key)||'').trim().slice(0,80);
  const vesselNumber=identifier('vesselNumber'),boxNumber=identifier('boxNumber'),productNumber=identifier('productNumber');
  const quantity=String(data.get('boxes')??'').trim(),price=String(data.get('value')??'').trim();
+ const catalogRack=Number(data.get('catalogRack')||0);
  const boxes=nf(quantity),value=nf(price),name=String(data.get('name')||'').trim().slice(0,110);
  const groupIds=[...new Set(data.getAll('groupIds'))],known=new Set(catalogGroups().map(group=>group.id));
  if(!name)return toast('Escribe el nombre del producto.');
+ if(![0,1,2,3].includes(catalogRack)||(!editId&&!catalogRack))return toast('Selecciona el rack donde se guardará la caja.');
  if(groupIds.some(id=>!known.has(id)))return toast('Selecciona grupos válidos.');
  if(!vesselNumber||!boxNumber||!productNumber)return toast('Completa los números de embarcación, caja y producto.');
  if(!quantity||!Number.isSafeInteger(boxes)||boxes<1||boxes>1e15)return toast('Escribe una cantidad entera mayor que cero por caja.');
@@ -2559,7 +2707,7 @@ function submitProduct(form){
  if(editId&&!existing)return toast('Producto no encontrado.');
  if(mutation(editId?`Producto editado: ${name}`:`Producto creado: ${name}`,()=>{
   const product=existing||{id:id('prod'),createdAt:new Date().toISOString(),category:'',unit:'unidad',quantityN:0,quantityV:0,average:0};
-  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds});
+  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds,catalogRack});
   if(!existing)state.products.push(product);
  }))closeModal();
 }
@@ -2693,7 +2841,7 @@ function normalizeImported(raw){
   if(!name||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Grupo de productos no válido.');
   return {id:group.id,name,color,deleted:group.deleted===true,aliases:Array.isArray(group.aliases)?group.aliases.filter(id=>typeof id==='string'&&safeid(id)):[]};
  });
- const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupIds:Array.isArray(p.groupIds)?p.groupIds.filter(id=>typeof id==='string'&&safeid(id)):undefined,groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
+ const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupIds:Array.isArray(p.groupIds)?p.groupIds.filter(id=>typeof id==='string'&&safeid(id)):undefined,groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),catalogRack:p.catalogRack===undefined?undefined:([1,2,3].includes(Number(p.catalogRack))?Number(p.catalogRack):0),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
  const clients=makeUnique(raw.clients,'Cliente',c=>({id:c.id,code:string(c.code,35)||c.id,name:string(c.name,90),active:c.active!==false}));
  const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked}));
  const periodIDs=new Set(periods.map(p=>p.id)),productIDs=new Set(products.map(p=>p.id)),clientIDs=new Set(clients.map(c=>c.id));
@@ -2744,7 +2892,7 @@ function mergeStates(local,remote){
  out.products=mergeList(local.products,remote.products).map(product=>{
   const prior=localProducts.get(product.id);
   if(!prior)return product;
-  return {...product,groupIds:product.groupIds??prior.groupIds,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
+  return {...product,groupIds:product.groupIds??prior.groupIds,catalogRack:product.catalogRack??prior.catalogRack,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
  });
  out.clients=mergeList(local.clients,remote.clients);out.periods=mergeList(local.periods,remote.periods);
  const groupsById=new Map((local.catalogGroups||[]).map(group=>[group.id,group]));
@@ -3002,7 +3150,7 @@ async function init(){
   await refreshBackups();render();savedStatus();
   if(typeof CustomEvent!=='undefined'){
    const view=Trace?.warehouse(state);
-   window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:view?.totals||[0,0,0],positions:view?.positions||[[],[],[]]}}));
+   window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:view?.totals||[0,0,0],positions:view?.positions||[[],[],[]],capacityAlarm:!!$('#main-content').querySelector('#capacity-alert-title')}}));
   }
 
  }catch(error){

@@ -399,3 +399,40 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .capacity-alert .data-table { min-width: 490px; }
 .capacity-alert .data-table td { color: var(--text); }
 .capacity-summary { margin: 0; font-size: 12px; }
+
+/* Luz de emergencia de transición lenta, visible sin tapar el modelo. */
+.warehouse-viewport[data-capacity-alarm],
+.gu-entry-stage[data-capacity-alarm] { outline: 2px solid #e34447; outline-offset: -2px; }
+.warehouse-viewport[data-capacity-alarm]::after,
+.gu-entry-stage[data-capacity-alarm]::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(125deg, #ff222c 0%, #ad0c19 60%, #fa2934 100%);
+  box-shadow: inset 0 0 60px #ff1414;
+  opacity: .17;
+  animation: warehouse-emergency-pulse 4s ease-in-out infinite;
+}
+@keyframes warehouse-emergency-pulse {
+  0%, 100% { opacity: .13; }
+  50% { opacity: .32; }
+}
+.warehouse-emergency {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #7d1a24;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .warehouse-viewport[data-capacity-alarm]::after,
+  .gu-entry-stage[data-capacity-alarm]::after { animation: none; opacity: .23; }
+}

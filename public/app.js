@@ -90,7 +90,16 @@ function render(){
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,sales:renderSales};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
- if(view==='dashboard'||view==='sales')window.AlmendraWarehouse?.mount();
+ const warehouse=$('#main-content').querySelector('.warehouse-viewport');
+ if(warehouse){
+  const overCapacity=view==='dashboard'?!!$('#main-content').querySelector('#capacity-alert-title'):catalogCapacity(C.totals(state,state.products).rows,state.sales||[]).exceeded.length>0;
+  if(overCapacity){
+   warehouse.dataset.capacityAlarm='true';
+   warehouse.insertAdjacentHTML('beforeend','<span class="warehouse-emergency">Emergencia · Sobrecupo</span>');
+  }
+  window.GUFeedback?.setCapacityAlarm?.(overCapacity);
+  window.AlmendraWarehouse?.mount();
+ }else window.GUFeedback?.setCapacityAlarm?.(false);
  if(view==='weekly'&&weeklyFocusNext){const next=weeklyFocusNext;weeklyFocusNext=null;requestAnimationFrame(()=>{const target=$$('.week-scroll-2d tbody tr')[next.r]?.cells?.[next.c]?.querySelector('input:not(:disabled)');target?.focus();target?.select?.();});}
 }
 const metricVisibilityKey='inventarios-gu-metricas-v22'; // Compatibilidad con preferencias de 2.2
@@ -793,7 +802,7 @@ function renderProducts(){
  <label>Grupo <select class="form-control" id="catalog-group"><option value="">Todos</option>${salesOptions(groups,catalogGroup,group=>group.name)}</select></label>
  ${byGroup.has(catalogGroup)?groupBadge(byGroup.get(catalogGroup)):''}</div>
  ${sel.rows.length?`<div class="card catalog-table"><div class="table-scroll"><table class="data-table" aria-label="Productos"><thead><tr><th scope="col">Número de embarcación</th><th scope="col">Número de caja</th><th scope="col" class="num">Cantidad de productos por caja</th><th scope="col">Número de producto</th><th scope="col" class="num">Precio por unidad</th><th scope="col">Acciones</th></tr></thead><tbody>
- ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${p.groupIds?.length?`<div class="catalog-tag-list">${p.groupIds.map(id=>byGroup.get(id)).filter(Boolean).map(groupBadge).join('')}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
+ ${sel.rows.map(p=>`<tr><td>${esc(p.vesselNumber||'—')}</td><td>${esc(p.boxNumber||'—')}</td><td class="num">${p.boxes?format(p.boxes,9):'—'}</td><th scope="row" class="catalog-product-number">${esc(p.productNumber||'—')}${p.name&&p.name!==p.productNumber?`<small class="muted">${esc(p.name)}</small>`:''}${p.catalogRack?`<small class="muted">Rack ${Number(p.catalogRack)}</small>`:''}${p.groupIds?.length?`<div class="catalog-tag-list">${p.groupIds.map(id=>byGroup.get(id)).filter(Boolean).map(groupBadge).join('')}</div>`:''}</th><td class="num">${catalogUnitPrice(p.value)}</td><td><div class="catalog-actions"><button type="button" class="btn btn-small" data-action="product-trace" data-id="${esc(p.id)}">Seguimiento</button><button type="button" class="btn btn-small" data-action="product-groups" data-id="${esc(p.id)}">Categoría</button><button type="button" class="icon-btn" data-action="edit-product" data-id="${esc(p.id)}" aria-label="Editar ${esc(p.name)}" title="Editar producto">✎</button><button type="button" class="icon-btn" data-action="remove-product" data-id="${esc(p.id)}" aria-label="Eliminar ${esc(p.name)}" title="Eliminar producto">×</button></div></td></tr>`).join('')}
  </tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('Catálogo vacío',state.products.length?'Ningún producto coincide con los filtros.':'Añade un producto para empezar a registrar tus cajas.','new-product','Añadir producto')}`;
 }
 function renderClients(){
@@ -849,6 +858,8 @@ function productModal(productId){
  <label class="field">Cantidad de productos por caja<input type="number" class="form-control" name="boxes" min="1" max="1000000000000000" step="1" value="${esc(product?.boxes||'')}" placeholder="Ej. 24" required></label>
  ${field('productNumber','Número de producto','Ej. PR-204')}
  <label class="field">Precio por unidad (${esc(state.settings.currency||'COP')})<input type="number" class="form-control" name="value" min="0" max="1000000000000000" step="any" value="${esc(product?.value??'')}" placeholder="Ej. 12500" required></label>
+ <label class="field">Rack en bodega <select class="form-control" name="catalogRack"${product?'':' required'}><option value="">${product?'Sin rack asignado':'Selecciona un rack'}</option>${[1,2,3].map(number=>`<option value="${number}"${Number(product?.catalogRack)===number?' selected':''}>Rack ${number}</option>`).join('')}</select></label>
+ ${product&&(state.lots||[]).some(lot=>lot.productId===product.id)?'<p class="field-help full">Para mover lotes ya recibidos, abre Seguimiento y trasládalos desde allí.</p>':''}
  ${productGroupChoices(product)}
  </div></form>`,
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button form="product-form" type="submit" class="btn btn-primary">${product?'Guardar cambios':'Crear producto'}</button>`);
@@ -868,9 +879,11 @@ function submitProduct(form){
  const identifier=key=>String(data.get(key)||'').trim().slice(0,80);
  const vesselNumber=identifier('vesselNumber'),boxNumber=identifier('boxNumber'),productNumber=identifier('productNumber');
  const quantity=String(data.get('boxes')??'').trim(),price=String(data.get('value')??'').trim();
+ const catalogRack=Number(data.get('catalogRack')||0);
  const boxes=nf(quantity),value=nf(price),name=String(data.get('name')||'').trim().slice(0,110);
  const groupIds=[...new Set(data.getAll('groupIds'))],known=new Set(catalogGroups().map(group=>group.id));
  if(!name)return toast('Escribe el nombre del producto.');
+ if(![0,1,2,3].includes(catalogRack)||(!editId&&!catalogRack))return toast('Selecciona el rack donde se guardará la caja.');
  if(groupIds.some(id=>!known.has(id)))return toast('Selecciona grupos válidos.');
  if(!vesselNumber||!boxNumber||!productNumber)return toast('Completa los números de embarcación, caja y producto.');
  if(!quantity||!Number.isSafeInteger(boxes)||boxes<1||boxes>1e15)return toast('Escribe una cantidad entera mayor que cero por caja.');
@@ -879,7 +892,7 @@ function submitProduct(form){
  if(editId&&!existing)return toast('Producto no encontrado.');
  if(mutation(editId?`Producto editado: ${name}`:`Producto creado: ${name}`,()=>{
   const product=existing||{id:id('prod'),createdAt:new Date().toISOString(),category:'',unit:'unidad',quantityN:0,quantityV:0,average:0};
-  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds});
+  Object.assign(product,{name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds,catalogRack});
   if(!existing)state.products.push(product);
  }))closeModal();
 }
@@ -1013,7 +1026,7 @@ function normalizeImported(raw){
   if(!name||!/^#[0-9a-f]{6}$/i.test(color))throw new Error('Grupo de productos no válido.');
   return {id:group.id,name,color,deleted:group.deleted===true,aliases:Array.isArray(group.aliases)?group.aliases.filter(id=>typeof id==='string'&&safeid(id)):[]};
  });
- const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupIds:Array.isArray(p.groupIds)?p.groupIds.filter(id=>typeof id==='string'&&safeid(id)):undefined,groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
+ const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupIds:Array.isArray(p.groupIds)?p.groupIds.filter(id=>typeof id==='string'&&safeid(id)):undefined,groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),catalogRack:p.catalogRack===undefined?undefined:([1,2,3].includes(Number(p.catalogRack))?Number(p.catalogRack):0),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
  const clients=makeUnique(raw.clients,'Cliente',c=>({id:c.id,code:string(c.code,35)||c.id,name:string(c.name,90),active:c.active!==false}));
  const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked}));
  const periodIDs=new Set(periods.map(p=>p.id)),productIDs=new Set(products.map(p=>p.id)),clientIDs=new Set(clients.map(c=>c.id));
@@ -1064,7 +1077,7 @@ function mergeStates(local,remote){
  out.products=mergeList(local.products,remote.products).map(product=>{
   const prior=localProducts.get(product.id);
   if(!prior)return product;
-  return {...product,groupIds:product.groupIds??prior.groupIds,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
+  return {...product,groupIds:product.groupIds??prior.groupIds,catalogRack:product.catalogRack??prior.catalogRack,vesselNumber:product.vesselNumber||prior.vesselNumber||'',boxNumber:product.boxNumber||prior.boxNumber||'',productNumber:product.productNumber||prior.productNumber||''};
  });
  out.clients=mergeList(local.clients,remote.clients);out.periods=mergeList(local.periods,remote.periods);
  const groupsById=new Map((local.catalogGroups||[]).map(group=>[group.id,group]));
@@ -1322,7 +1335,7 @@ async function init(){
   await refreshBackups();render();savedStatus();
   if(typeof CustomEvent!=='undefined'){
    const view=Trace?.warehouse(state);
-   window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:view?.totals||[0,0,0],positions:view?.positions||[[],[],[]]}}));
+   window.dispatchEvent(new CustomEvent('gu:app-ready',{detail:{ok:true,products:state.products.length,racks:view?.totals||[0,0,0],positions:view?.positions||[[],[],[]],capacityAlarm:!!$('#main-content').querySelector('#capacity-alert-title')}}));
   }
 
   if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
