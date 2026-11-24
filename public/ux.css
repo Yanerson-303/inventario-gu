@@ -348,6 +348,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 /* Comparación de ventas desde la tarjeta Unidades registradas. */
 .unit-report-card { display: grid; gap: 8px; min-width: 0; }
 .unit-report-card .btn { justify-self: start; }
+.unit-report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .unit-report-chart { width: 100%; min-width: 0; }
 .unit-report-chart svg { display: block; width: 100%; max-height: 260px; }
 .unit-report-chart text { font: 11px system-ui, sans-serif; }
@@ -357,7 +358,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .unit-report-legend i, .unit-report-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .modal:has(.unit-report-body) { width: min(100%, 1050px); }
 .unit-report-body .unit-report-filters { margin-top: 0; }
-.unit-report-filters > :is([data-unit-month], [data-unit-week]) { flex: 1 1 145px; min-width: 0; }
+.unit-report-filters > :is([data-unit-year], [data-unit-month], [data-unit-week]) { flex: 1 1 145px; min-width: 0; }
 .unit-report-table .data-table { min-width: 100%; }
 .unit-report-table caption { text-align: left; margin-bottom: 7px; font-weight: 700; }
 .unit-report-table td, .unit-report-table th { white-space: nowrap; text-align: right; }

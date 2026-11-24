@@ -199,19 +199,19 @@ function renderDashboard(){
 }
 const unitReportSources={
  sales:{title:'Filtrar ventas · Unidades registradas',button:'Filtrar ventas',caption:'Unidades vendidas',description:'Marca las filas que quieras comparar. Cada fila tiene un color en el gráfico.'},
- value:{title:'Filtrar valor · Inventario',button:'Filtrar valor',caption:'Valor registrado',description:'Multiplica las unidades del Registro semanal por el valor unitario actual de cada producto. El saldo total del inventario aplica además los ajustes globales del producto. Los grupos mensuales y anuales usan la fecha de inicio de cada semana.'},
- stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro semanal. Para agrupar por mes o año se usa la fecha de inicio de cada semana. Las semanas sin fecha aparecen en la vista semanal cuando dejas el rango vacío.'}
+ value:{title:'Filtrar valor · Inventario',button:'Filtrar valor',caption:'Valor registrado',description:'Multiplica las unidades del Registro semanal por el valor unitario actual de cada producto. El saldo total del inventario aplica además los ajustes globales del producto. El período se determina con la fecha de inicio de cada registro.'},
+ stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro semanal. El período se determina con la fecha de inicio de cada registro.'}
 };
 const newUnitReport=source=>({
- source,group:'product',period:'week',from:'',to:'',year:'',month:'',week:'',cross:'',query:'',page:0,customDates:false,active:false,
+ source,group:'product',period:'week',year:'',month:'',week:'',cross:'',query:'',page:0,active:false,
  selected:{product:new Map(),client:new Map()}
 });
 const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock'),value:newUnitReport('value')};
-const salesReportMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const salesReportYears=Array.from({length:1001},(_,i)=>String(2000+i));
-const salesReportWeeks=['1','2','3','4','5'];
+const unitReportMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const unitReportYears=Array.from({length:1001},(_,i)=>String(2000+i));
+const unitReportWeeks=['1','2','3','4','5'];
 const reportColors=['#2369d0','#b43e1e','#07815e','#8b46bc','#a46c00','#007e93','#c72c67','#627420'];
-function salesReportRange({year,month,week,period}){
+function unitReportRange({year,month,week,period}){
  if(period==='year')return {from:year+'-01-01',to:year+'-12-31',label:year};
  const monthKey=year+'-'+month.padStart(2,'0');
  const lastDay=new Date(Date.UTC(Number(year),Number(month),0)).getUTCDate();
@@ -219,26 +219,6 @@ function salesReportRange({year,month,week,period}){
  if(period==='month')return {from:day(1),to:day(lastDay),label:monthKey};
  const first=7*(Number(week)-1)+1,end=week==='5'?lastDay:first+6;
  return {from:day(first),to:day(end),label:`Semana ${week} · ${monthKey}`};
-}
-function reportDate(date){return date.toISOString().slice(0,10);}
-function reportPeriod(date,period){
- const day=new Date(date+'T00:00:00Z');
- if(period==='week')day.setUTCDate(day.getUTCDate()-((day.getUTCDay()+6)%7));
- else {day.setUTCDate(1);if(period==='year')day.setUTCMonth(0);}
- return day;
-}
-function shiftReportPeriod(day,period,offset){
- if(period==='week')day.setUTCDate(day.getUTCDate()+7*offset);
- else if(period==='month')day.setUTCMonth(day.getUTCMonth()+offset);
- else day.setUTCFullYear(day.getUTCFullYear()+offset);
- return day;
-}
-function setDefaultReportDates(report){
- const period=report.period;
- if(period==='week'){report.from='';report.to='';return;}
- const latest=state.periods.reduce((date,item)=>calendarDate(item.start)&&item.start>date?item.start:date,'')||localSaleDate();
- report.from=reportDate(shiftReportPeriod(reportPeriod(latest,period),period,period==='year'?-4:-11));
- report.to=latest;
 }
 function reportEntities(group,source){
  const items=new Map(group==='product'?state.products.map(p=>[p.id,p.name]):state.clients.map(c=>[c.id,salesClientLabel(c)]));
@@ -252,25 +232,16 @@ function reportEntities(group,source){
 }
 function unitReportModel(report){
  const {source,group,period,cross}=report,weekly=source!=='sales';
- const {from,to,label}=weekly?report:salesReportRange(report);
+ const undated=weekly&&period==='undated';
+ const {from,to,label}=undated?{}:unitReportRange(report);
  const entities=reportEntities(group,source),periods=[],byId=new Map();
- if(!weekly)periods.push({key:from,label});
- const validRange=(!from||calendarDate(from))&&(!to||calendarDate(to))&&(!from||!to||from<=to);
- const nativeWeeks=period==='week';
- if(weekly&&(!validRange||(!nativeWeeks&&(!from||!to))))return {entities,periods,byId,error:'Selecciona un rango de fechas válido.'};
- const withinDate=date=>(!from||date>=from)&&(!to||date<=to);
- if(weekly&&nativeWeeks){
-  for(const week of state.periods){
-   if((from||to)&&(!calendarDate(week.start)||!withinDate(week.start)))continue;
-   periods.push({key:week.id,label:week.label});
-  }
- }else if(weekly){
-  for(const day=reportPeriod(from,period);reportDate(day)<=to;shiftReportPeriod(day,period,1)){
-   if(periods.length>=156)return {entities,periods:[],byId,error:'Selecciona hasta 156 períodos o cambia a una agrupación más amplia.'};
-   const key=reportDate(day);
-   periods.push({key,label:period==='week'?key:period==='month'?key.slice(0,7):key.slice(0,4)});
-  }
- }
+ const withinDate=date=>date>=from&&date<=to;
+ const registeredWeeks=weekly?state.periods.filter(week=>{
+  const dated=calendarDate(week.start);
+  return undated?!dated:dated&&withinDate(week.start);
+ }):[];
+ if(undated)periods.push(...registeredWeeks.map(week=>({key:week.id,label:week.label})));
+ else periods.push({key:from,label});
  const product=group==='product';
  const add=(productId,clientId,key,units)=>{
   if(cross&&(product?clientId:productId)!==cross)return;
@@ -281,10 +252,8 @@ function unitReportModel(report){
  };
  if(weekly){
   const unitValues=source==='value'?new Map(state.products.map(product=>[product.id,C.num(product.value)])):null;
-  const nativeIds=new Set(nativeWeeks?periods.map(item=>item.key):[]);
-  for(const week of state.periods){
-   if(nativeWeeks?!nativeIds.has(week.id):(!calendarDate(week.start)||!withinDate(week.start)))continue;
-   const key=nativeWeeks?week.id:reportDate(reportPeriod(week.start,period));
+  for(const week of registeredWeeks){
+   const key=undated?week.id:from;
    for(const [productId,clients] of Object.entries(state.movements?.[week.id]||{})){
     const multiplier=unitValues?(unitValues.get(productId)||0):1;
     for(const [clientId,quantity] of Object.entries(clients))add(productId,clientId,key,C.num(quantity)*multiplier);
@@ -337,31 +306,37 @@ function unitReportRows(model,report){
 }
 function unitReportCard(source,originalChart,summary=''){
  const report=unitReports[source];
- return `<div class="unit-report-card"><div id="unit-report-preview-${source}">${report.active?reportChart(unitReportModel(report),report,true):originalChart}</div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button></div>`;
+ return `<div class="unit-report-card"><div id="unit-report-preview-${source}">${report.active?reportChart(unitReportModel(report),report,true):originalChart}</div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<div class="unit-report-actions"><button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button><button type="button" class="btn btn-small" data-action="inventory-download" data-id="${source}">Descargar inventario</button></div></div>`;
+}
+function openInventoryDownload(source){
+ showModal('Descargar inventario',`<div class="modal-body"><div class="unit-report-actions">
+  <button type="button" class="btn" data-action="inventory-excel">Descargar Excel</button>
+  <button type="button" class="btn" data-action="inventory-image" data-id="${source}">Descargar imagen del gráfico</button>
+ </div></div>`);
+ $('[data-action="inventory-excel"]').focus();
 }
 function openUnitReport(source){
  const report=unitReports[source],info=unitReportSources[source];
  const sales=source==='sales';
- if(sales&&!report.year){
-  const latest=purchases().reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,'')||localSaleDate();
+ if(!report.year){
+  const latest=(sales
+   ?purchases().reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,'')
+   :state.periods.reduce((date,week)=>calendarDate(week.start)&&week.start>date?week.start:date,''))||localSaleDate();
   const [year,month,day]=latest.split('-').map(Number);
   report.year=String(Math.min(3000,Math.max(2000,year)));
   report.month=String(month);
   report.week=String(Math.min(5,Math.ceil(day/7)));
  }
- if(!sales&&!report.customDates&&!report.from)setDefaultReportDates(report);
  const selectedOption=(value,current)=>value===current?' selected':'';
  const periodOptions=(values,current,label=value=>value)=>values.map(value=>`<option value="${value}"${selectedOption(value,current)}>${label(value)}</option>`).join('');
  const crossOptions=()=>'<option value="">Todos</option>'+salesOptions(reportEntities(report.group==='product'?'client':'product',source),report.cross,item=>item.label);
  showModal(info.title,`<div class="modal-body unit-report-body">
   <div class="sales-fields unit-report-filters">
    <label class="field">Agrupar por <select class="form-control" data-unit-filter="group"><option value="product"${selectedOption('product',report.group)}>Producto</option><option value="client"${selectedOption('client',report.group)}>Cliente</option></select></label>
-   <label class="field">Período <select class="form-control" data-unit-filter="period"><option value="week"${selectedOption('week',report.period)}>Semana</option><option value="month"${selectedOption('month',report.period)}>Mes</option><option value="year"${selectedOption('year',report.period)}>Año</option></select></label>
-   ${sales?`<label class="field">Año <select class="form-control" data-unit-filter="year">${periodOptions(salesReportYears,report.year)}</select></label>
-   <div data-unit-month ${report.period==='year'?'hidden':''}><label class="field">Mes <select class="form-control" data-unit-filter="month">${periodOptions(salesReportMonths.map((_,i)=>String(i+1)),report.month,value=>salesReportMonths[value-1])}</select></label></div>
-   <div data-unit-week ${report.period!=='week'?'hidden':''}><label class="field">Semana del mes <select class="form-control" data-unit-filter="week">${periodOptions(salesReportWeeks,report.week,value=>`Semana ${value} (${7*(value-1)+1}–${value==='5'?'fin de mes':7*value})`)}</select></label></div>`:
-   `<label class="field">Desde <input class="form-control" type="date" data-unit-filter="from" value="${esc(report.from)}" max="${localSaleDate()}"></label>
-   <label class="field">Hasta <input class="form-control" type="date" data-unit-filter="to" value="${esc(report.to)}" max="${localSaleDate()}"></label>`}
+   <label class="field">Período <select class="form-control" data-unit-filter="period"><option value="week"${selectedOption('week',report.period)}>Semana</option><option value="month"${selectedOption('month',report.period)}>Mes</option><option value="year"${selectedOption('year',report.period)}>Año</option>${sales?'':`<option value="undated"${selectedOption('undated',report.period)}>Semanas sin fecha</option>`}</select></label>
+   <div data-unit-year ${report.period==='undated'?'hidden':''}><label class="field">Año <select class="form-control" data-unit-filter="year">${periodOptions(unitReportYears,report.year)}</select></label></div>
+   <div data-unit-month ${['week','month'].includes(report.period)?'':'hidden'}><label class="field">Mes <select class="form-control" data-unit-filter="month">${periodOptions(unitReportMonths.map((_,i)=>String(i+1)),report.month,value=>unitReportMonths[value-1])}</select></label></div>
+   <div data-unit-week ${report.period!=='week'?'hidden':''}><label class="field">Semana del mes <select class="form-control" data-unit-filter="week">${periodOptions(unitReportWeeks,report.week,value=>`Semana ${value} (${7*(value-1)+1}–${value==='5'?'fin de mes':7*value})`)}</select></label></div>
    <label class="field"><span data-unit-cross-label></span><select class="form-control" data-unit-filter="cross">${crossOptions()}</select></label>
    <label class="field">Buscar en la tabla <input class="form-control" type="search" data-unit-query value="${esc(report.query)}"></label>
   </div>
@@ -404,14 +379,10 @@ function openUnitReport(source){
    report.query='';$('[data-unit-query]',root).value='';
    report.cross='';$('[data-unit-filter="cross"]',root).innerHTML=crossOptions();labels();
   }
-  if(filter==='from'||filter==='to')report.customDates=true;
-  if(sales&&filter==='period'){
-   $('[data-unit-month]',root).hidden=report.period==='year';
+  if(filter==='period'){
+   $('[data-unit-year]',root).hidden=report.period==='undated';
+   $('[data-unit-month]',root).hidden=!['week','month'].includes(report.period);
    $('[data-unit-week]',root).hidden=report.period!=='week';
-  }
-  if(!sales&&filter==='period'&&(!report.customDates||(!report.from&&!report.to))){
-   setDefaultReportDates(report);
-   for(const key of ['from','to'])$(`[data-unit-filter="${key}"]`,root).value=report[key];
   }
   refresh({preview:report.active});
  });
@@ -612,19 +583,38 @@ function renderStockAlerts(all){
  const examples=[...negative,...zero].slice(0,4).map(r=>esc(r.product.name)).join(', ');
  return `<div class="stock-alert-summary" role="status"><span class="stock-alert-dot" aria-hidden="true"></span><div><strong>Revisión de existencias: ${negative.length} negativas · ${zero.length} en cero</strong><p>${examples}${negative.length+zero.length>4?' y otros productos':''}. Consulta el consolidado para verificar cantidades.</p></div></div>`;
 }
-function exportDashboardCSV(){
+function dashboardInventoryRows(){
  const totals=C.totals(state,state.products);
- const rows=[['Producto','Saldo disponible','Cantidad registrada','Valor total'],...totals.rows.map(r=>[r.product.name,r.N,r.H,r.P])];
+ return [['Producto','Saldo disponible','Cantidad registrada','Valor total'],...totals.rows.map(r=>[r.product.name,r.N,r.H,r.P])];
+}
+async function exportInventoryExcel(){
+ const zip=new window.JSZip();
+ const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+ const main='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+ const relationships='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+ const packageRoot='http://schemas.openxmlformats.org/package/2006';
+ const text=value=>String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+ const rows=dashboardInventoryRows().map(row=>`<row>${row.map(value=>typeof value==='number'&&Number.isFinite(value)
+  ?`<c><v>${value}</v></c>`
+  :`<c t="inlineStr"><is><t xml:space="preserve">${text(value)}</t></is></c>`).join('')}</row>`).join('');
+ zip.file('[Content_Types].xml',`<Types xmlns="${packageRoot}/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+ zip.file('_rels/.rels',`<Relationships xmlns="${packageRoot}/relationships"><Relationship Id="rId1" Type="${relationships}/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+ zip.file('xl/workbook.xml',`<workbook xmlns="${main}" xmlns:r="${relationships}"><sheets><sheet name="Inventario" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+ zip.file('xl/_rels/workbook.xml.rels',`<Relationships xmlns="${packageRoot}/relationships"><Relationship Id="rId1" Type="${relationships}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`);
+ zip.file('xl/worksheets/sheet1.xml',`<worksheet xmlns="${main}"><sheetData>${rows}</sheetData></worksheet>`);
+ downloadBlob(await zip.generateAsync({type:'blob',mimeType:mime,compression:'DEFLATE'}),filename('Inventarios_GU_Inventario','xlsx'));
+}
+function exportDashboardCSV(){
+ const rows=dashboardInventoryRows();
  // Evita que hojas de cálculo interpreten nombres de productos como fórmulas.
  const cell=v=>{let t=String(v??'');if(/^[\s]*[=+@-]/.test(t)&&typeof v==='string')t="'"+t;return '"'+t.replace(/"/g,'""')+'"'};
  const csv='\uFEFF'+rows.map(r=>r.map(cell).join(';')).join('\r\n');
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
  const link=document.createElement('a');link.href=url;link.download='Inventarios_GU_resumen_3_0.csv';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
-async function exportDashboardImage(button){
+async function exportDashboardImage(button,panel=$('#main-content'),name='Inventarios_GU_metricas.png'){
  button.disabled=true;
  try{
-  const panel=$('#main-content');
   const canvas=await window.html2canvas(panel,{
    backgroundColor:getComputedStyle(panel).getPropertyValue('--bg').trim()||null,
    logging:false,
@@ -642,7 +632,7 @@ async function exportDashboardImage(button){
   });
   const png=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
   if(!png)throw new Error('No se pudo generar el archivo PNG.');
-  downloadBlob(png,'Inventarios_GU_metricas.png');
+  downloadBlob(png,name);
  }catch(error){toast('No se pudo descargar la imagen: '+error.message);}
  finally{button.disabled=false;}
 }
@@ -1443,6 +1433,15 @@ document.addEventListener('click',async e=>{
   case 'new-product':productModal();break;
   case 'client-trace':clientTrace(targetId);break;
   case 'unit-report':openUnitReport(targetId||'sales');break;
+  case 'inventory-download':openInventoryDownload(targetId);break;
+  case 'inventory-excel':btn.disabled=true;try{await exportInventoryExcel();if(btn.isConnected)closeModal();}finally{btn.disabled=false;}break;
+  case 'inventory-image':{
+   const chart=$(`#unit-report-preview-${targetId}`);
+   closeModal();
+   const names={sales:'Unidades',stock:'Stock',value:'Valor'};
+   await exportDashboardImage(btn,chart,filename('Inventarios_GU_'+names[targetId],'png'));
+   break;
+  }
   case 'void-sale':voidSale(targetId);break;
   case 'product-groups':productGroupsModal(targetId);break;
   case 'catalog-groups':catalogGroupEditor();break;
