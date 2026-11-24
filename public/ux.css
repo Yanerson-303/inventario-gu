@@ -359,6 +359,11 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .modal:has(.unit-report-body) { width: min(100%, 1050px); }
 .unit-report-body .unit-report-filters { margin-top: 0; }
 .unit-report-filters > :is([data-unit-year], [data-unit-month], [data-unit-week]) { flex: 1 1 145px; min-width: 0; }
+.unit-report-bars { display: grid; gap: 8px; font-size: 12px; }
+.unit-report-advanced { margin-block: 14px; }
+.unit-report-advanced summary { cursor: pointer; font-weight: 700; }
+.unit-report-selection { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.unit-report-selection [hidden] { display: none; }
 .unit-report-table .data-table { min-width: 100%; }
 .unit-report-table caption { text-align: left; margin-bottom: 7px; font-weight: 700; }
 .unit-report-table td, .unit-report-table th { white-space: nowrap; text-align: right; }
