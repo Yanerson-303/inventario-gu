@@ -2097,7 +2097,7 @@ function openDashboardMenu(trigger){
  const action=(label,attribute)=>`<button type="button" class="btn" ${attribute}>${esc(label)}</button>`;
  const prefs=metricPrefs();
  const menu={
-  inventory:()=>action('Añadir producto','data-action="new-product"')+action('Abrir Registro','data-nav="weekly"')+action('Ver consolidado','data-nav="final"')+action('Comparar ventas','data-nav="sales"')+(!state.products.length?action('Cargar demostración','data-action="demo"'):'')+`<details class="dashboard-menu-section"><summary>Mostrar u ocultar métricas</summary><div class="dashboard-menu-grid">${['volumen','saldo','valor'].map(id=>action(`${prefs[id]?'Mostrar':'Contraer'} ${metricLabels[id].toLowerCase()}`,`data-dashboard-metric="${id}"`)).join('')}</div></details>`,
+  inventory:()=>action('Añadir producto','data-action="new-product"')+action('Abrir Registro','data-nav="weekly"')+action('Ver consolidado','data-nav="final"')+action('Comparar ventas','data-nav="sales"')+(!state.products.length?action('Cargar productos de prueba','data-action="demo"'):'')+`<details class="dashboard-menu-section"><summary>Mostrar u ocultar métricas</summary><div class="dashboard-menu-grid">${['volumen','saldo','valor'].map(id=>action(`${prefs[id]?'Mostrar':'Contraer'} ${metricLabels[id].toLowerCase()}`,`data-dashboard-metric="${id}"`)).join('')}</div></details>`,
   export:()=>action('Descargar imagen PNG','data-dashboard-export="png"')+action('Exportar resumen CSV','data-dashboard-export="csv"')
  };
  dialog.innerHTML=`<div class="modal-head"><h2 id="dashboard-menu-title">${titles[kind]}</h2><button type="button" class="icon-btn" data-dashboard-dismiss aria-label="Cerrar" autofocus>×</button></div><div class="modal-body dashboard-menu-body">${menu[kind]()}</div>`;
@@ -2525,6 +2525,8 @@ function salesOptions(items,selected,label){
  return items.map(item=>`<option value="${esc(item.id)}"${item.id===selected?' selected':''}>${esc(label(item))}</option>`).join('');
 }
 const salesClientLabel=client=>client.name?`${client.name} · ${client.code}`:client.code;
+const salesFilters={};
+let speedQuery=null;
 function renderSales(){
  const month=salesFilters.month||localSaleDate().slice(0,7),previous=previousSalesMonth(month);
  const products=state.products,clients=state.clients;
@@ -3156,7 +3158,7 @@ function renderSettings(){return `${heading('PERSONALIZACIÓN','Configuración',
  <article class="card card-pad"><div class="card-title"><div><h3>Preferencias de trabajo</h3><p>Se guardan localmente con el resto de tu configuración.</p></div></div><div class="field" style="margin-bottom:16px"><label>Moneda para valorización</label><select id="setting-currency" class="form-control"><option value="COP" ${state.settings.currency==='COP'?'selected':''}>COP · Peso colombiano</option><option value="USD" ${state.settings.currency==='USD'?'selected':''}>USD · Dólar</option><option value="EUR" ${state.settings.currency==='EUR'?'selected':''}>EUR · Euro</option><option value="MXN" ${state.settings.currency==='MXN'?'selected':''}>MXN · Peso mexicano</option><option value="CNY" ${state.settings.currency==='CNY'?'selected':''}>CNY · Yuan chino</option></select></div><div class="field"><label>Productos mostrados por página</label><select id="setting-pagesize" class="form-control"><option value="10" ${state.settings.pageSize===10?'selected':''}>10</option><option value="20" ${state.settings.pageSize===20?'selected':''}>20</option><option value="40" ${state.settings.pageSize===40?'selected':''}>40</option><option value="80" ${state.settings.pageSize===80?'selected':''}>80</option></select></div><div class="section-label">Densidad de interfaz</div><div class="gu-density-options" role="group" aria-label="Densidad visual"><button type="button" class="btn btn-small" data-density-change="comfortable" aria-pressed="${state.settings.density!=='compact'}">Cómoda</button><button type="button" class="btn btn-small" data-density-change="compact" aria-pressed="${state.settings.density==='compact'}">Compacta</button></div><div class="section-label">Sonidos discretos</div><div class="gu-density-options gu-sound-options" role="group" aria-label="Sonidos de interfaz"><button type="button" class="btn btn-small" data-gu-sound="on" aria-pressed="${window.GUFeedback?.isEnabled()!==false}">Activar</button><button type="button" class="btn btn-small" data-gu-sound="off" aria-pressed="${window.GUFeedback?.isEnabled()===false}">Silenciar</button><span class="gu-sound-status" id="gu-sound-state" aria-live="polite">${window.GUFeedback?.isEnabled()===false?'Silenciados':'Activados'}</span></div><div class="section-label">Información de almacenamiento</div><div class="info-list"><div class="info-row"><span>Productos</span><b>${state.products.length}</b></div><div class="info-row"><span>Espacios</span><b>${state.clients.length}</b></div><div class="info-row"><span>Semanas / períodos</span><b>${state.periods.length}</b></div><div class="info-row"><span>Última modificación</span><b>${esc(stamp(state.updatedAt))}</b></div><div class="info-row"><span>Almacenamiento</span><b>IndexedDB + cookies visuales</b></div></div></article></div>
  <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Administración rápida</h3><p>Acceso a las herramientas adicionales desde el teléfono.</p></div></div><div class="page-tools"><button class="btn" data-nav="clients">Clientes y espacios</button><button class="btn" data-nav="audit">Historial de cambios</button><button class="btn" data-nav="weekly">Registro</button></div></div>
  ${window.GUInstall?`<div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Aplicación para PC, Android y iPhone</h3><p>Instalable desde el navegador, con modo sin conexión y datos locales.</p></div></div><button class="btn btn-primary" type="button" data-action="install-app">Instalar / preparar offline</button><p class="muted" style="margin-top:10px">Para usar en otro dispositivo, instala allí y transfiere los datos mediante Copias y migración.</p></div>`:''}
- <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">La demostración crea productos ficticios con cantidades de ejemplo. No debe confundirse con el Excel original.</p><button class="btn" data-action="demo">Añadir datos de demostración</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
+ <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">Carga 30 productos de prueba con precios enteros, clientes, semanas y lotes ficticios.</p><button class="btn" data-action="demo">Cargar 30 productos de prueba</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
 // Formularios de edición.
 let productRemovalReview=null;
 function showModal(title,body,foot=''){productRemovalReview=null;const root=$('#modal-root');root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;setTimeout(()=>root.querySelector('input:not([type="hidden"]),select')?.focus(),10);}
@@ -3295,19 +3297,105 @@ function editValue(el){
  }
 }
 function sampleData(){
- if(state.products.length && !confirm('Se agregarán 6 productos de ejemplo, sin borrar los tuyos. ¿Continuar?'))return;
- const catalog=[['Té verde','Infusiones',2,0,14000,12,12],['Té de jazmín','Infusiones',0,1,16000,10,10],['Té negro','Infusiones',1,0,13500,7,12],['Leche de almendras','Bebidas',2,4,8500,6,6],['Jarabe de lichi','Ingredientes',0,2,22000,5,8],['Infusión de frutas','Bebidas',0,0,11000,3,12]];
- if(mutation('Se agregaron productos de demostración (datos ficticios)',()=>{
-   const clients=state.clients.slice(0,6);
-   catalog.forEach((row,i)=>{
-     const p={id:id('demo'),name:row[0],category:row[1],unit:'unidad',quantityN:row[2],quantityV:row[3],value:row[4],average:row[5],boxes:row[6],createdAt:new Date().toISOString()};state.products.push(p);
-     state.periods.slice(0,5).forEach((w,wi)=>{
-       if(!state.movements[w.id])state.movements[w.id]={};state.movements[w.id][p.id]={};
-       clients.forEach((client,n)=>{const q=(i*3+wi*2+n)%8;if(q>1)state.movements[w.id][p.id][client.id]=q;});
-       if(!state.prices[w.id])state.prices[w.id]={};state.prices[w.id][p.id]=row[4];
+ const catalog=[
+  ['Infusiones','#277453',['Té verde','Té de jazmín','Té negro','Manzanilla','Menta','Hibisco']],
+  ['Bebidas','#3569a6',['Leche de almendras','Bebida de avena','Agua de coco','Jugo de mango','Jugo de maracuyá','Limonada']],
+  ['Jarabes','#9e3e50',['Jarabe de lichi','Jarabe de vainilla','Jarabe de menta','Jarabe de fresa','Jarabe de caramelo','Jarabe de canela']],
+  ['Ingredientes','#986015',['Avena','Cacao','Coco rallado','Semillas de chía','Harina de almendras','Azúcar morena']],
+  ['Alimentos','#684997',['Galletas de avena','Granola','Almendras tostadas','Barra de cacao','Fruta deshidratada','Crackers integrales']]
+ ];
+ const totalProducts=catalog.reduce((total,[,,names])=>total+names.length,0);
+ const fresh=!state.products.length;
+ if(!fresh&&!confirm(`Se agregarán ${totalProducts} productos de prueba y sus registros. ¿Continuar?`))return;
+ const today=localSaleDate(),createdAt=new Date().toISOString();
+ const dateBefore=days=>{
+  const date=new Date(today+'T00:00:00Z');
+  date.setUTCDate(date.getUTCDate()-days);
+  return date.toISOString().slice(0,10);
+ };
+ if(mutation(`Demostración cargada: ${totalProducts} productos ficticios`,()=>{
+  const clients=state.clients.filter(client=>client.id.startsWith('demo-client-')&&client.active!==false).slice(0,6);
+  while(clients.length<6){
+   const client={id:id('demo-client'),code:'A-'+(state.clients.length+1),name:'Cliente de prueba '+(clients.length+1),active:true};
+   state.clients.push(client);clients.push(client);
+  }
+  const currency=state.settings.currency||'COP',priceStep=currency==='COP'?1000:1;
+  const batch=id('demo').slice(-12).toUpperCase(),newPeriods=[],periods=[];
+  const datedPeriods=state.periods.filter(period=>calendarDate(period.start)&&calendarDate(period.end)&&period.start<=period.end);
+  for(let daysBack=0;periods.length<8;daysBack+=7){
+   const start=dateBefore(daysBack+6),end=dateBefore(daysBack);
+   const existing=state.periods.find(period=>period.id.startsWith('demo-period-')&&!period.locked&&period.start===start&&period.end===end);
+   if(existing){periods.push(existing);continue;}
+   const overlap=datedPeriods.find(period=>period.start<=end&&period.end>=start);
+   if(overlap){
+    daysBack=Math.round((Date.parse(today)-Date.parse(overlap.start))/86400000)-6;
+    continue;
+   }
+   const period={id:id('demo-period'),label:`Prueba · ${start}`,start,end,locked:false};
+   newPeriods.push(period);periods.push(period);
+  }
+  if(fresh)state.periods.unshift(...newPeriods);else state.periods.push(...newPeriods);
+  const demoProducts=[],groups=state.catalogGroups??=[],origins=state.weeklyOrigins??={};
+  for(const [category,color,names] of catalog){
+   const name='Prueba · '+category;
+   let group=groups.find(item=>!item.deleted&&groupKey(item.name)===groupKey(name));
+   if(!group){group={id:id('demo-group'),name,color};groups.push(group);}
+   for(const name of names){
+    const index=demoProducts.length,code=batch+'-'+String(index+1).padStart(2,'0');
+    const product={
+     id:id('demo-product'),name:'Prueba · '+name,category,unit:'unidad',groupIds:[group.id],
+     productNumber:'PR-'+code,boxNumber:'CJ-'+code,vesselNumber:'EMB-'+batch+'-'+(1+index%3),
+     catalogRack:1+index%3,boxes:index===0?12:240+10*(index%5),
+     value:(8+index)*priceStep,average:5+index%10,quantityN:0,quantityV:0,createdAt
+    };
+    demoProducts.push(product);
+    if(index===totalProducts-1)continue;
+    const origin=purchaseOrigin(product);
+    let registered=0;
+    periods.forEach((period,weekIndex)=>{
+     const cells={};
+     clients.forEach((client,clientIndex)=>{
+      const units=(index*3+weekIndex*2+clientIndex*4)%9;
+      if(!units)return;
+      cells[client.id]=units;
+      origins[Trace.weeklyKey(period.id,product.id,client.id)]={
+       periodId:period.id,productId:product.id,clientId:client.id,productName:product.name,clientName:salesClientLabel(client),
+       date:period.start,updatedAt:createdAt,origin,price:product.value,currency,deleted:false
+      };
      });
+     const units=Object.values(cells).reduce((total,qty)=>total+qty,0);
+     registered+=units;
+     (state.movements[period.id]??={})[product.id]=cells;
+     (state.prices[period.id]??={})[product.id]=product.value;
+     (state.weekTotals[period.id]??={})[product.id]=units*product.value;
+    });
+    product.quantityN=index===1?registered+5:index===2?registered:index%5;
+    product.quantityV=index<3?0:index%3;
+   }
+  }
+  state.products.push(...demoProducts);
+  const lots=demoProducts.slice(0,3).map((product,i)=>{
+   const receipt={date:dateBefore(8),area:'Bodega de prueba',rack:product.catalogRack,level:1,position:i+1};
+   const lot={
+    id:id('demo-lot'),productId:product.id,productName:product.name,code:product.boxNumber,
+    container:'CONT-'+batch,units:10,receipt,moves:[]
+   };
+   (state.lots??=[]).push(lot);
+   const client=clients[i];
+   (state.sales??=[]).push({
+    id:id('demo-sale'),date:dateBefore(6-i*3),productId:product.id,productName:product.name,
+    clientId:client.id,clientName:salesClientLabel(client),lotId:lot.id,units:i===2?4:10,price:product.value,currency,
+    location:Trace.label(receipt),reference:'Venta de prueba',
+    origin:{...purchaseOrigin(product),lotCode:lot.code,container:lot.container,catalogLot:false},voided:false
    });
- }))toast('Se crearon seis productos de ejemplo. Puedes editarlos o eliminarlos.');
+   return lot;
+  });
+  periodId=periods[0].id;registerEmptyScope=null;weeklyPreviewProduct='';page=0;
+  if(fresh){
+   Object.assign(salesFilters,{product:demoProducts[0].id,firstClient:clients[0].id,secondClient:clients[1].id});
+   speedQuery={a:lots[0].id,b:lots[1].id};
+  }
+ }))toast(`Se agregaron ${totalProducts} productos de prueba con registros de compras y lotes.`);
 }
 // Copias y migración (esquema versionado + SHA-256 cuando está disponible).
 function downloadBlob(content,filename,type='application/json;charset=utf-8'){const blob=content instanceof Blob?content:new Blob([content],{type});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}
