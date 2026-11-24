@@ -254,9 +254,7 @@ function renderDashboard(){
  const registeredBars=capacity.products.filter(row=>row.registered>0).sort((a,b)=>b.registered-a.registered).slice(0,5).map(row=>({label:row.product.name,value:row.registered}));
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.')}
  ${renderCapacityAlert(capacity.exceeded)}
- ${renderStockAlerts(all)}
  ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Abre Inventario para añadir productos o cargar la demostración.</p></div></div>`:''}
- ${all.negative?`<div class="banner alert"><div><h3>${all.negative} producto(s) con saldo negativo</h3><p>Los valores negativos se conservan como en la fórmula de Excel. Verifica si representan faltantes, pedidos u otra operación.</p></div></div>`:''}
  <section class="stats-grid" aria-label="Indicadores generales">
  ${metricBox('volumen',statCard(metricLabels.volumen,format(registered,9),'Total de unidades guardadas en Productos.','▦',unitReportCard('sales',M.barRows(registeredBars,'Unidades guardadas por producto',{empty:'Aún no hay unidades guardadas en Productos'}), `Usadas en semanas: ${format(weekly,9)} · Vendidas: ${format(sold,9)}`)))}
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows))))}
@@ -718,13 +716,6 @@ function voidSale(saleId){
 function exportReviewCSV(){
  const info=Insights.analyze(state,C);
  csvDownload([['Tipo','Producto','Producto_ID','Detalle'],...info.issues.map(i=>[info.categories.find(c=>c.id===i.id)?.name||i.id,i.name,i.productId,i.detail])],'Revision_3_0');
-}
-function renderStockAlerts(all){
- const zero=all.rows.filter(r=>Number(r.N)===0);
- const negative=all.rows.filter(r=>Number(r.N)<0);
- if(!zero.length&&!negative.length)return '';
- const examples=[...negative,...zero].slice(0,4).map(r=>esc(r.product.name)).join(', ');
- return `<div class="stock-alert-summary" role="status"><span class="stock-alert-dot" aria-hidden="true"></span><div><strong>Revisión de existencias: ${negative.length} negativas · ${zero.length} en cero</strong><p>${examples}${negative.length+zero.length>4?' y otros productos':''}. Consulta el consolidado para verificar cantidades.</p></div></div>`;
 }
 function dashboardInventoryRows(){
  const totals=C.totals(state,state.products);

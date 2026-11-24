@@ -69,9 +69,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 .dashboard-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 16px;margin:0 0 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
 .dashboard-tools>div:first-child{display:flex;flex-direction:column;gap:3px}.dashboard-tools strong{font-size:13px}.dashboard-tools span{font-size:11px;color:var(--muted)}
 .dashboard-tools-actions{display:flex;flex-wrap:wrap;gap:7px}.dashboard-tools-actions .btn{white-space:normal;min-height:35px}
-.stock-alert-summary{display:flex;align-items:center;gap:12px;padding:13px 16px;margin:0 0 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface2)}
-.stock-alert-summary>div{flex:1;min-width:0}.stock-alert-summary strong{font-size:12px}.stock-alert-summary p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.stock-alert-dot{flex:0 0 9px;width:9px;height:9px;border-radius:50%;background:#d98d3c}
-@media(max-width:700px){.dashboard-tools{align-items:stretch}.dashboard-tools-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.dashboard-tools-actions .btn{font-size:11px}.stock-alert-summary{align-items:flex-start;flex-wrap:wrap}.stock-alert-summary .btn{margin-left:auto}}
+@media(max-width:700px){.dashboard-tools{align-items:stretch}.dashboard-tools-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.dashboard-tools-actions .btn{font-size:11px}}
 
 /* ==== Inventarios GU 3.0: refinamiento visual y accesibilidad ==== */
 :root{--gu-radius:15px;--gu-focus:2px solid var(--accent)}
