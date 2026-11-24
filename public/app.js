@@ -787,34 +787,23 @@ function weeklyCellModal(weekId,clientId,productId=''){
  </details><input type="hidden" name="productId">
  </div>
  <div class="field full sale-origin" data-weekly-origin aria-live="polite"></div>
- <label class="switch-line full"><input type="checkbox" name="confirmOrigin" disabled required> Revisé la procedencia de este producto.</label>
  <label class="field full">Cantidad de este producto para el cliente<input class="form-control" type="number" name="units" min="0" max="1000000000000" step="0.000001" disabled required></label>
  </div><p class="muted">Escribe el total para esta semana. Guarda 0 para quitarlo del registro.</p></form>`,
  '<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-primary" form="weekly-cell-form" id="weekly-cell-save" disabled>Guardar cantidad</button>');
  const form=$('#weekly-cell-form'),search=$('#weekly-cell-search'),picker=form.elements.productId,units=form.elements.units;
- const originField=form.querySelector('[data-weekly-origin]'),review=form.elements.confirmOrigin,save=$('#weekly-cell-save');
- const updateControls=()=>{
-  const product=state.products.find(item=>item.id===picker.value);
-  const origin=product?weeklyCellOrigin(weekId,product,clientId):null;
-  const approved=hasWeeklyOrigin(origin)&&review.checked;
-  units.disabled=!approved;
-  save.disabled=!approved;
-  form.dataset.originConfirmed=approved?JSON.stringify(origin):'';
- };
+ const originField=form.querySelector('[data-weekly-origin]'),save=$('#weekly-cell-save');
  const updateProduct=()=>{
   const product=state.products.find(p=>p.id===picker.value);
-  review.checked=false;
-  if(!product){
-   units.value='';originField.innerHTML='';review.value='';review.disabled=true;updateControls();return;
-  }
-  const origin=weeklyCellOrigin(weekId,product,clientId);
+  const origin=product?weeklyCellOrigin(weekId,product,clientId):null;
   const complete=hasWeeklyOrigin(origin);
+  units.disabled=!product;
+  save.disabled=!complete;
+  if(!product){
+   units.value='';originField.innerHTML='';return;
+  }
   units.value=state.movements[weekId]?.[product.id]?.[clientId]??'';
-  review.value=product.id;
-  review.disabled=!complete;
   const saved=state.weeklyOrigins?.[Trace.weeklyKey(weekId,product.id,clientId)];
   originField.innerHTML=provenanceTable(product.name,origin,saved&&!saved.deleted?saved.date:(product.createdAt?stamp(product.createdAt):''))+(complete?'':'<span role="status">Completa la caja, la embarcación y el rack en Productos para registrar o cambiar esta cantidad.</span>');
-  updateControls();
  };
  const results=$('#weekly-product-results'),dropdown=$('#weekly-product-select'),summary=$('#weekly-product-label');
  const showProducts=()=>{
@@ -842,7 +831,6 @@ function weeklyCellModal(weekId,clientId,productId=''){
   if(event.key!=='Escape'||!dropdown.open)return;
   event.stopPropagation();dropdown.open=false;summary.focus();
  });
- review.addEventListener('change',updateControls);
 }
 function saveWeeklyCell(form){
  const {period:weekId,client:clientId}=form.dataset,period=state.periods.find(item=>item.id===weekId),client=state.clients.find(item=>item.id===clientId);
@@ -852,7 +840,6 @@ function saveWeeklyCell(form){
  if(!product)return toast('Selecciona un producto del catálogo.');
  const origin=weeklyCellOrigin(weekId,product,clientId);
  if(!hasWeeklyOrigin(origin))return toast('Completa la caja, la embarcación y el rack en Productos.');
- if(data.get('confirmOrigin')!==product.id||form.dataset.originConfirmed!==JSON.stringify(origin))return toast('Confirma la procedencia antes de guardar la cantidad.');
  if(!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Escribe una cantidad válida.');
  const key=Trace.weeklyKey(weekId,product.id,clientId),previous=state.weeklyOrigins?.[key];
  const existing=state.movements[weekId]?.[product.id]?.[clientId];
