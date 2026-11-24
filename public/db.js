@@ -10,8 +10,9 @@
 const NAME='almendra_inventory_v1';
 const MAIN_KEY=NAME+'_main';
 const BACKUPS_KEY=NAME+'_backups';
+const DRIVE_KEY=NAME+'_drive';
 let selected=null, selection=null, dbPromise=null;
-const memory={main:null,backups:{}};
+const memory={main:null,backups:{},drive:null};
 const copy=value=>value===undefined?undefined:JSON.parse(JSON.stringify(value));
 
 function idb(){
@@ -89,6 +90,12 @@ async function run(action,...args){
     switch(action){
       case 'load':return indexedRequest('settings','readonly',s=>s.get('main'));
       case 'save':return indexedRequest('settings','readwrite',s=>s.put(copy(args[0]),'main'));
+      case 'driveLink':return indexedRequest('settings','readonly',s=>s.get('drive'));
+      case 'saveDriveLink':return indexedRequest('settings','readwrite',s=>s.put(copy(args[0]),'drive'));
+      case 'applyDrive':return indexedRequest('settings','readwrite',s=>{
+        s.put(copy(args[0]),'main');
+        return s.put(copy(args[1]),'drive');
+      });
       case 'backup':return indexedRequest('backups','readwrite',s=>s.put(copy(args[0])));
       case 'backups':return (await indexedRequest('backups','readonly',s=>s.getAll())).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
       case 'getBackup':return indexedRequest('backups','readonly',s=>s.get(args[0]));
@@ -96,6 +103,21 @@ async function run(action,...args){
     }
   }
   const store=backend.store;
+  if(action==='driveLink')return backend.kind==='memory'?copy(memory.drive):localRead(store,DRIVE_KEY,null);
+  if(action==='saveDriveLink'){
+    if(backend.kind==='memory')memory.drive=copy(args[0]);else localWrite(store,DRIVE_KEY,args[0]);
+    return;
+  }
+  if(action==='applyDrive'){
+    if(!backend.persistent)throw new Error('No hay almacenamiento persistente para cargar el inventario de Drive.');
+    const previous=store.getItem(DRIVE_KEY);
+    localWrite(store,DRIVE_KEY,args[1]);
+    try{localWrite(store,MAIN_KEY,args[0]);}catch(error){
+      if(previous===null)store.removeItem(DRIVE_KEY);else store.setItem(DRIVE_KEY,previous);
+      throw error;
+    }
+    return;
+  }
   const main=backend.kind==='memory'?memory.main:localRead(store,MAIN_KEY,null);
   if(action==='load')return copy(main);
   if(action==='save'){
@@ -113,6 +135,9 @@ async function run(action,...args){
 window.AlmendraDB={
   load:()=>run('load'),
   save:data=>run('save',data),
+  driveLink:()=>run('driveLink'),
+  saveDriveLink:link=>run('saveDriveLink',link),
+  applyDrive:(data,link)=>run('applyDrive',data,link),
   backup:data=>run('backup',data),
   backups:()=>run('backups'),
   getBackup:key=>run('getBackup',key),

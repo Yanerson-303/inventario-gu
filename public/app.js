@@ -111,6 +111,7 @@ function scheduleSave(){
  indicator('Guardando…','pending');
  clearTimeout(saveTimer);
  saveTimer=setTimeout(()=>{
+  saveTimer=null;
   const snapshot=clone(state);
   const createAutoBackup=autoBackupDue;autoBackupDue=false;
   saveQueue=saveQueue.catch(()=>{}).then(async()=>{
@@ -122,12 +123,13 @@ function scheduleSave(){
       await Promise.all(autos.slice(12).map(x=>DB.deleteBackup(x.id)));
       await refreshBackups();
     }
-    markRevision();saveFailure=false;savedStatus();
+    markRevision();saveFailure=false;savedStatus();queueDrivePublish();
   }).catch(err=>{saveFailure=true;indicator('Error al guardar','error');toast('No se pudo guardar: '+err.message);});
  },180);
 }
 function mutation(label,fn,refresh=true){
  if(storageConflict){toast('Otra pestaña cambió los datos. Recarga para evitar sobrescribir cambios.');return false;}
+ if(!driveAllowsChanges())return false;
  undoStack.push(clone(state));if(undoStack.length>20)undoStack.shift();
  try{fn();}catch(error){state=undoStack.pop();toast(error.message);return false;}
  const now=new Date().toISOString();state.updatedAt=now;
@@ -135,7 +137,7 @@ function mutation(label,fn,refresh=true){
  if(!state.settings.lastAutoBackup || Date.now()-Number(state.settings.lastAutoBackup)>12*60*60*1000){state.settings.lastAutoBackup=Date.now();autoBackupDue=true;}
  scheduleSave();if(refresh)render();else updateHeader();return true;
 }
-function undo(){if(!undoStack.length){toast('No hay cambios para deshacer.');return;}if(storageConflict){toast('Recarga para resolver el conflicto de pestañas.');return;}state=undoStack.pop();state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('undo'),at:state.updatedAt,label:'Se deshizo el último cambio',actor:'Este dispositivo'});scheduleSave();render();toast('Última modificación deshecha.');}
+function undo(){if(!undoStack.length){toast('No hay cambios para deshacer.');return;}if(storageConflict){toast('Recarga para resolver el conflicto de pestañas.');return;}if(!driveAllowsChanges())return;state=undoStack.pop();state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('undo'),at:state.updatedAt,label:'Se deshizo el último cambio',actor:'Este dispositivo'});scheduleSave();render();toast('Última modificación deshecha.');}
 function updateHeader(){
  $$('[data-nav]').forEach(btn=>{btn.classList.toggle('active',btn.dataset.nav===view);if(btn.classList.contains('nav-item'))btn.setAttribute('aria-current',btn.dataset.nav===view?'page':'false');});
  $('#undo-btn').disabled=undoStack.length===0;
@@ -153,7 +155,8 @@ function statusBalance(n){return `<span class="${n<0?'text-danger':n>0?'text-goo
 function render(){
  if(!state)return;clearFieldFeedback();updateHeader();syncTheme();
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,sales:renderSales};
- $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
+ $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+
+  (driveLink?.active&&!driveLink.publisher&&view!=='backup'?'<div class="banner"><div><h3>Inventario de Drive · Solo consulta</h3><p>El primer dispositivo publica los cambios.</p></div><button class="btn" data-nav="backup">Administrar conexión</button></div>':'')+activeViews[view]();
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
  const warehouse=$('#main-content').querySelector('.warehouse-viewport');
  if(warehouse){
@@ -1265,9 +1268,185 @@ function renderAudit(){
 }
 let backupsCache=[];
 async function refreshBackups(){try{backupsCache=await DB.backups();}catch{backupsCache=[];}}
+let driveLink=null,driveSession=null,driveLogin=null,driveWorking=false,driveApplying=false,driveStatus='',drivePoll=null,drivePublish=null;
+function driveAllowsChanges(){
+ if(driveApplying){toast('Espera a que termine de cargarse el inventario de Drive.');return false;}
+ if(driveLink?.active&&!driveLink.publisher){
+  toast('Este dispositivo consulta el inventario de Drive. Desconéctalo para trabajar con una copia local.');return false;
+ }
+ return true;
+}
+function drivePanel(){
+ if(!window.GUDrive?.supported())return '<p class="muted">La conexión con Drive está disponible en la versión web por HTTPS. Aquí puedes descargar y restaurar copias JSON.</p>';
+ const connected=driveLink?.active;
+ const online=driveSession&&!driveSession.api.expired();
+ const role=driveLink?.publisher?'Este dispositivo publica el inventario.':'Este dispositivo consulta el inventario del primer equipo.';
+ const description=connected?`${driveLink.email?esc(driveLink.email)+' · ':''}${role}`:'Conecta la misma cuenta en tus dispositivos para consultar el inventario compartido.';
+ return `<p>${description}</p><div class="page-tools">
+  <button type="button" class="btn btn-primary" data-action="${online?'drive-sync':'drive-connect'}"${driveWorking?' disabled':''}>${online?'Sincronizar ahora':connected?'Volver a conectar':'Conectar Drive'}</button>
+  ${connected?`<button type="button" class="btn" data-action="drive-disconnect"${driveWorking?' disabled':''}>Desconectar</button>`:''}
+ </div>${driveStatus?`<p class="muted" role="status">${esc(driveStatus)}</p>`:''}`;
+}
+function refreshDrivePanel(){
+ const panel=$('#drive-panel');
+ if(panel)panel.innerHTML=drivePanel();
+}
+function queueDrivePublish(){
+ if(!driveSession||!driveLink?.active||!driveLink.publisher)return;
+ clearTimeout(drivePublish);
+ drivePublish=setTimeout(()=>syncDrive(),3000);
+}
+async function openDriveConnect(){
+ if(!window.GUDrive?.supported()||driveWorking)return;
+ if(!DB.persistent?.())return toast('Drive requiere almacenamiento local persistente para guardar la copia obligatoria.');
+ driveLogin=null;
+ showModal('Conectar con Google Drive',`<div class="modal-body">
+  <p>La primera conexión publica el inventario de este dispositivo. Si ya hay un inventario en la cuenta, se guarda una copia interna de tus datos antes de cargar el inventario compartido.</p>
+  <p>Los demás dispositivos pueden consultar ese inventario con la misma cuenta.</p>
+  <p id="drive-login-status" class="muted" role="status">Preparando el acceso a Google…</p>
+ </div>`,'<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="button" class="btn btn-primary" data-action="drive-authorize" disabled>Continuar con Google</button>');
+ const button=$('[data-action="drive-authorize"]'),status=$('#drive-login-status');
+ try{
+  const authorize=await window.GUDrive.prepare();
+  if(!button.isConnected)return;
+  driveLogin=authorize;button.disabled=false;status.textContent='';
+ }catch(error){if(status.isConnected)status.textContent=error.message;}
+}
+async function authorizeDrive(button){
+ if(!driveLogin||driveWorking)return;
+ const status=$('#drive-login-status');
+ button.disabled=true;
+ status.textContent='Esperando autorización de Google…';
+ try{
+  const api=await driveLogin();
+  if(!button.isConnected)return;
+  status.textContent='Comprobando el inventario compartido…';
+  const session={api,account:await api.account()};
+  if(button.isConnected&&await syncDrive(session,()=>button.isConnected)){
+   driveLogin=null;
+   if(button.isConnected)closeModal();
+  }else if(button.isConnected)status.textContent=driveStatus;
+ }catch(error){if(button.isConnected)status.textContent=error.message;}
+ finally{if(button.isConnected)button.disabled=false;}
+}
+async function receiveDriveInventory(backup,stillOpen,link,replicaDigest){
+ if(backup?.format!=='almendra-inventario-backup'||backup.version!==1||!backup.sha256||
+  (await sha256(JSON.stringify(backup.data)))!==backup.sha256)throw new Error('El inventario de Drive está incompleto o dañado.');
+ const incoming=normalizeImported(backup.data);
+ if(Number.isFinite(Date.parse(backup.data.updatedAt)))incoming.updatedAt=backup.data.updatedAt;
+ const incomingDigest=await sha256(JSON.stringify(incoming));
+ const pending=saveTimer!==null;
+ driveApplying=true;
+ clearTimeout(saveTimer);saveTimer=null;
+ let replaced=false;
+ try{
+  await saveQueue;
+  if(storageConflict||!stillOpen())throw new Error('La carga de Drive se interrumpió. Recarga o inténtalo de nuevo.');
+  const before=clone(state);
+  const beforeDigest=await sha256(JSON.stringify(before));
+  if(beforeDigest===backup.sha256||beforeDigest===incomingDigest)return {digest:beforeDigest,replaced};
+  if(!DB.persistent?.())throw new Error('El navegador no puede guardar la copia local obligatoria.');
+  link.digest=incomingDigest;
+  if(beforeDigest!==replicaDigest){
+   await DB.backup({id:id('drive-prior'),type:'manual',createdAt:new Date().toISOString(),label:'Antes de cargar inventario de Google Drive',data:before});
+  }
+  if(storageConflict||!stillOpen())throw new Error('La carga de Drive se interrumpió. Tus datos locales siguen disponibles.');
+  await DB.applyDrive(incoming,link);
+  driveLink=link;
+  state=incoming;replaced=true;autoBackupDue=false;undoStack=[];
+  periodId=state.periods[0].id;registerEmptyScope=null;weeklyPreviewProduct='';page=0;query='';clientQuery='';
+  markRevision();saveFailure=false;savedStatus();await refreshBackups();
+  return {digest:link.digest,replaced};
+ }finally{
+  driveApplying=false;
+  if(pending&&!replaced&&!storageConflict)scheduleSave();
+ }
+}
+async function reconcileDrive(session,stillOpen,connecting){
+ const {api,account}=session;
+ const stored=await DB.driveLink();
+ if(!connecting&&(!stored?.active||stored.accountId!==account.id)){
+  driveSession=null;driveLink=stored;return false;
+ }
+ if(stored?.active&&stored.accountId!==account.id)throw new Error('Desconecta la cuenta actual antes de conectar otra.');
+ if(storageConflict||!stillOpen())throw new Error('Recarga para sincronizar de forma segura.');
+ const deviceId=stored?.deviceId||id('drive-device');
+ if(!stored?.deviceId)await DB.saveDriveLink({deviceId,active:false});
+ let file=await api.workspace(),created=null;
+ if(!file){
+  if(stored?.active)throw new Error('El inventario compartido ya no está disponible en Drive.');
+  const backup=await backupPackage(state);
+  if(!backup.sha256||storageConflict||!stillOpen())throw new Error('Se interrumpió la publicación del inventario.');
+  created={file:await api.create(deviceId,backup),digest:backup.sha256};
+  file=await api.workspace()||created.file;
+ }
+ if(!stillOpen())return false;
+ if(stored?.active&&stored.fileId!==file.id&&file.createdTime>stored.createdTime){
+  throw new Error('El inventario compartido original ya no está disponible en Drive.');
+ }
+ const publisher=file.appProperties?.publisher===deviceId;
+ const sameVersion=stored?.fileId===file.id&&stored.version===file.version;
+ const roleChanged=!driveLink?.active||driveLink.publisher!==publisher;
+ const metadata={
+  deviceId,active:true,accountId:account.id,email:account.email,publisher,
+  fileId:file.id,version:file.version,createdTime:file.createdTime
+ };
+ let digest=stored?.digest,replaced=false;
+ if(created?.file.id===file.id){
+  digest=created.digest;
+ }else if(publisher&&sameVersion&&digest){
+  const backup=await backupPackage(state);
+  if(!backup.sha256||storageConflict||!stillOpen())throw new Error('Se interrumpió la publicación del inventario.');
+  if(backup.sha256!==digest){
+   file=await api.write(file.id,backup);
+   metadata.version=file.version;
+   digest=backup.sha256;
+  }
+ }else if(!sameVersion||connecting){
+  const replicaDigest=stored?.active&&!stored.publisher&&stored.fileId===file.id?stored.digest:null;
+  ({digest,replaced}=await receiveDriveInventory(await api.read(file.id),stillOpen,metadata,replicaDigest));
+ }
+ const next={...metadata,digest};
+ if(!replaced&&(connecting||!sameVersion||stored?.digest!==digest||roleChanged)){
+  await DB.saveDriveLink(next);
+  if(roleChanged)markRevision();
+ }
+ driveLink=next;driveSession=session;
+ if(replaced&&!connecting)closeModal();
+ if(replaced||roleChanged)render();
+ return true;
+}
+async function syncDrive(session=driveSession,stillOpen=()=>true,manual=false){
+ if(!session||driveWorking)return false;
+ const connecting=session!==driveSession;
+ driveWorking=true;driveStatus='Sincronizando con Google Drive…';refreshDrivePanel();
+ try{
+  const sync=()=>reconcileDrive(session,stillOpen,connecting);
+  const result=navigator.locks?await navigator.locks.request('inventarios-gu-drive',sync):await sync();
+  if(result){
+   driveStatus='Inventario sincronizado.';
+   if(!drivePoll)drivePoll=setInterval(()=>syncDrive(),45000);
+   if(manual)toast(driveStatus);
+  }else driveStatus='';
+  return result;
+ }catch(error){
+  if(error.status===401)driveSession=null;
+  driveStatus=error.message;
+  if(manual)toast(driveStatus);
+  return false;
+ }finally{driveWorking=false;refreshDrivePanel();}
+}
+async function disconnectDrive(){
+ if(driveWorking||!driveLink?.active)return;
+ await DB.saveDriveLink({...driveLink,active:false});
+ driveLink={...driveLink,active:false};driveSession=null;driveStatus='';
+ clearInterval(drivePoll);drivePoll=null;clearTimeout(drivePublish);
+ markRevision();render();toast('Drive desconectado. Tu inventario permanece en este dispositivo.');
+}
 function renderBackup(){
  const last=backupsCache[0];const lastStamp=last?stamp(last.createdAt):'Sin copias internas';
  return `${heading('DATOS EN TUS MANOS','Copias de seguridad','Guarda versiones internas, descarga un archivo portátil y restaura los mismos datos en otro teléfono o computador.',`<button class="btn btn-primary" data-action="export-json">↧ Descargar respaldo</button>`)}
+ <section class="card card-pad" style="margin-bottom:19px"><div class="card-title"><h3>Google Drive</h3></div><div id="drive-panel">${drivePanel()}</div></section>
  <div class="gu-summary-bar"><div><b>${backupsCache.length} copias internas</b> <small>· Última: ${esc(lastStamp)}</small></div><button class="btn btn-small" data-action="manual-snapshot">Crear copia</button></div>
  <div class="backups-grid"><article class="card backup-action"><div class="backup-icon">⇩</div><h3>Exportar todos los datos</h3><p>Archivo JSON con productos, espacios, semanas, cantidades, precios, configuración e historial. También puedes cifrarlo con contraseña.</p><div class="page-tools"><button class="btn btn-primary" data-action="export-json">Descargar JSON</button><button class="btn" data-action="export-encrypted">Cifrar y descargar</button></div></article>
  <article class="card backup-action"><div class="backup-icon">⇧</div><h3>Importar o migrar datos</h3><p>Selecciona un archivo de respaldo de Inventarios GU o versiones anteriores. Puedes reemplazar todos los datos o fusionarlos por identificador para evitar duplicados.</p><div class="page-tools"><button class="btn btn-primary" data-action="import-file">Seleccionar archivo</button></div></article></div>
@@ -1804,9 +1983,10 @@ async function handleFile(file){
 }
 async function applyImport(){
  if(storageConflict){toast('Hay cambios en otra pestaña. Recarga antes de migrar.');return;}
- if(!pendingImport)return;
+ if(!pendingImport||!driveAllowsChanges())return;
  const mode=$('input[name="import-mode"]:checked')?.value||'replace',incoming=pendingImport;
  try{await DB.backup({id:id('before'),type:'manual',createdAt:new Date().toISOString(),label:'Antes de importar',data:clone(state)});
+  if(!driveAllowsChanges())return;
   const merged=mode==='merge'?mergeStates(state,incoming):incoming;
   undoStack.push(clone(state));state=merged;
   state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),label:`Migración ${mode==='merge'?'fusionada':'restaurada'} desde JSON`,actor:'Este dispositivo',at:state.updatedAt});
@@ -1816,9 +1996,11 @@ async function applyImport(){
 async function makeSnapshot(){try{const entry={id:id('snapshot'),createdAt:new Date().toISOString(),type:'manual',label:'Copia manual',data:clone(state)};await DB.backup(entry);await refreshBackups();render();toast(DB.mode?.()==='memory'?'Copia temporal creada. Descarga un JSON antes de cerrar la vista previa.':'Copia interna creada. Descárgala si quieres protegerla fuera del navegador.');}catch(e){toast('No se pudo crear la copia: '+e.message);}}
 async function restoreSnapshot(snapshotId){
  if(storageConflict){toast('Recarga antes de restaurar: otra pestaña ha cambiado los datos.');return;}
+ if(!driveAllowsChanges())return;
  const entry=backupsCache.find(b=>b.id===snapshotId);if(!entry)return;
  if(!confirm(`¿Restaurar la copia de ${stamp(entry.createdAt)}? Se reemplazarán los datos actuales. Se guardará una copia previa.`))return;
  try{await DB.backup({id:id('before'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restaurar',data:clone(state)});
+  if(!driveAllowsChanges())return;
   const recovered=normalizeImported(entry.data);undoStack.push(clone(state));state=recovered;state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),at:state.updatedAt,actor:'Este dispositivo',label:'Copia interna restaurada'});
   periodId=state.periods[0].id;registerEmptyScope=null;page=0;query='';scheduleSave();await refreshBackups();navigate('dashboard');toast('Se restauraron productos, movimientos y configuración.');
  }catch(e){toast('No fue posible restaurar: '+e.message);}
@@ -1915,7 +2097,11 @@ document.addEventListener('click',async e=>{
   case 'demo':sampleData();break;
   case 'export-json':await exportJSON();break;
   case 'export-encrypted':await encryptedExport();break;
-  case 'import-file':$('#backup-file').click();break;
+  case 'drive-connect':await openDriveConnect();break;
+  case 'drive-authorize':await authorizeDrive(btn);break;
+  case 'drive-sync':await syncDrive(driveSession,()=>true,true);break;
+  case 'drive-disconnect':await disconnectDrive();break;
+  case 'import-file':if(driveAllowsChanges())$('#backup-file').click();break;
   case 'manual-snapshot':await makeSnapshot();break;
   case 'restore-snapshot':await restoreSnapshot(targetId);break;
   case 'delete-snapshot':if(confirm('¿Eliminar esta copia de seguridad interna?')){await DB.deleteBackup(targetId);await refreshBackups();render();toast('Copia interna eliminada.');}break;
@@ -1930,9 +2116,11 @@ document.addEventListener('click',async e=>{
   case 'reload':location.reload();break;
   case 'reset':{
     if(storageConflict){toast('Recarga antes de restablecer.');return;}
+    if(!driveAllowsChanges())return;
     if(!confirm('¿Borrar TODOS los datos de este espacio? Se guardará primero una copia interna, pero es recomendable descargar un JSON.'))return;
     if(!confirm('Última confirmación: ¿restablecer la aplicación a cero?'))return;
     await DB.backup({id:id('before-reset'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restablecer',data:clone(state)});
+    if(!driveAllowsChanges())return;
     undoStack.push(clone(state));state=newState();periodId='w1';registerEmptyScope=null;page=0;query='';clientQuery='';await refreshBackups();scheduleSave();navigate('dashboard');toast('Espacio restablecido. Tu copia previa permanece en Copias.');break;
   }
  }}catch(err){toast('No se pudo completar la acción: '+err.message);}
@@ -2009,6 +2197,9 @@ async function init(){
  try{
   const loaded=await DB.load();
   state=loaded||newState();
+  if(window.GUDrive?.supported()){
+   try{driveLink=await DB.driveLink();}catch{driveStatus='No se pudo leer la vinculación local de Drive.';}
+  }
   if(!Array.isArray(state.products)||!Array.isArray(state.clients)||!Array.isArray(state.periods)||!state.periods.length)throw new Error('Los datos locales parecen dañados. Restaura una copia de seguridad.');
   if(!state.weekTotals)state.weekTotals={};if(!state.prices)state.prices={};if(!state.movements)state.movements={};if(!state.audit)state.audit=[];
   if(!state.settings)state.settings=newState().settings;

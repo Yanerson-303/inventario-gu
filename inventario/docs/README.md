@@ -12,7 +12,15 @@ Aplicación **100 % estática** construida con HTML, CSS y JavaScript separados.
 
 **Vista previa con almacenamiento bloqueado:** si ChatGPT Web Preview u otro visor no permite IndexedDB, la aplicación prueba localStorage. Si también está restringido, funciona en memoria durante la sesión, indica claramente que los cambios son temporales y ofrece exportar JSON. Antes de cerrar o recargar, descarga la copia; para uso habitual utiliza HTTPS.
 
-**No hay sincronización automática entre dispositivos:** cada uno tiene su propia base local. Para transferir, exporta e importa el JSON. El sistema funciona sin Internet una vez instalado mediante el service worker (requiere HTTPS o localhost).
+Los dispositivos usan almacenamiento local por defecto. Puedes transferir los datos con un respaldo JSON o conectar Google Drive de forma opcional desde **Copias y migración** en la versión web. El modo sin conexión sigue disponible mediante el service worker y requiere HTTPS o localhost.
+
+### Google Drive
+
+La primera conexión crea el inventario compartido desde los datos de ese dispositivo. El mismo navegador publica los cambios cuando tiene una conexión vigente. Los demás dispositivos que conecten la misma cuenta consultan ese inventario. Si la copia de Drive reemplaza datos locales, primero se crea un respaldo interno llamado **Antes de cargar inventario de Google Drive**. Si el respaldo falla, se conservan los datos locales. Al desconectar, el inventario que se ve en ese momento permanece en el dispositivo.
+
+Vuelve a conectar Google cuando se cierre la sesión del navegador o caduque el acceso. La copia privada de Drive incluye el inventario y las preferencias visuales. Las copias internas y las credenciales de Google permanecen fuera de la copia compartida. El HTML descargable funciona localmente y permite trasladar datos por JSON.
+
+Para habilitar Drive en Vercel, activa **Google Drive API** en el proyecto de Google Cloud, configura la pantalla de consentimiento con el permiso `drive.appdata` y crea un **ID de cliente OAuth de tipo Aplicación web** con el origen HTTPS del sitio en **Orígenes autorizados de JavaScript**. Agrega el ID público a la variable de entorno `GOOGLE_DRIVE_CLIENT_ID` del proyecto en Vercel y vuelve a desplegar. Usa el mismo proyecto OAuth para todos los dispositivos. [Configurar el cliente OAuth web](https://developers.google.com/identity/oauth2/web/guides/get-google-api-clientid) · [Datos privados de aplicación en Drive](https://developers.google.com/workspace/drive/api/guides/appdata)
 
 ## Archivos en `public/`
 
