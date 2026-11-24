@@ -647,7 +647,8 @@ body.gu-entry-active{overflow:hidden}
 .modal:has(.unit-report-body) { width: min(100%, 1050px); }
 .unit-report-body .unit-report-filters { margin-top: 0; }
 .unit-report-filters > :is([data-unit-year], [data-unit-month], [data-unit-week]) { flex: 1 1 145px; min-width: 0; }
-.unit-report-bars { display: grid; gap: 8px; font-size: 12px; }
+.unit-report-period { font-size: 12px; }
+@media (max-width: 600px) { .unit-report-body .unit-report-chart text { font-size: 17px; } }
 .unit-report-advanced { margin-block: 14px; }
 .unit-report-advanced summary { cursor: pointer; font-weight: 700; }
 .unit-report-selection { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -1439,13 +1440,12 @@ function barRows(items,label='Comparación de valores',opts={}){
  const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value)));
  if(!rows.length)return empty(opts.empty||'Sin datos para comparar');
  const max=rows.reduce((largest,row)=>Math.max(largest,Math.abs(num(row.value))),0)||1;
- const format=opts.format||fmt;
- const bars=rows.slice(0,opts.limit??5).map(item=>{
+ const bars=rows.slice(0,5).map(item=>{
   const amount=num(item.value),width=clamp(Math.abs(amount)/max*100,0,100);
-  const name=esc(item.label),value=esc(format(amount));
+  const name=esc(item.label),value=esc(fmt(amount));
   return `<div class="metric-bar-row" tabindex="0" aria-label="${name}: ${value}"><div class="metric-bar-top"><span title="${name}">${name}</span><b class="mono">${value}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(item.color||'var(--accent)')}"></i></div></div>`;
  }).join('');
- const summary=rows.map(item=>`${item.label} ${format(item.value)}`).join(', ');
+ const summary=rows.map(item=>`${item.label} ${fmt(item.value)}`).join(', ');
  return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(summary)}">${bars}</div>`;
 }
 function donut(items,label='Distribución',opts={}){
@@ -2169,14 +2169,42 @@ const unitReportMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio'
 const unitReportYears=Array.from({length:1001},(_,i)=>String(2000+i));
 const unitReportWeeks=['1','2','3','4','5'];
 const reportColors=['#2369d0','#b43e1e','#07815e','#8b46bc','#a46c00','#007e93','#c72c67','#627420'];
+const unitReportDay=(month,day)=>month+'-'+String(day).padStart(2,'0');
 function unitReportRange({year,month,week,period}){
  if(period==='year')return {from:year+'-01-01',to:year+'-12-31',label:year};
  const monthKey=year+'-'+month.padStart(2,'0');
  const lastDay=new Date(Date.UTC(Number(year),Number(month),0)).getUTCDate();
- const day=value=>monthKey+'-'+String(value).padStart(2,'0');
+ const day=value=>unitReportDay(monthKey,value);
  if(period==='month')return {from:day(1),to:day(lastDay),label:monthKey};
  const first=7*(Number(week)-1)+1,end=week==='5'?lastDay:first+6;
  return {from:day(first),to:day(end),label:`Semana ${week} · ${monthKey}`};
+}
+function unitReportTimeline(report){
+ const range=unitReportRange(report);
+ if(report.period==='year'){
+  const periods=unitReportMonths.map((name,i)=>({
+   key:unitReportDay(unitReportDay(report.year,i+1),1),
+   label:name.slice(0,3)
+  }));
+  return {...range,periods};
+ }
+ const monthly=report.period==='month';
+ const monthKey=range.from.slice(0,7);
+ const monthName=unitReportMonths[Number(report.month)-1].slice(0,3).toLowerCase();
+ const periods=[];
+ for(let day=Number(range.from.slice(8));day<=Number(range.to.slice(8));day+=monthly?7:1){
+  periods.push({
+   key:unitReportDay(monthKey,day),
+   label:monthly?'Semana '+Math.ceil(day/7):day+' '+monthName
+  });
+ }
+ return {...range,periods};
+}
+function unitReportBucket(date,period){
+ const monthKey=date.slice(0,7);
+ if(period==='year')return unitReportDay(monthKey,1);
+ if(period==='month')return unitReportDay(monthKey,1+7*Math.floor((Number(date.slice(8))-1)/7));
+ return date;
 }
 function reportEntities(group,source){
  const items=new Map(group==='product'?state.products.map(p=>[p.id,p.name]):state.clients.map(c=>[c.id,salesClientLabel(c)]));
@@ -2191,15 +2219,14 @@ function reportEntities(group,source){
 function unitReportModel(report){
  const {source,group,period,cross}=report,weekly=source!=='sales';
  const undated=weekly&&period==='undated';
- const {from,to,label}=undated?{}:unitReportRange(report);
- const entities=reportEntities(group,source),periods=[],byId=new Map();
+ const {from,to,label,periods:datedPeriods}=undated?{}:unitReportTimeline(report);
+ const entities=reportEntities(group,source),byId=new Map();
  const withinDate=date=>date>=from&&date<=to;
  const registeredWeeks=weekly?state.periods.filter(week=>{
   const dated=calendarDate(week.start);
   return undated?!dated:dated&&withinDate(week.start);
  }):[];
- if(undated)periods.push(...registeredWeeks.map(week=>({key:week.id,label:week.label})));
- else periods.push({key:from,label});
+ const periods=undated?registeredWeeks.map(week=>({key:week.id,label:week.label})):datedPeriods;
  const product=group==='product';
  const add=(productId,clientId,key,units)=>{
   if(cross&&(product?clientId:productId)!==cross)return;
@@ -2211,7 +2238,7 @@ function unitReportModel(report){
  if(weekly){
   const unitValues=source==='value'?new Map(state.products.map(product=>[product.id,C.num(product.value)])):null;
   for(const week of registeredWeeks){
-   const key=undated?week.id:from;
+   const key=undated?week.id:unitReportBucket(week.start,period);
    for(const [productId,clients] of Object.entries(state.movements?.[week.id]||{})){
     const multiplier=unitValues?(unitValues.get(productId)||0):1;
     for(const [clientId,quantity] of Object.entries(clients))add(productId,clientId,key,C.num(quantity)*multiplier);
@@ -2219,7 +2246,7 @@ function unitReportModel(report){
   }
  }else{
   for(const sale of purchases()){
-   if(!sale.voided&&withinDate(sale.date))add(sale.productId,sale.clientId,from,sale.units);
+   if(!sale.voided&&withinDate(sale.date))add(sale.productId,sale.clientId,unitReportBucket(sale.date,period),sale.units);
   }
  }
  const manual=report.selected[group];
@@ -2228,7 +2255,7 @@ function unitReportModel(report){
   return row&&[...row.values.values()].some(value=>value!==0);
  }).sort((a,b)=>Math.abs(byId.get(b.id).total)-Math.abs(byId.get(a.id).total));
  const selected=manual||new Map(ranked.slice(0,3).map((item,i)=>[item.id,reportColors[i]]));
- return {entities,periods,byId,selected};
+ return {entities,periods,byId,selected,label};
 }
 function reportSeries(model){
  const entities=new Map(model.entities.map(item=>[item.id,item]));
@@ -2247,26 +2274,19 @@ function reportChart(model,report,compact=false){
   const message=report.selected[report.group]?'Marca las filas que quieras graficar.':'Sin datos para el período seleccionado.';
   return `<div class="metric-vis-empty">${message}</div>`;
  }
- if(model.periods.length===1){
-  const {label}=model.periods[0];
-  const items=series.map(({label,color,values})=>({label,color,value:values[0]}));
-  const chart=window.GUMetricVisuals.barRows(items,unitReportSources[report.source].caption,{
-   format:value=>reportAmount(report,value),limit:items.length
-  });
-  return `<div class="unit-report-bars"><div class="muted">${esc(label)}</div>${chart}</div>`;
- }
- const width=compact?320:740,height=compact?112:228,left=compact?37:55,right=width-18,top=12,bottom=height-32;
+ const width=compact?320:620,height=compact?112:228,left=compact?37:55,right=width-18,top=12,bottom=height-32;
  const min=series.reduce((low,entry)=>entry.values.reduce((smallest,value)=>Math.min(smallest,value),low),0);
  const max=series.reduce((high,entry)=>entry.values.reduce((largest,value)=>Math.max(largest,value),high),0);
  const range=max-min||1;
- const x=i=>left+(right-left)*i/(model.periods.length-1);
+ const last=model.periods.length-1;
+ const x=i=>left+(right-left)*(last?i/last:.5);
  const y=value=>bottom-(bottom-top)*((value-min)/range);
- const tickGap=Math.max(1,Math.ceil((model.periods.length-1)/(compact?2:5)));
+ const tickGap=Math.max(1,Math.ceil(last/(compact?2:5)));
  const chart=`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(unitReportSources[report.source].caption)} por período"><title>Datos de las filas seleccionadas. Las cifras exactas aparecen en la tabla.</title>
  ${[0,.5,1].map(r=>`<line x1="${left}" x2="${right}" y1="${y(min+range*r)}" y2="${y(min+range*r)}" stroke="var(--line)"/><text x="${left-5}" y="${y(min+range*r)+4}" text-anchor="end" fill="var(--muted)">${esc(new Intl.NumberFormat('es-CO',{notation:'compact',maximumFractionDigits:2}).format(min+range*r))}</text>`).join('')}
- ${model.periods.map(({label},i)=>i%tickGap===0||i===model.periods.length-1?`<text x="${x(i)}" y="${bottom+21}" text-anchor="${i===0?'start':i===model.periods.length-1?'end':'middle'}" fill="var(--muted)">${esc(label)}</text>`:'').join('')}
+ ${model.periods.map(({label},i)=>i%tickGap===0||i===last?`<text x="${x(i)}" y="${bottom+21}" text-anchor="${last&&i===0?'start':last&&i===last?'end':'middle'}" fill="var(--muted)">${esc(label)}</text>`:'').join('')}
  ${series.map((entry,index)=>`<polyline points="${entry.values.map((value,i)=>x(i).toFixed(2)+','+y(value).toFixed(2)).join(' ')}" stroke="${entry.color}" fill="none" stroke-width="2.5" stroke-linejoin="round"${index?` stroke-dasharray="${4+index%6} ${3+index%3}"`:''}/>${entry.values.length<=20?entry.values.map((value,i)=>`<circle cx="${x(i)}" cy="${y(value)}" r="3" fill="${entry.color}"><title>${esc(entry.label)} · ${esc(model.periods[i].label)} · ${reportAmount(report,value)}</title></circle>`).join(''):''}`).join('')}</svg>`;
- return `<div class="unit-report-chart${compact?' unit-report-compact':''}">${chart}<ul class="unit-report-legend">${series.map(item=>`<li><i style="background-color:${item.color}"></i>${esc(item.label)}</li>`).join('')}</ul></div>`;
+ return `<div class="unit-report-chart${compact?' unit-report-compact':''}">${model.label?`<div class="unit-report-period muted">${esc(model.label)}</div>`:''}${chart}<ul class="unit-report-legend">${series.map(item=>`<li><i style="background-color:${item.color}"></i>${esc(item.label)}</li>`).join('')}</ul></div>`;
 }
 function unitReportRows(model,report){
  const {selected}=model,showTotal=model.periods.length!==1;

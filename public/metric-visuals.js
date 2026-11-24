@@ -25,13 +25,12 @@ function barRows(items,label='Comparación de valores',opts={}){
  const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value)));
  if(!rows.length)return empty(opts.empty||'Sin datos para comparar');
  const max=rows.reduce((largest,row)=>Math.max(largest,Math.abs(num(row.value))),0)||1;
- const format=opts.format||fmt;
- const bars=rows.slice(0,opts.limit??5).map(item=>{
+ const bars=rows.slice(0,5).map(item=>{
   const amount=num(item.value),width=clamp(Math.abs(amount)/max*100,0,100);
-  const name=esc(item.label),value=esc(format(amount));
+  const name=esc(item.label),value=esc(fmt(amount));
   return `<div class="metric-bar-row" tabindex="0" aria-label="${name}: ${value}"><div class="metric-bar-top"><span title="${name}">${name}</span><b class="mono">${value}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(item.color||'var(--accent)')}"></i></div></div>`;
  }).join('');
- const summary=rows.map(item=>`${item.label} ${format(item.value)}`).join(', ');
+ const summary=rows.map(item=>`${item.label} ${fmt(item.value)}`).join(', ');
  return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(summary)}">${bars}</div>`;
 }
 function donut(items,label='Distribución',opts={}){
