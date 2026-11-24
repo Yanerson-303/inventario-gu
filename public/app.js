@@ -20,6 +20,7 @@ const cookie=(k,v)=>{try{document.cookie=`${k}=${encodeURIComponent(v)}; max-age
 const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null;};
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
 let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
+let registerEmptyScope=null;
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false;
 const tabId=id('tab');
 const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
@@ -76,7 +77,7 @@ function updateHeader(){
  $('#undo-btn').disabled=undoStack.length===0;
 }
 function navigate(destination){if(!titleMap[destination])return;weeklyPreviewProduct='';view=destination;query='';page=0;render();window.scrollTo({top:0,behavior:'instant'});}
-function switchPeriod(next){if(!state.periods.some(p=>p.id===next))return;if(weeklyPreviewProduct)query='';weeklyPreviewProduct='';periodId=next;page=0;render();}
+function switchPeriod(next){if(!state.periods.some(p=>p.id===next))return;if(weeklyPreviewProduct)query='';weeklyPreviewProduct='';registerEmptyScope=null;periodId=next;page=0;render();}
 function productsFiltered(){const q=query.toLocaleLowerCase('es').trim();return state.products.filter(p=>`${p.name} ${p.category||''} ${p.productNumber||''} ${p.vesselNumber||''} ${p.boxNumber||''} ${p.unit||''}`.toLocaleLowerCase('es').includes(q));}
 function selection(items){const limit=state.settings.pageSize||20;const last=Math.max(0,Math.ceil(items.length/limit)-1);page=Math.min(page,last);return {rows:items.slice(page*limit,(page+1)*limit),total:items.length,last};}
 function pageFoot(sel,label){return `<div class="table-footer"><span><b>${sel.total}</b> ${esc(label)} · página ${page+1} de ${sel.last+1}</span><div class="pager"><button data-page="prev" ${page<=0?'disabled':''}>Anterior</button><button data-page="next" ${page>=sel.last?'disabled':''}>Siguiente</button></div></div>`;}
@@ -702,6 +703,59 @@ async function exportDashboardImage(button,panel=$('#main-content'),name='Invent
 }
 function statCard(label,value,foot,icon,visual=''){return `<article class="card stat-card ${visual?'visual-stat':''}"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div>${visual?`<div class="stat-visual">${visual}</div>`:''}<div class="stat-foot">${esc(foot)}</div></article>`;}
 function activePeriod(){let p=state.periods.find(p=>p.id===periodId);if(!p){p=state.periods[0];periodId=p.id;}return p;}
+function registerPeriodDate(period){
+ if(calendarDate(period.start))return period.start;
+ return calendarDate(period.end)?period.end:'';
+}
+function registerPeriodScope(period){
+ const date=registerPeriodDate(period);
+ return {year:date.slice(0,4),month:date.slice(5,7)};
+}
+function registerPeriods({year,month}){
+ return state.periods.filter(period=>{
+  const date=registerPeriodDate(period);
+  return year?date.startsWith(year+'-'+month+'-'):!date;
+ });
+}
+function renderRegisterFilters(scope){
+ const undated=state.periods.some(period=>!registerPeriodDate(period));
+ const periods=registerPeriods(scope);
+ const labelCounts=new Map();
+ for(const period of periods)labelCounts.set(period.label,(labelCounts.get(period.label)||0)+1);
+ const years=[...new Set([...unitReportYears,scope.year,...state.periods.map(period=>registerPeriodScope(period).year)])].filter(Boolean).sort();
+ const option=(value,label,current)=>`<option value="${esc(value)}"${value===current?' selected':''}>${esc(label)}</option>`;
+ const withoutDate=(undated||!scope.year)?option('','Sin fecha',scope.year):'';
+ const months=unitReportMonths.map((name,i)=>option(String(i+1).padStart(2,'0'),name,scope.month)).join('');
+ return `<div class="register-period-filters" role="group" aria-label="Elegir período del registro">
+  <label class="field">Semana<select class="form-control" id="register-week"${periods.length?'':' disabled'}>
+   ${periods.length?salesOptions(periods,periodId,period=>{
+    const date=registerPeriodDate(period);
+    const suffix=date&&labelCounts.get(period.label)>1?' · '+date:'';
+    return period.label+suffix+(period.locked?' · Cerrada':'');
+   }):'<option value="">Sin semanas</option>'}
+  </select></label>
+  <label class="field">Mes<select class="form-control" id="register-month">${withoutDate}${months}</select></label>
+  <label class="field">Año<select class="form-control" id="register-year">${withoutDate}${years.map(year=>option(year,year,scope.year)).join('')}</select></label>
+ </div>`;
+}
+function changeRegisterFilter(control,value){
+ if(control==='register-week'){switchPeriod(value);return;}
+ const current=registerEmptyScope||registerPeriodScope(activePeriod());
+ const today=localSaleDate();
+ const preferredMonth=current.month||today.slice(5,7);
+ let next={year:'',month:''};
+ if(value&&control==='register-month'){
+  next={year:current.year||today.slice(0,4),month:value};
+ }else if(value){
+  const months=state.periods.map(registerPeriodScope).filter(scope=>scope.year===value).map(scope=>scope.month);
+  const month=months.includes(preferredMonth)?preferredMonth:months.sort().at(-1)||preferredMonth;
+  next={year:value,month};
+ }
+ const [period]=registerPeriods(next);
+ if(period){switchPeriod(period.id);return;}
+ if(weeklyPreviewProduct)query='';
+ weeklyPreviewProduct='';registerEmptyScope=next;page=0;render();
+}
 function currentSlots(){const limit=slotCount===0?state.clients.length:slotCount;return state.clients.slice(slotOffset,slotOffset+limit);}
 function slotSelect(){const total=state.clients.length;const block=Math.min(slotCount||total,total);let ranges='';for(let i=0;i<total;i+=Math.max(block,1)){const end=Math.min(i+block,total);ranges+=`<option value="${i}" ${slotOffset===i?'selected':''}>A-${i+1} a A-${end}</option>`;}
  return `<div class="field"><label>Espacios visibles</label><select class="form-control" id="slot-count"><option value="10" ${slotCount===10?'selected':''}>10 espacios</option><option value="20" ${slotCount===20?'selected':''}>20 espacios</option><option value="50" ${slotCount===50?'selected':''}>50 espacios</option><option value="0" ${slotCount===0?'selected':''}>Todos (${total})</option></select></div><div class="field"><label>Ir al bloque</label><select class="form-control" id="slot-offset" ${slotCount===0?'disabled':''}>${ranges}</select></div>`;}
@@ -967,7 +1021,12 @@ async function exportWeeklyImage(full){
  }
 }
 function renderWeekly(){
- const period=activePeriod(),slots=currentSlots(),ids=weeklyProductIds(period),locked=period.locked;
+ const period=activePeriod(),scope=registerEmptyScope||registerPeriodScope(period);
+ const title=heading('CAPTURA DE DATOS',titleMap.weekly,'Consulta las cantidades de la semana y usa Registrar por cliente para cambiarlas.',
+  `${registerEmptyScope?'':'<button class="btn" data-action="edit-period">Editar período</button>'}<button class="btn btn-primary" data-action="new-period">+ Semana</button>`);
+ const filters=renderRegisterFilters(scope);
+ if(registerEmptyScope)return `${title}${filters}${empty('Sin semanas en este período','Elige otro mes o año, o usa + Semana para añadir un período.')}`;
+ const slots=currentSlots(),ids=weeklyProductIds(period),locked=period.locked;
  const sel=weeklyVisibleSelection(ids),rows=weeklyRows(period,sel.rows),totals=weeklyColumnTotals(period);
  const count=state.products.filter(p=>ids.has(p.id)).length;
  const desktop=rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal de solo lectura">${weeklyTable(period,slots,rows,totals,true)}</div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
@@ -980,8 +1039,7 @@ function renderWeekly(){
   <div class="week-product-head"><h3>Total semanal por cliente</h3></div>
   <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyClientTotal(totals,client)}</strong></div>`).join('')}</div>
  </article>${pageFoot(sel,'productos')}</div>`:'';
- return `${heading('CAPTURA DE DATOS','Registro semanal','Consulta las cantidades de la semana y usa Registrar por cliente para cambiarlas.',`<button class="btn" data-action="edit-period">Editar período</button><button class="btn btn-primary" data-action="new-period">+ Semana</button>`)}
- <div class="week-tabs" role="tablist" aria-label="Períodos">${state.periods.map(p=>`<button class="week-tab ${p.id===period.id?'active':''}" data-period-tab="${esc(p.id)}" role="tab" aria-selected="${p.id===period.id}">${esc(p.label)}${p.locked?' · 🔒':''}</button>`).join('')}</div>
+ return `${title}${filters}
  <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${weeklyNumber(totals.stock)}</strong></span><span>Productos de la semana: <strong>${count}</strong></span></div></div>
  <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-values"${locked?' disabled':''}>Editar precio y total</button><button type="button" class="btn btn-small" data-action="weekly-download" aria-haspopup="dialog"${count||rows.length?'':' disabled'}>Descargar imagen</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
@@ -1178,7 +1236,8 @@ function productGroupsModal(productId){
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="product-groups-form" class="btn btn-primary">Guardar categoría</button>`);
 }
 function periodModal(existing){
- const p=existing||{label:'Semana '+(state.periods.length+1),start:'',end:'',locked:false};
+ const scope=view==='weekly'?registerEmptyScope:null;
+ const p=existing||{label:'Semana '+(state.periods.length+1),start:scope?.year?scope.year+'-'+scope.month+'-01':'',end:'',locked:false};
  showModal(existing?'Editar período':'Añadir período',`<form id="period-form" data-id="${esc(existing?.id||'')}" class="modal-body"><div class="modal-grid"><div class="field full"><label>Nombre del período</label><input name="label" maxlength="70" required class="form-control" value="${esc(p.label)}"></div><div class="field"><label>Fecha de inicio</label><input type="date" name="start" class="form-control" value="${esc(p.start)}"></div><div class="field"><label>Fecha de finalización</label><input type="date" name="end" class="form-control" value="${esc(p.end)}"></div>${existing?`<div class="field full"><label class="switch-line"><input type="checkbox" name="locked" ${p.locked?'checked':''}> Bloquear edición de cantidades, precios y total semanal</label></div>`:''}</div><p>Al bloquear un período no se eliminan registros; podrás reabrirlo después. Las fechas son independientes del número de semana.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button>${existing&&state.periods.length>1?`<button class="btn btn-danger" data-action="remove-period" data-id="${esc(p.id)}">Eliminar</button>`:''}<button type="submit" form="period-form" class="btn btn-primary">Guardar período</button>`);
 }
 function submitProduct(form){
@@ -1233,7 +1292,7 @@ function submitPeriod(form){
  mutation(editId?`Período actualizado: ${label}`:`Período creado: ${label}`,()=>{
    const p=editId?state.periods.find(x=>x.id===editId):{id:id('period'),locked:false};
    if(!p)throw new Error('Período no encontrado.');Object.assign(p,{label,start,end,locked:editId?data.has('locked'):false});
-   if(!editId){state.periods.push(p);periodId=p.id;}
+   if(!editId){state.periods.push(p);periodId=p.id;registerEmptyScope=null;page=0;}
  });closeModal();
 }
 async function removalCheckpoint(label){
