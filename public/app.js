@@ -792,9 +792,11 @@ function registerCalendarWeeks(year,month){
  const firstWeekDays=7-((date.getUTCDay()+6)%7);
  date.setUTCMonth(date.getUTCMonth()+1,0);
  const lastDay=date.getUTCDate(),weeks=[];
- for(let first=1,last=Math.min(firstWeekDays,lastDay);first<=lastDay;){
+ for(let first=1;first<=lastDay;){
+  const days=weeks.length===0?firstWeekDays:7;
+  const last=weeks.length===4?lastDay:Math.min(first+days-1,lastDay);
   weeks.push({start:unitReportDay(monthKey,first),end:unitReportDay(monthKey,last)});
-  first=last+1;last=Math.min(last+7,lastDay);
+  first=last+1;
  }
  return weeks;
 }
