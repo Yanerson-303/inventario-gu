@@ -203,7 +203,7 @@ const unitReportSources={
  stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro semanal. El período se determina con la fecha de inicio de cada registro.'}
 };
 const newUnitReport=source=>({
- source,group:'product',period:'week',year:'',month:'',week:'',cross:'',query:'',page:0,active:false,
+ source,group:'product',period:'week',year:'',month:'',week:'',cross:'',query:'',page:0,
  selected:{product:new Map(),client:new Map()}
 });
 const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock'),value:newUnitReport('value')};
@@ -278,7 +278,11 @@ function reportAmount(report,amount){
 }
 function reportChart(model,report,compact=false){
  const series=reportSeries(model,report);
- if(model.error||!series.length||!model.periods.length)return `<div class="metric-vis-empty">${esc(model.error||'Selecciona filas de la tabla para graficar.')}</div>`;
+ if(!model.periods.length||!series.length){
+  if(compact)return '';
+  const message=model.periods.length?'Selecciona filas de la tabla para graficar.':'Sin períodos para graficar.';
+  return `<div class="metric-vis-empty">${message}</div>`;
+ }
  const width=compact?320:740,height=compact?112:228,left=compact?37:55,right=width-18,top=12,bottom=height-32;
  const min=series.reduce((low,entry)=>entry.values.reduce((smallest,value)=>Math.min(smallest,value),low),0);
  const max=series.reduce((high,entry)=>entry.values.reduce((largest,value)=>Math.max(largest,value),high),0);
@@ -288,16 +292,17 @@ function reportChart(model,report,compact=false){
  const tickGap=Math.max(1,Math.ceil((model.periods.length-1)/(compact?2:5)));
  const chart=`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(unitReportSources[report.source].caption)} por período"><title>Datos de las filas seleccionadas. Las cifras exactas aparecen en la tabla.</title>
  ${[0,.5,1].map(r=>`<line x1="${left}" x2="${right}" y1="${y(min+range*r)}" y2="${y(min+range*r)}" stroke="var(--line)"/><text x="${left-5}" y="${y(min+range*r)+4}" text-anchor="end" fill="var(--muted)">${esc(new Intl.NumberFormat('es-CO',{notation:'compact',maximumFractionDigits:2}).format(min+range*r))}</text>`).join('')}
- ${model.periods.map(({label},i)=>i%tickGap===0||i===model.periods.length-1?`<text x="${x(i)}" y="${bottom+21}" text-anchor="${i===0?'start':i===model.periods.length-1?'end':'middle'}" fill="var(--muted)">${esc(compact&&/^\d{4}-\d{2}-\d{2}$/.test(label)?label.slice(5):label)}</text>`:'').join('')}
+ ${model.periods.map(({label},i)=>i%tickGap===0||i===model.periods.length-1?`<text x="${x(i)}" y="${bottom+21}" text-anchor="${model.periods.length===1?'middle':i===0?'start':i===model.periods.length-1?'end':'middle'}" fill="var(--muted)">${esc(compact&&/^\d{4}-\d{2}-\d{2}$/.test(label)?label.slice(5):label)}</text>`:'').join('')}
  ${series.map((entry,index)=>`<polyline points="${entry.values.map((value,i)=>x(i).toFixed(2)+','+y(value).toFixed(2)).join(' ')}" stroke="${entry.color}" fill="none" stroke-width="2.5" stroke-linejoin="round"${index?` stroke-dasharray="${4+index%6} ${3+index%3}"`:''}/>${entry.values.length<=20?entry.values.map((value,i)=>`<circle cx="${x(i)}" cy="${y(value)}" r="3" fill="${entry.color}"><title>${esc(entry.label)} · ${esc(model.periods[i].label)} · ${reportAmount(report,value)}</title></circle>`).join(''):''}`).join('')}</svg>`;
  return `<div class="unit-report-chart${compact?' unit-report-compact':''}">${chart}<ul class="unit-report-legend">${series.map(item=>`<li><i style="background-color:${item.color}"></i>${esc(item.label)}</li>`).join('')}</ul></div>`;
 }
 function unitReportRows(model,report){
- if(model.error)return `<p class="muted" role="status">${esc(model.error)}</p>`;
  const selected=report.selected[report.group];
  const query=report.query.toLocaleLowerCase('es').trim();
  const rows=model.entities.filter(item=>item.label.toLocaleLowerCase('es').includes(query));
- const size=16,last=Math.max(0,Math.ceil(rows.length/size)-1),start=Math.min(report.page,last)*size;
+ const size=16,last=Math.max(0,Math.ceil(rows.length/size)-1);
+ report.page=Math.min(Math.max(0,report.page),last);
+ const start=report.page*size;
  if(!rows.length)return '<p class="muted" role="status">Sin resultados para este filtro.</p>';
  return `<div class="table-scroll unit-report-table"><table class="data-table"><caption>${esc(unitReportSources[report.source].caption)}</caption><thead><tr><th scope="col">${report.group==='product'?'Producto':'Cliente'}</th>${model.periods.map(period=>`<th scope="col">${esc(period.label)}</th>`).join('')}<th scope="col">Total</th></tr></thead><tbody>${rows.slice(start,start+size).map(item=>{
   const result=model.byId.get(item.id),color=selected.get(item.id);
@@ -306,7 +311,8 @@ function unitReportRows(model,report){
 }
 function unitReportCard(source,originalChart,summary=''){
  const report=unitReports[source];
- return `<div class="unit-report-card"><div id="unit-report-preview-${source}">${report.active?reportChart(unitReportModel(report),report,true):originalChart}</div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<div class="unit-report-actions"><button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button><button type="button" class="btn btn-small" data-action="inventory-download" data-id="${source}">Descargar inventario</button></div></div>`;
+ const preview=report.selected[report.group].size?reportChart(unitReportModel(report),report,true):'';
+ return `<div class="unit-report-card"><div id="unit-report-preview-${source}"><div data-unit-original ${preview?'hidden':''}>${originalChart}</div><div data-unit-custom ${preview?'':'hidden'}>${preview}</div></div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<div class="unit-report-actions"><button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button><button type="button" class="btn btn-small" data-action="inventory-download" data-id="${source}">Descargar inventario</button></div></div>`;
 }
 function openInventoryDownload(source){
  showModal('Descargar inventario',`<div class="modal-body"><div class="unit-report-actions">
@@ -345,11 +351,18 @@ function openUnitReport(source){
  </div>`,`<button type="button" class="btn" data-action="close-modal">Cerrar</button>`);
  const root=$('.unit-report-body'),table=$('[data-unit-table]',root),chart=$('[data-unit-chart]',root);
  const labels=()=>{$('[data-unit-cross-label]',root).textContent=report.group==='product'?'Filtrar por cliente':'Filtrar por producto';};
- const refresh=({preview=false,focus=''}={})=>{
+ const refresh=(focus='')=>{
   const model=unitReportModel(report);
   table.innerHTML=unitReportRows(model,report);
   chart.innerHTML=reportChart(model,report);
-  if(preview){report.active=true;const target=$(`#unit-report-preview-${source}`);if(target)target.innerHTML=reportChart(model,report,true);}
+  const target=$(`#unit-report-preview-${source}`);
+  if(target){
+   const custom=$('[data-unit-custom]',target),original=$('[data-unit-original]',target);
+   const preview=reportChart(model,report,true);
+   custom.innerHTML=preview;
+   custom.hidden=!preview;
+   original.hidden=!!preview;
+  }
   if(focus)$$('[data-unit-series]',table).find(box=>box.value===focus)?.focus({preventScroll:true});
  };
  labels();refresh();
@@ -369,7 +382,7 @@ function openUnitReport(source){
     selected.set(el.value,color);
    }else selected.delete(el.value);
    const scroller=$('.unit-report-table',table),scroll=scroller?.scrollLeft||0;
-   refresh({preview:true,focus:el.value});
+   refresh(el.value);
    const next=$('.unit-report-table',table);if(next)next.scrollLeft=scroll;
    return;
   }
@@ -384,7 +397,7 @@ function openUnitReport(source){
    $('[data-unit-month]',root).hidden=!['week','month'].includes(report.period);
    $('[data-unit-week]',root).hidden=report.period!=='week';
   }
-  refresh({preview:report.active});
+  refresh();
  });
  root.addEventListener('click',event=>{
   const button=event.target.closest('[data-unit-page]');if(!button)return;
@@ -588,21 +601,8 @@ function dashboardInventoryRows(){
  return [['Producto','Saldo disponible','Cantidad registrada','Valor total'],...totals.rows.map(r=>[r.product.name,r.N,r.H,r.P])];
 }
 async function exportInventoryExcel(){
- const zip=new window.JSZip();
- const mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
- const main='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
- const relationships='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
- const packageRoot='http://schemas.openxmlformats.org/package/2006';
- const text=value=>String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
- const rows=dashboardInventoryRows().map(row=>`<row>${row.map(value=>typeof value==='number'&&Number.isFinite(value)
-  ?`<c><v>${value}</v></c>`
-  :`<c t="inlineStr"><is><t xml:space="preserve">${text(value)}</t></is></c>`).join('')}</row>`).join('');
- zip.file('[Content_Types].xml',`<Types xmlns="${packageRoot}/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
- zip.file('_rels/.rels',`<Relationships xmlns="${packageRoot}/relationships"><Relationship Id="rId1" Type="${relationships}/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
- zip.file('xl/workbook.xml',`<workbook xmlns="${main}" xmlns:r="${relationships}"><sheets><sheet name="Inventario" sheetId="1" r:id="rId1"/></sheets></workbook>`);
- zip.file('xl/_rels/workbook.xml.rels',`<Relationships xmlns="${packageRoot}/relationships"><Relationship Id="rId1" Type="${relationships}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`);
- zip.file('xl/worksheets/sheet1.xml',`<worksheet xmlns="${main}"><sheetData>${rows}</sheetData></worksheet>`);
- downloadBlob(await zip.generateAsync({type:'blob',mimeType:mime,compression:'DEFLATE'}),filename('Inventarios_GU_Inventario','xlsx'));
+ const workbook=await window.GU4Excel.writeWorkbook([{name:'Inventario',rows:dashboardInventoryRows()}]);
+ downloadBlob(workbook,filename('Inventarios_GU_Inventario','xlsx'));
 }
 function exportDashboardCSV(){
  const rows=dashboardInventoryRows();
@@ -627,6 +627,11 @@ async function exportDashboardImage(button,panel=$('#main-content'),name='Invent
       const token=node.getAttribute(attribute)?.match(/^var\((--[\w-]+)\)$/)?.[1];
       if(token)node.setAttribute(attribute,doc.defaultView.getComputedStyle(node).getPropertyValue(token).trim());
      }
+    });
+    copy.querySelectorAll('.unit-report-chart text').forEach(node=>{
+     const font=doc.defaultView.getComputedStyle(node);
+     node.style.fontFamily=font.fontFamily;
+     node.style.fontSize=font.fontSize;
     });
    }
   });
@@ -1137,16 +1142,17 @@ function editValue(el){
 function sampleData(){
  if(state.products.length && !confirm('Se agregarán 6 productos de ejemplo, sin borrar los tuyos. ¿Continuar?'))return;
  const catalog=[['Té verde','Infusiones',2,0,14000,12,12],['Té de jazmín','Infusiones',0,1,16000,10,10],['Té negro','Infusiones',1,0,13500,7,12],['Leche de almendras','Bebidas',2,4,8500,6,6],['Jarabe de lichi','Ingredientes',0,2,22000,5,8],['Infusión de frutas','Bebidas',0,0,11000,3,12]];
- mutation('Se agregaron productos de demostración (datos ficticios)',()=>{
+ if(mutation('Se agregaron productos de demostración (datos ficticios)',()=>{
+   const clients=state.clients.slice(0,6);
    catalog.forEach((row,i)=>{
      const p={id:id('demo'),name:row[0],category:row[1],unit:'unidad',quantityN:row[2],quantityV:row[3],value:row[4],average:row[5],boxes:row[6],createdAt:new Date().toISOString()};state.products.push(p);
      state.periods.slice(0,5).forEach((w,wi)=>{
        if(!state.movements[w.id])state.movements[w.id]={};state.movements[w.id][p.id]={};
-       for(let n=0;n<6;n++){const q=(i*3+wi*2+n)%8;if(q>1)state.movements[w.id][p.id][state.clients[n].id]=q;}
+       clients.forEach((client,n)=>{const q=(i*3+wi*2+n)%8;if(q>1)state.movements[w.id][p.id][client.id]=q;});
        if(!state.prices[w.id])state.prices[w.id]={};state.prices[w.id][p.id]=row[4];
      });
    });
- });toast('Se crearon seis productos de ejemplo. Puedes editarlos o eliminarlos.');
+ }))toast('Se crearon seis productos de ejemplo. Puedes editarlos o eliminarlos.');
 }
 // Copias y migración (esquema versionado + SHA-256 cuando está disponible).
 function downloadBlob(content,filename,type='application/json;charset=utf-8'){const blob=content instanceof Blob?content:new Blob([content],{type});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);}

@@ -12,7 +12,7 @@ function spark(items, label='Evolución de los movimientos', opts={}) {
  if(!data.length)return empty('Sin períodos para graficar');
  const vals=data.map(d=>num(d.value));
  if(vals.every(v=>v===0)&&opts.emptyWhenZero)return empty('Sin movimientos registrados');
- const w=240,h=76,pad=8,min=Math.min(0,...vals),max=Math.max(0,...vals),range=Math.max(1,max-min);
+ const w=240,h=76,pad=8,min=Math.min(0,...vals),max=Math.max(0,...vals),range=max-min||1;
  const pts=vals.map((v,i)=>[pad+(w-2*pad)*(data.length===1?.5:i/(data.length-1)),pad+(h-2*pad)*(max-v)/range]);
  const zeroY=pad+(h-2*pad)*max/range;
  const points=pts.map(([x,y])=>x.toFixed(2)+','+y.toFixed(2)).join(' ');
@@ -24,7 +24,7 @@ function spark(items, label='Evolución de los movimientos', opts={}) {
 function barRows(items,label='Comparación de valores',opts={}){
  const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value)));
  if(!rows.length)return empty(opts.empty||'Sin datos para comparar');
- const max=Math.max(1,...rows.map(i=>Math.abs(num(i.value))));
+ const max=rows.reduce((largest,row)=>Math.max(largest,Math.abs(num(row.value))),0)||1;
  return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(rows.map(i=>`${i.label} ${fmt(i.value)}`).join(', '))}">${rows.slice(0,5).map(i=>{const amount=num(i.value),width=clamp(Math.abs(amount)/max*100,0,100);return `<div class="metric-bar-row" tabindex="0" aria-label="${esc(i.label)}: ${esc(fmt(amount))}"><div class="metric-bar-top"><span title="${esc(i.label)}">${esc(i.label)}</span><b class="mono">${esc(fmt(amount))}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(i.color||'var(--accent)')}"></i></div></div>`}).join('')}</div>`;
 }
 function donut(items,label='Distribución',opts={}){
@@ -32,7 +32,12 @@ function donut(items,label='Distribución',opts={}){
  const total=rows.reduce((a,b)=>a+b.value,0);
  if(!total)return empty(opts.empty||'Sin valores para distribuir');
  const circumference=2*Math.PI*34;let offset=0;
- const paths=rows.filter(r=>r.value>0).map(r=>{const len=r.value/total*circumference;const p=`<circle class="metric-slice" cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${Math.max(0,len-0.4).toFixed(2)} ${circumference.toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 46 46)" tabindex="0"><title>${esc(r.label)}: ${esc(fmt(r.value))}</title></circle>`;offset+=len;return p;}).join('');
+ const paths=rows.filter(r=>r.value>0).map(r=>{
+  const len=r.value/total*circumference,visible=len-Math.min(0.4,len/2);
+  const slice=`<circle class="metric-slice" cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${visible} ${circumference}" stroke-dashoffset="${-offset}" transform="rotate(-90 46 46)" tabindex="0"><title>${esc(r.label)}: ${esc(fmt(r.value))}</title></circle>`;
+  offset+=len;
+  return slice;
+ }).join('');
  const aria=rows.map(r=>`${r.label}: ${fmt(r.value)} (${Math.round(r.value/total*100)}%)`).join('; ');
  return `<div class="metric-donut-wrap"><svg class="metric-donut" viewBox="0 0 92 92" role="img" aria-label="${esc(label)}. ${esc(aria)}"><circle cx="46" cy="46" r="34" stroke="var(--line)" fill="none" stroke-width="12"/>${paths}<text x="46" y="45" fill="var(--text)" font-size="15" font-weight="800" text-anchor="middle">${esc(opts.center||fmt(total))}</text><text x="46" y="58" fill="var(--muted)" font-size="7" text-anchor="middle">${esc(opts.sub||'total')}</text></svg><div class="metric-legend">${rows.map(r=>`<div class="metric-legend-row"><i style="background:${esc(r.color)}"></i><span>${esc(r.label)}</span><b class="mono">${fmt(r.value)}</b></div>`).join('')}</div></div>`;
 }
