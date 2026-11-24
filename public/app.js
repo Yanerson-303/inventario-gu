@@ -23,7 +23,7 @@ let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,q
 let registerEmptyScope=null;
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false;
 const tabId=id('tab');
-const titleMap={dashboard:'Panel general',weekly:'Registro semanal',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
+const titleMap={dashboard:'Panel general',weekly:'Registro',final:'Consolidado',products:'Productos',clients:'Clientes / espacios',audit:'Historial',backup:'Copias y migración',settings:'Configuración',sales:'Comparar ventas'};
 function newState(){
  return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],weeklyOrigins:{},lots:[],catalogGroups:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
@@ -131,7 +131,7 @@ function openDashboardMenu(trigger){
  const action=(label,attribute)=>`<button type="button" class="btn" ${attribute}>${esc(label)}</button>`;
  const prefs=metricPrefs();
  const menu={
-  inventory:()=>action('Añadir producto','data-action="new-product"')+action('Abrir registro semanal','data-nav="weekly"')+action('Ver consolidado','data-nav="final"')+action('Comparar ventas','data-nav="sales"')+(!state.products.length?action('Cargar demostración','data-action="demo"'):'')+`<details class="dashboard-menu-section"><summary>Mostrar u ocultar métricas</summary><div class="dashboard-menu-grid">${['volumen','saldo','valor'].map(id=>action(`${prefs[id]?'Mostrar':'Contraer'} ${metricLabels[id].toLowerCase()}`,`data-dashboard-metric="${id}"`)).join('')}</div></details>`,
+  inventory:()=>action('Añadir producto','data-action="new-product"')+action('Abrir Registro','data-nav="weekly"')+action('Ver consolidado','data-nav="final"')+action('Comparar ventas','data-nav="sales"')+(!state.products.length?action('Cargar demostración','data-action="demo"'):'')+`<details class="dashboard-menu-section"><summary>Mostrar u ocultar métricas</summary><div class="dashboard-menu-grid">${['volumen','saldo','valor'].map(id=>action(`${prefs[id]?'Mostrar':'Contraer'} ${metricLabels[id].toLowerCase()}`,`data-dashboard-metric="${id}"`)).join('')}</div></details>`,
   export:()=>action('Descargar imagen PNG','data-dashboard-export="png"')+action('Exportar resumen CSV','data-dashboard-export="csv"')
  };
  dialog.innerHTML=`<div class="modal-head"><h2 id="dashboard-menu-title">${titles[kind]}</h2><button type="button" class="icon-btn" data-dashboard-dismiss aria-label="Cerrar" autofocus>×</button></div><div class="modal-body dashboard-menu-body">${menu[kind]()}</div>`;
@@ -177,7 +177,7 @@ function renderCapacityAlert(exceeded){
  ${traceTable(['Producto','Cupo registrado','Usadas en semanas','Vendidas','Unidades de exceso'],exceeded.map(row=>[
   esc(row.product.name),units(row.registered),units(row.weekly),units(row.sold),units(row.excess)
  ]))}
- <p>El exceso se calcula por producto usando la mayor cantidad entre Registro semanal y ventas.</p>
+ <p>El exceso se calcula por producto usando la mayor cantidad entre Registro y ventas.</p>
  </details></section>`;
 }
 function renderDashboard(){
@@ -200,8 +200,8 @@ function renderDashboard(){
 }
 const unitReportSources={
  sales:{title:'Filtrar ventas · Unidades registradas',button:'Filtrar ventas',caption:'Unidades vendidas'},
- value:{title:'Filtrar valor · Inventario',button:'Filtrar valor',caption:'Valor registrado',description:'Multiplica las unidades del Registro semanal por el valor unitario actual de cada producto. El saldo total del inventario aplica además los ajustes globales del producto. El período se determina con la fecha de inicio de cada registro.'},
- stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro semanal. El período se determina con la fecha de inicio de cada registro.'}
+ value:{title:'Filtrar valor · Inventario',button:'Filtrar valor',caption:'Valor registrado',description:'Multiplica las unidades del Registro por el valor unitario actual de cada producto. El saldo total del inventario aplica además los ajustes globales del producto. El período se determina con la fecha de inicio de cada registro.'},
+ stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro. El período se determina con la fecha de inicio de cada registro.'}
 };
 const newUnitReport=source=>({
  source,group:'product',period:'week',year:'',month:'',week:'',cross:'',query:'',page:0,
@@ -603,7 +603,7 @@ function renderSales(){
  const salesPage=selection(visible);
  const lotsById=new Map(lots.map(lot=>[lot.id,lot]));
  return `${heading('MÉTRICAS','Comparar ventas','Consulta ventas por producto y cliente, y compara el tiempo de salida de dos productos.')}
- <p class="sales-note">Las compras se registran desde las casillas del Registro semanal. Las ventas guardadas anteriormente también aparecen en el historial.</p>
+ <p class="sales-note">Las compras se registran desde las casillas del Registro. Las ventas guardadas anteriormente también aparecen en el historial.</p>
  ${!products.length?empty('Agrega un producto para empezar','Después podrás registrar ventas y comparar resultados.','new-product','Añadir producto'):''}
  <section class="card card-pad sales-section"><h2 id="sales-monthly" tabindex="-1">Productos y clientes por mes</h2>
  <form id="sales-filters" class="sales-fields">
@@ -627,7 +627,7 @@ function renderSales(){
  <section class="card card-pad sales-section"><h2>Existencias por lote</h2><p><strong>${traceQuantity(received)}</strong> recibidas · <strong>${traceQuantity(received-available)}</strong> vendidas · <strong>${traceQuantity(available)}</strong> disponibles · <strong>${traceQuantity(unplaced)}</strong> sin rack.</p><p class="muted">Las ventas históricas sin lote siguen en los totales por mes y cliente. Las existencias por lote se calculan desde las recepciones y las ventas vinculadas.</p></section>
  <section class="sales-section dashboard-visual-row trace-warehouse" aria-label="Ubicaciones de los lotes">${window.AlmendraWarehouse?.render(state)||''}</section>
  <section class="card card-pad sales-section"><h2>Ventas registradas · ${month}</h2>
- ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Lote','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${esc(s.origin?.lotCode||lotsById.get(s.lotId)?.code||'Sin lote registrado')}</td><td>${traceQuantity(s.units)}</td><td>${s.weeklyPeriodId?'Registro semanal':`<button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button>`}</td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
+ ${salesPage.rows.length?table(['Fecha','Producto','Cliente','Lote','Unidades','Acción'],salesPage.rows.map(s=>`<tr><td>${s.date}</td><td>${esc(productNames.get(s.productId)||s.productName)}</td><td>${esc(clientNames.get(s.clientId)||s.clientName)}</td><td>${esc(s.origin?.lotCode||lotsById.get(s.lotId)?.code||'Sin lote registrado')}</td><td>${traceQuantity(s.units)}</td><td>${s.weeklyPeriodId?'Registro':`<button type="button" class="btn btn-small" data-action="void-sale" data-id="${esc(s.id)}">Anular</button>`}</td></tr>`))+pageFoot(salesPage,'ventas'):'<p class="muted">Todavía no hay ventas para este mes.</p>'}</section>`;
 }
 function submitSales(form){
  const data=Object.fromEntries(new FormData(form));
@@ -953,7 +953,7 @@ function openWeeklyDownload(){
   <button type="button" class="btn" data-action="weekly-image" data-id="visible"${visible.rows.length?'':' disabled'}>Tabla actual</button>
   <p class="muted">Página, búsqueda y grupo de clientes que tienes seleccionados.</p>
   <button type="button" class="btn" data-action="weekly-image" data-id="full"${ids.size?'':' disabled'}>Tabla completa de la semana</button>
-  <p class="muted">Todos los productos y clientes del registro semanal.</p>
+  <p class="muted">Todos los productos y clientes del Registro.</p>
   <div class="muted" data-weekly-export-status role="status"></div>
  </div>`);
  $('[data-action="weekly-image"]:not(:disabled)')?.focus();
@@ -962,7 +962,7 @@ async function captureWeeklyImage(period,slots,rows,totals){
  const image=document.createElement('section');
  image.className='weekly-export';
  image.setAttribute('aria-hidden','true');
- image.innerHTML=`<h2>Registro semanal · ${esc(period.label)}</h2>${weeklyTable(period,slots,rows,totals)}<p>* Estimado = stock semanal × precio.</p>`;
+ image.innerHTML=`<h2>Registro · ${esc(period.label)}</h2>${weeklyTable(period,slots,rows,totals)}<p>* Estimado = stock semanal × precio.</p>`;
  document.body.append(image);
  try{
   const {width,height}=image.getBoundingClientRect(),maxEdge=15000,maxPixels=12000000;
@@ -1052,7 +1052,7 @@ function renderFinal(){
  const columns=[['quantityN','Cantidad.N (L)'],['quantityV','Cantidad.V (M)'],['value','Valor (O)'],['average','Promedio (S)'],['boxes','Cajas (U)']];
  const editable=(p,field)=>numInput('product-field',p[field]??0,`data-product="${esc(p.id)}" data-field="${field}" aria-label="${esc(field)} de ${esc(p.name)}"`);
  const table=sel.rows.length?`<div class="card final-table"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${state.periods.map(p=>`<th class="num">${esc(p.label)}</th>`).join('')}<th class="num">Registrado H</th><th class="num">Cantidad.N</th><th class="num">Cantidad.V</th><th class="num">L+M (J)</th><th class="num">Saldo N</th><th class="num">Valor O</th><th class="num">Total P</th><th class="num">Q</th><th class="num">R = -Q</th><th class="num">Promedio S</th><th class="num">Meses T</th><th class="num">Cajas U</th><th>CYU (V)</th></tr></thead><tbody>${sel.rows.map(pr=>{const r=C.result(state,pr);return `<tr><td class="sticky-first">${productButton(pr)}</td>${r.weekly.map((n,i)=>`<td class="num"><button class="product-link mono" data-action="jump-week" data-id="${esc(pr.id)}" data-period="${esc(state.periods[i].id)}">${format(n)}</button></td>`).join('')}<td class="num t-em">${format(r.H)}</td><td>${editable(pr,'quantityN')}</td><td>${editable(pr,'quantityV')}</td><td class="num">${format(r.J)}</td><td class="num t-em">${statusBalance(r.N)}</td><td>${editable(pr,'value')}</td><td class="num t-em">${money(r.P)}</td><td class="num">${format(r.Q)}</td><td class="num">${format(r.R)}</td><td>${editable(pr,'average')}</td><td class="num">${r.T===null?'<span class="badge warn">Sin promedio</span>':format(r.T)}</td><td>${editable(pr,'boxes')}</td><td>${r.V===null?'<span class="badge warn">Sin cajas</span>':esc(r.V)}</td></tr>`;}).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay resultados',state.products.length?'No hay coincidencias con ese nombre.':'Agrega un producto o importa una copia de tus datos.','new-product','Añadir producto');
- const cards=sel.rows.length?`<div class="final-mobile">${sel.rows.map(p=>{const r=C.result(state,p);return `<article class="card card-pad"><div class="week-product-head">${productButton(p)}<span class="badge ${r.N<0?'danger':'good'}">Saldo: ${format(r.N)}</span></div><div class="mini-summary-grid"><div><small>Registrado (H)</small><b>${format(r.H)}</b></div><div><small>Valorización (P)</small><b>${money(r.P)}</b></div><div><small>Meses (T)</small><b>${r.T===null?'—':format(r.T)}</b></div><div><small>Cajas / unidades</small><b>${esc(r.V??'—')}</b></div></div><div class="week-product-grid">${columns.map(([key,label])=>`<div class="field"><label>${esc(label)}</label><input class="form-control" type="number" inputmode="decimal" step="any" value="${esc(p[key]??0)}" data-edit="product-field" data-field="${key}" data-product="${esc(p.id)}"></div>`).join('')}</div><div class="week-product-foot"><span>Ver registro semanal</span><button class="btn btn-small" data-action="jump-week" data-id="${esc(p.id)}" data-period="${esc(state.periods[0].id)}">Abrir →</button></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:`<div class="final-mobile">${empty('Sin resultados','Crea productos o importa una copia de tus datos.','new-product','Añadir producto')}</div>`;
+ const cards=sel.rows.length?`<div class="final-mobile">${sel.rows.map(p=>{const r=C.result(state,p);return `<article class="card card-pad"><div class="week-product-head">${productButton(p)}<span class="badge ${r.N<0?'danger':'good'}">Saldo: ${format(r.N)}</span></div><div class="mini-summary-grid"><div><small>Registrado (H)</small><b>${format(r.H)}</b></div><div><small>Valorización (P)</small><b>${money(r.P)}</b></div><div><small>Meses (T)</small><b>${r.T===null?'—':format(r.T)}</b></div><div><small>Cajas / unidades</small><b>${esc(r.V??'—')}</b></div></div><div class="week-product-grid">${columns.map(([key,label])=>`<div class="field"><label>${esc(label)}</label><input class="form-control" type="number" inputmode="decimal" step="any" value="${esc(p[key]??0)}" data-edit="product-field" data-field="${key}" data-product="${esc(p.id)}"></div>`).join('')}</div><div class="week-product-foot"><span>Ver Registro</span><button class="btn btn-small" data-action="jump-week" data-id="${esc(p.id)}" data-period="${esc(state.periods[0].id)}">Abrir →</button></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:`<div class="final-mobile">${empty('Sin resultados','Crea productos o importa una copia de tus datos.','new-product','Añadir producto')}</div>`;
  return `${heading('CONSOLIDADO / FINAL','Consolidado','Saldos y valorización calculados según las fórmulas originales.',`<button class="btn" data-action="csv-final">Exportar CSV</button><button class="btn btn-primary" data-nav="weekly">Ir a semanas</button>`)}
  <div class="final-summary"><div class="mini-kpi">H · Registro total<strong>${format(allTotals.quantity)}</strong></div><div class="mini-kpi">N · Saldo total<strong class="${allTotals.balance<0?'text-danger':''}">${format(allTotals.balance)}</strong></div><div class="mini-kpi">P · Valor global<strong>${money(allTotals.value)}</strong></div><div class="mini-kpi">Productos filtrados<strong>${all.length} de ${state.products.length}</strong></div></div>
  <section class="card card-pad final-week-totals" aria-labelledby="final-week-totals-title"><h2 id="final-week-totals-title">Totales por semana</h2>
@@ -1203,7 +1203,7 @@ function paletteSwatch(label,key,description,a,b,c){return `<button class="theme
 function renderSettings(){return `${heading('PERSONALIZACIÓN','Configuración','Apariencia, preferencias y aplicación.')}
  <div class="settings-grid"><article class="card card-pad"><div class="card-title"><div><h3>Paletas de color</h3><p>Tres estilos que cambian toda la interfaz.</p></div></div><div class="theme-grid">${paletteSwatch('Almendra','almond','Crema y marrón','#78583e','#f3eee7','#d6b993')}${paletteSwatch('Rojo y oro','redgold','Inspiración oriental','#9b292b','#f9ead9','#dbb15e')}${paletteSwatch('Gris y plata','silver','Diseño metálico','#576878','#edf0f4','#bbc6d0')}</div><div class="section-label">Luminosidad</div><div class="mode-switch"><button class="btn ${state.settings.mode==='light'?'active':''}" data-mode-change="light">☀ Modo diurno</button><button class="btn ${state.settings.mode==='dark'?'active':''}" data-mode-change="dark">☾ Modo oscuro</button></div></article>
  <article class="card card-pad"><div class="card-title"><div><h3>Preferencias de trabajo</h3><p>Se guardan localmente con el resto de tu configuración.</p></div></div><div class="field" style="margin-bottom:16px"><label>Moneda para valorización</label><select id="setting-currency" class="form-control"><option value="COP" ${state.settings.currency==='COP'?'selected':''}>COP · Peso colombiano</option><option value="USD" ${state.settings.currency==='USD'?'selected':''}>USD · Dólar</option><option value="EUR" ${state.settings.currency==='EUR'?'selected':''}>EUR · Euro</option><option value="MXN" ${state.settings.currency==='MXN'?'selected':''}>MXN · Peso mexicano</option><option value="CNY" ${state.settings.currency==='CNY'?'selected':''}>CNY · Yuan chino</option></select></div><div class="field"><label>Productos mostrados por página</label><select id="setting-pagesize" class="form-control"><option value="10" ${state.settings.pageSize===10?'selected':''}>10</option><option value="20" ${state.settings.pageSize===20?'selected':''}>20</option><option value="40" ${state.settings.pageSize===40?'selected':''}>40</option><option value="80" ${state.settings.pageSize===80?'selected':''}>80</option></select></div><div class="section-label">Densidad de interfaz</div><div class="gu-density-options" role="group" aria-label="Densidad visual"><button type="button" class="btn btn-small" data-density-change="comfortable" aria-pressed="${state.settings.density!=='compact'}">Cómoda</button><button type="button" class="btn btn-small" data-density-change="compact" aria-pressed="${state.settings.density==='compact'}">Compacta</button></div><div class="section-label">Sonidos discretos</div><div class="gu-density-options gu-sound-options" role="group" aria-label="Sonidos de interfaz"><button type="button" class="btn btn-small" data-gu-sound="on" aria-pressed="${window.GUFeedback?.isEnabled()!==false}">Activar</button><button type="button" class="btn btn-small" data-gu-sound="off" aria-pressed="${window.GUFeedback?.isEnabled()===false}">Silenciar</button><span class="gu-sound-status" id="gu-sound-state" aria-live="polite">${window.GUFeedback?.isEnabled()===false?'Silenciados':'Activados'}</span></div><div class="section-label">Información de almacenamiento</div><div class="info-list"><div class="info-row"><span>Productos</span><b>${state.products.length}</b></div><div class="info-row"><span>Espacios</span><b>${state.clients.length}</b></div><div class="info-row"><span>Semanas / períodos</span><b>${state.periods.length}</b></div><div class="info-row"><span>Última modificación</span><b>${esc(stamp(state.updatedAt))}</b></div><div class="info-row"><span>Almacenamiento</span><b>IndexedDB + cookies visuales</b></div></div></article></div>
- <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Administración rápida</h3><p>Acceso a las herramientas adicionales desde el teléfono.</p></div></div><div class="page-tools"><button class="btn" data-nav="clients">Clientes y espacios</button><button class="btn" data-nav="audit">Historial de cambios</button><button class="btn" data-nav="weekly">Semanas</button></div></div>
+ <div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Administración rápida</h3><p>Acceso a las herramientas adicionales desde el teléfono.</p></div></div><div class="page-tools"><button class="btn" data-nav="clients">Clientes y espacios</button><button class="btn" data-nav="audit">Historial de cambios</button><button class="btn" data-nav="weekly">Registro</button></div></div>
  ${window.GUInstall?`<div class="card card-pad" style="margin-top:18px"><div class="card-title"><div><h3>Aplicación para PC, Android y iPhone</h3><p>Instalable desde el navegador, con modo sin conexión y datos locales.</p></div></div><button class="btn btn-primary" type="button" data-action="install-app">Instalar / preparar offline</button><p class="muted" style="margin-top:10px">Para usar en otro dispositivo, instala allí y transfiere los datos mediante Copias y migración.</p></div>`:''}
  <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">La demostración crea productos ficticios con cantidades de ejemplo. No debe confundirse con el Excel original.</p><button class="btn" data-action="demo">Añadir datos de demostración</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
 // Formularios de edición.
@@ -1236,7 +1236,7 @@ function productGroupsModal(productId){
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="product-groups-form" class="btn btn-primary">Guardar categoría</button>`);
 }
 function periodModal(existing){
- const scope=view==='weekly'?registerEmptyScope:null;
+ const scope=view==='weekly'?(registerEmptyScope||registerPeriodScope(activePeriod())):null;
  const p=existing||{label:'Semana '+(state.periods.length+1),start:scope?.year?scope.year+'-'+scope.month+'-01':'',end:'',locked:false};
  showModal(existing?'Editar período':'Añadir período',`<form id="period-form" data-id="${esc(existing?.id||'')}" class="modal-body"><div class="modal-grid"><div class="field full"><label>Nombre del período</label><input name="label" maxlength="70" required class="form-control" value="${esc(p.label)}"></div><div class="field"><label>Fecha de inicio</label><input type="date" name="start" class="form-control" value="${esc(p.start)}"></div><div class="field"><label>Fecha de finalización</label><input type="date" name="end" class="form-control" value="${esc(p.end)}"></div>${existing?`<div class="field full"><label class="switch-line"><input type="checkbox" name="locked" ${p.locked?'checked':''}> Bloquear edición de cantidades, precios y total semanal</label></div>`:''}</div><p>Al bloquear un período no se eliminan registros; podrás reabrirlo después. Las fechas son independientes del número de semana.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button>${existing&&state.periods.length>1?`<button class="btn btn-danger" data-action="remove-period" data-id="${esc(p.id)}">Eliminar</button>`:''}<button type="submit" form="period-form" class="btn btn-primary">Guardar período</button>`);
 }
@@ -1574,7 +1574,7 @@ async function applyImport(){
   const merged=mode==='merge'?mergeStates(state,incoming):incoming;
   undoStack.push(clone(state));state=merged;
   state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),label:`Migración ${mode==='merge'?'fusionada':'restaurada'} desde JSON`,actor:'Este dispositivo',at:state.updatedAt});
-  periodId=state.periods[0].id;slotOffset=0;page=0;query='';pendingImport=null;closeModal();scheduleSave();await refreshBackups();navigate('dashboard');toast('Migración realizada. Los datos se han recuperado.');
+  periodId=state.periods[0].id;registerEmptyScope=null;slotOffset=0;page=0;query='';pendingImport=null;closeModal();scheduleSave();await refreshBackups();navigate('dashboard');toast('Migración realizada. Los datos se han recuperado.');
  }catch(e){toast('No se pudo completar la migración: '+e.message);}
 }
 async function makeSnapshot(){try{const entry={id:id('snapshot'),createdAt:new Date().toISOString(),type:'manual',label:'Copia manual',data:clone(state)};await DB.backup(entry);await refreshBackups();render();toast(DB.mode?.()==='memory'?'Copia temporal creada. Descarga un JSON antes de cerrar la vista previa.':'Copia interna creada. Descárgala si quieres protegerla fuera del navegador.');}catch(e){toast('No se pudo crear la copia: '+e.message);}}
@@ -1584,7 +1584,7 @@ async function restoreSnapshot(snapshotId){
  if(!confirm(`¿Restaurar la copia de ${stamp(entry.createdAt)}? Se reemplazarán los datos actuales. Se guardará una copia previa.`))return;
  try{await DB.backup({id:id('before'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restaurar',data:clone(state)});
   const recovered=normalizeImported(entry.data);undoStack.push(clone(state));state=recovered;state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),at:state.updatedAt,actor:'Este dispositivo',label:'Copia interna restaurada'});
-  periodId=state.periods[0].id;slotOffset=0;page=0;query='';scheduleSave();await refreshBackups();navigate('dashboard');toast('Se restauraron productos, movimientos y configuración.');
+  periodId=state.periods[0].id;registerEmptyScope=null;slotOffset=0;page=0;query='';scheduleSave();await refreshBackups();navigate('dashboard');toast('Se restauraron productos, movimientos y configuración.');
  }catch(e){toast('No fue posible restaurar: '+e.message);}
 }
 function csvEscape(value,textual=false){let string=String(value??'');if(textual&&/^[\s]*[=+@\-\t\r]/.test(string))string="'"+string;return '"'+string.replace(/"/g,'""')+'"';}
@@ -1599,7 +1599,7 @@ function csvMovements(){
  csvDownload(rows,'Registros');
 }
 // Buscador global: navegación y acceso a productos con Ctrl/Cmd+K.
-const searchTargets=[['dashboard','Panel general'],['weekly','Registro semanal'],['final','Consolidado'],['products','Productos'],['clients','Clientes / espacios'],['audit','Historial'],['backup','Copias y migración'],['settings','Configuración'],['sales','Comparar ventas']];
+const searchTargets=[['dashboard','Panel general'],['weekly','Registro'],['final','Consolidado'],['products','Productos'],['clients','Clientes / espacios'],['audit','Historial'],['backup','Copias y migración'],['settings','Configuración'],['sales','Comparar ventas']];
 function closePalette(){const dialog=$('#command-palette');if(dialog)dialog.hidden=true;}
 function paletteOptions(){
  const input=$('#palette-input');if(!input||!state)return;
@@ -1633,7 +1633,6 @@ document.addEventListener('click',e=>{const btn=e.target.closest('[data-metric-t
 document.addEventListener('click',async e=>{
  const cover=e.target.closest('[data-modal-cover]');if(cover && e.target===cover){closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}return;}
  const nav=e.target.closest('[data-nav]');if(nav){navigate(nav.dataset.nav);return;}
- const tab=e.target.closest('[data-period-tab]');if(tab){switchPeriod(tab.dataset.periodTab);return;}
  const pg=e.target.closest('[data-page]');if(pg){page=Math.max(0,page+(pg.dataset.page==='next'?1:-1));render();return;}
  const palette=e.target.closest('[data-palette-change]');if(palette){if(state.settings.palette!==palette.dataset.paletteChange)mutation('Cambio de paleta visual',()=>state.settings.palette=palette.dataset.paletteChange);return;}
  const mode=e.target.closest('[data-mode-change]');if(mode){if(state.settings.mode!==mode.dataset.modeChange)mutation('Cambio de luminosidad',()=>state.settings.mode=mode.dataset.modeChange);return;}
@@ -1670,7 +1669,7 @@ document.addEventListener('click',async e=>{
   case 'remove-period':await removePeriod(targetId);break;
   case 'clients':navigate('clients');break;
   case 'add-client':{const count=state.clients.length+1;mutation(`Espacio A-${count} creado`,()=>state.clients.push({id:id('client'),code:'A-'+count,name:'',active:true}));toast('Nuevo espacio A-'+count+' disponible en todas las semanas.');break;}
-  case 'jump-week':weeklyPreviewProduct=targetId;periodId=btn.dataset.period||state.periods[0].id;query=state.products.find(p=>p.id===targetId)?.name||'';page=0;view='weekly';render();break;
+  case 'jump-week':weeklyPreviewProduct=targetId;periodId=btn.dataset.period||state.periods[0].id;registerEmptyScope=null;query=state.products.find(p=>p.id===targetId)?.name||'';page=0;view='weekly';render();break;
   case 'demo':sampleData();break;
   case 'export-json':await exportJSON();break;
   case 'export-encrypted':await encryptedExport();break;
@@ -1692,7 +1691,7 @@ document.addEventListener('click',async e=>{
     if(!confirm('¿Borrar TODOS los datos de este espacio? Se guardará primero una copia interna, pero es recomendable descargar un JSON.'))return;
     if(!confirm('Última confirmación: ¿restablecer la aplicación a cero?'))return;
     await DB.backup({id:id('before-reset'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restablecer',data:clone(state)});
-    undoStack.push(clone(state));state=newState();periodId='w1';page=0;query='';clientQuery='';slotOffset=0;await refreshBackups();scheduleSave();navigate('dashboard');toast('Espacio restablecido. Tu copia previa permanece en Copias.');break;
+    undoStack.push(clone(state));state=newState();periodId='w1';registerEmptyScope=null;page=0;query='';clientQuery='';slotOffset=0;await refreshBackups();scheduleSave();navigate('dashboard');toast('Espacio restablecido. Tu copia previa permanece en Copias.');break;
   }
  }}catch(err){toast('No se pudo completar la acción: '+err.message);}
 });
@@ -1724,6 +1723,9 @@ document.addEventListener('change',e=>{
   if(!field.hidden)input.focus();return;
  }
  if(el.matches('[data-edit]')){editValue(el);return;}
+ if(['register-week','register-month','register-year'].includes(el.id)){
+  changeRegisterFilter(el.id,el.value);document.getElementById(el.id)?.focus();return;
+ }
  if(el.id==='slot-count'){slotCount=Number(el.value);slotOffset=0;page=0;render();return;}
    if(el.id==='product-sort'){productSort=el.value;page=0;render();return;}
    if(el.id==='audit-window'){auditWindow=el.value;render();return;}

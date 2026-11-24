@@ -458,6 +458,8 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 
 
 /* Entrada por cliente en el registro semanal. */
+.register-period-filters { display: grid; grid-template-columns: minmax(0,1.25fr) repeat(2,minmax(0,1fr)); gap: 8px; width: min(100%,620px); margin-bottom: 18px; }
+.register-period-filters select.form-control { min-width: 0; }
 .weekly-client-entries { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 10px; }
 .week-scroll-2d .weekly-data-table tfoot th { top: auto; }
 .weekly-data-table tfoot :is(th,td) { background: var(--surface2); border-top: 1px solid var(--line); color: var(--text); font-weight: 800; }
