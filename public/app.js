@@ -203,11 +203,23 @@ const unitReportSources={
  stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro semanal. Para agrupar por mes o año se usa la fecha de inicio de cada semana. Las semanas sin fecha aparecen en la vista semanal cuando dejas el rango vacío.'}
 };
 const newUnitReport=source=>({
- source,group:'product',period:'week',from:'',to:'',cross:'',query:'',page:0,customDates:false,active:false,
+ source,group:'product',period:'week',from:'',to:'',year:'',month:'',week:'',cross:'',query:'',page:0,customDates:false,active:false,
  selected:{product:new Map(),client:new Map()}
 });
 const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock'),value:newUnitReport('value')};
+const salesReportMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const salesReportYears=Array.from({length:1001},(_,i)=>String(2000+i));
+const salesReportWeeks=['1','2','3','4','5'];
 const reportColors=['#2369d0','#b43e1e','#07815e','#8b46bc','#a46c00','#007e93','#c72c67','#627420'];
+function salesReportRange({year,month,week,period}){
+ if(period==='year')return {from:year+'-01-01',to:year+'-12-31',label:year};
+ const monthKey=year+'-'+month.padStart(2,'0');
+ const lastDay=new Date(Date.UTC(Number(year),Number(month),0)).getUTCDate();
+ const day=value=>monthKey+'-'+String(value).padStart(2,'0');
+ if(period==='month')return {from:day(1),to:day(lastDay),label:monthKey};
+ const first=7*(Number(week)-1)+1,end=week==='5'?lastDay:first+6;
+ return {from:day(first),to:day(end),label:`Semana ${week} · ${monthKey}`};
+}
 function reportDate(date){return date.toISOString().slice(0,10);}
 function reportPeriod(date,period){
  const day=new Date(date+'T00:00:00Z');
@@ -222,11 +234,9 @@ function shiftReportPeriod(day,period,offset){
  return day;
 }
 function setDefaultReportDates(report){
- const weekly=report.source!=='sales',period=report.period;
- if(weekly&&period==='week'){report.from='';report.to='';return;}
- const latest=(weekly
-  ?state.periods.reduce((date,item)=>calendarDate(item.start)&&item.start>date?item.start:date,'')
-  :purchases().reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,''))||localSaleDate();
+ const period=report.period;
+ if(period==='week'){report.from='';report.to='';return;}
+ const latest=state.periods.reduce((date,item)=>calendarDate(item.start)&&item.start>date?item.start:date,'')||localSaleDate();
  report.from=reportDate(shiftReportPeriod(reportPeriod(latest,period),period,period==='year'?-4:-11));
  report.to=latest;
 }
@@ -241,18 +251,20 @@ function reportEntities(group,source){
  return [...items].map(([id,label])=>({id,label})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));
 }
 function unitReportModel(report){
- const {source,group,period,from,to,cross}=report,weekly=source!=='sales';
+ const {source,group,period,cross}=report,weekly=source!=='sales';
+ const {from,to,label}=weekly?report:salesReportRange(report);
  const entities=reportEntities(group,source),periods=[],byId=new Map();
+ if(!weekly)periods.push({key:from,label});
  const validRange=(!from||calendarDate(from))&&(!to||calendarDate(to))&&(!from||!to||from<=to);
- const nativeWeeks=weekly&&period==='week';
- if(!validRange||(!nativeWeeks&&(!from||!to)))return {entities,periods,byId,error:'Selecciona un rango de fechas válido.'};
+ const nativeWeeks=period==='week';
+ if(weekly&&(!validRange||(!nativeWeeks&&(!from||!to))))return {entities,periods,byId,error:'Selecciona un rango de fechas válido.'};
  const withinDate=date=>(!from||date>=from)&&(!to||date<=to);
- if(nativeWeeks){
+ if(weekly&&nativeWeeks){
   for(const week of state.periods){
    if((from||to)&&(!calendarDate(week.start)||!withinDate(week.start)))continue;
    periods.push({key:week.id,label:week.label});
   }
- }else{
+ }else if(weekly){
   for(const day=reportPeriod(from,period);reportDate(day)<=to;shiftReportPeriod(day,period,1)){
    if(periods.length>=156)return {entities,periods:[],byId,error:'Selecciona hasta 156 períodos o cambia a una agrupación más amplia.'};
    const key=reportDate(day);
@@ -280,7 +292,7 @@ function unitReportModel(report){
   }
  }else{
   for(const sale of purchases()){
-   if(!sale.voided&&withinDate(sale.date))add(sale.productId,sale.clientId,reportDate(reportPeriod(sale.date,period)),sale.units);
+   if(!sale.voided&&withinDate(sale.date))add(sale.productId,sale.clientId,from,sale.units);
   }
  }
  return {entities,periods,byId};
@@ -318,7 +330,7 @@ function unitReportRows(model,report){
  const rows=model.entities.filter(item=>item.label.toLocaleLowerCase('es').includes(query));
  const size=16,last=Math.max(0,Math.ceil(rows.length/size)-1),start=Math.min(report.page,last)*size;
  if(!rows.length)return '<p class="muted" role="status">Sin resultados para este filtro.</p>';
- return `<div class="table-scroll unit-report-table"><table class="data-table"><caption>${esc(unitReportSources[report.source].caption)}${report.source==='sales'&&report.period==='week'?' por semana (desde el lunes)':''}</caption><thead><tr><th scope="col">${report.group==='product'?'Producto':'Cliente'}</th>${model.periods.map(period=>`<th scope="col">${esc(period.label)}</th>`).join('')}<th scope="col">Total</th></tr></thead><tbody>${rows.slice(start,start+size).map(item=>{
+ return `<div class="table-scroll unit-report-table"><table class="data-table"><caption>${esc(unitReportSources[report.source].caption)}</caption><thead><tr><th scope="col">${report.group==='product'?'Producto':'Cliente'}</th>${model.periods.map(period=>`<th scope="col">${esc(period.label)}</th>`).join('')}<th scope="col">Total</th></tr></thead><tbody>${rows.slice(start,start+size).map(item=>{
   const result=model.byId.get(item.id),color=selected.get(item.id);
   return `<tr><th scope="row"><label><input type="checkbox" data-unit-series value="${esc(item.id)}" ${color?'checked':''}>${color?`<i class="unit-report-dot" style="background-color:${color}"></i>`:''}<span>${esc(item.label)}</span></label></th>${model.periods.map(period=>`<td>${reportAmount(report,result?.values.get(period.key)||0)}</td>`).join('')}<td><strong>${reportAmount(report,result?.total||0)}</strong></td></tr>`;
  }).join('')}</tbody></table></div><div class="unit-report-pages"><span>${start+1}–${Math.min(start+size,rows.length)} de ${rows.length}</span><button class="btn btn-small" type="button" data-unit-page="-1" ${start===0?'disabled':''}>Anterior</button><button class="btn btn-small" type="button" data-unit-page="1" ${start/size>=last?'disabled':''}>Siguiente</button></div>`;
@@ -329,15 +341,27 @@ function unitReportCard(source,originalChart,summary=''){
 }
 function openUnitReport(source){
  const report=unitReports[source],info=unitReportSources[source];
- if(!report.customDates&&!report.from)setDefaultReportDates(report);
+ const sales=source==='sales';
+ if(sales&&!report.year){
+  const latest=purchases().reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,'')||localSaleDate();
+  const [year,month,day]=latest.split('-').map(Number);
+  report.year=String(Math.min(3000,Math.max(2000,year)));
+  report.month=String(month);
+  report.week=String(Math.min(5,Math.ceil(day/7)));
+ }
+ if(!sales&&!report.customDates&&!report.from)setDefaultReportDates(report);
  const selectedOption=(value,current)=>value===current?' selected':'';
+ const periodOptions=(values,current,label=value=>value)=>values.map(value=>`<option value="${value}"${selectedOption(value,current)}>${label(value)}</option>`).join('');
  const crossOptions=()=>'<option value="">Todos</option>'+salesOptions(reportEntities(report.group==='product'?'client':'product',source),report.cross,item=>item.label);
  showModal(info.title,`<div class="modal-body unit-report-body">
   <div class="sales-fields unit-report-filters">
    <label class="field">Agrupar por <select class="form-control" data-unit-filter="group"><option value="product"${selectedOption('product',report.group)}>Producto</option><option value="client"${selectedOption('client',report.group)}>Cliente</option></select></label>
    <label class="field">Período <select class="form-control" data-unit-filter="period"><option value="week"${selectedOption('week',report.period)}>Semana</option><option value="month"${selectedOption('month',report.period)}>Mes</option><option value="year"${selectedOption('year',report.period)}>Año</option></select></label>
-   <label class="field">Desde <input class="form-control" type="date" data-unit-filter="from" value="${esc(report.from)}" max="${localSaleDate()}"></label>
-   <label class="field">Hasta <input class="form-control" type="date" data-unit-filter="to" value="${esc(report.to)}" max="${localSaleDate()}"></label>
+   ${sales?`<label class="field">Año <select class="form-control" data-unit-filter="year">${periodOptions(salesReportYears,report.year)}</select></label>
+   <div data-unit-month ${report.period==='year'?'hidden':''}><label class="field">Mes <select class="form-control" data-unit-filter="month">${periodOptions(salesReportMonths.map((_,i)=>String(i+1)),report.month,value=>salesReportMonths[value-1])}</select></label></div>
+   <div data-unit-week ${report.period!=='week'?'hidden':''}><label class="field">Semana del mes <select class="form-control" data-unit-filter="week">${periodOptions(salesReportWeeks,report.week,value=>`Semana ${value} (${7*(value-1)+1}–${value==='5'?'fin de mes':7*value})`)}</select></label></div>`:
+   `<label class="field">Desde <input class="form-control" type="date" data-unit-filter="from" value="${esc(report.from)}" max="${localSaleDate()}"></label>
+   <label class="field">Hasta <input class="form-control" type="date" data-unit-filter="to" value="${esc(report.to)}" max="${localSaleDate()}"></label>`}
    <label class="field"><span data-unit-cross-label></span><select class="form-control" data-unit-filter="cross">${crossOptions()}</select></label>
    <label class="field">Buscar en la tabla <input class="form-control" type="search" data-unit-query value="${esc(report.query)}"></label>
   </div>
@@ -381,7 +405,11 @@ function openUnitReport(source){
    report.cross='';$('[data-unit-filter="cross"]',root).innerHTML=crossOptions();labels();
   }
   if(filter==='from'||filter==='to')report.customDates=true;
-  if(filter==='period'&&(!report.customDates||(!report.from&&!report.to))){
+  if(sales&&filter==='period'){
+   $('[data-unit-month]',root).hidden=report.period==='year';
+   $('[data-unit-week]',root).hidden=report.period!=='week';
+  }
+  if(!sales&&filter==='period'&&(!report.customDates||(!report.from&&!report.to))){
    setDefaultReportDates(report);
    for(const key of ['from','to'])$(`[data-unit-filter="${key}"]`,root).value=report[key];
   }

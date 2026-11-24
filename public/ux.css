@@ -357,6 +357,7 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .unit-report-legend i, .unit-report-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .modal:has(.unit-report-body) { width: min(100%, 1050px); }
 .unit-report-body .unit-report-filters { margin-top: 0; }
+.unit-report-filters > :is([data-unit-month], [data-unit-week]) { flex: 1 1 145px; min-width: 0; }
 .unit-report-table .data-table { min-width: 100%; }
 .unit-report-table caption { text-align: left; margin-bottom: 7px; font-weight: 700; }
 .unit-report-table td, .unit-report-table th { white-space: nowrap; text-align: right; }
