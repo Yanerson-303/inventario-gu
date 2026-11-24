@@ -762,6 +762,11 @@ body.gu-entry-active{overflow:hidden}
 <style>
 
 /* Entrada por cliente en el registro semanal. */
+.toast-area { pointer-events: none; }
+.field-error-notice { display: block; cursor: pointer; pointer-events: auto; text-align: left; border: 2px solid var(--danger); }
+.field-error-notice span { display: block; margin-top: 4px; font-weight: 800; text-decoration: underline; }
+.field-error-inline { margin-top: 8px; text-align: left; color: var(--danger); }
+.field-error-highlight { outline: 3px solid var(--danger) !important; outline-offset: 2px; box-shadow: 0 0 0 6px var(--accent-soft) !important; }
 .register-period-filters { display: grid; grid-template-columns: minmax(0,1.25fr) repeat(2,minmax(0,1fr)); gap: 8px; width: min(100%,620px); margin-bottom: 18px; }
 .register-period-filters select.form-control { min-width: 0; }
 .register-week-dates { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-bottom: 16px; }
@@ -828,7 +833,7 @@ body.gu-entry-active{overflow:hidden}
     <nav class="bottom-nav" aria-label="Navegación móvil"><button data-nav="dashboard" class="active"><span data-gu-icon="layout-dashboard"></span><small>Inicio</small></button><button data-nav="weekly"><span data-gu-icon="calendar-days"></span><small>Registro</small></button><button data-nav="final"><span data-gu-icon="layers"></span><small>Final</small></button><button data-nav="products"><span data-gu-icon="package"></span><small>Productos</small></button><button data-nav="backup"><span data-gu-icon="database-backup"></span><small>Copias</small></button><button data-nav="settings"><span data-gu-icon="settings"></span><small>Más</small></button></nav>
   </div>
   <div id="command-palette" class="command-palette" hidden><section class="command-sheet" role="dialog" aria-modal="true" aria-label="Buscar en Inventarios GU"><div class="command-top"><span data-gu-icon="search"></span><input id="palette-input" type="search" autocomplete="off" placeholder="Buscar pantalla o producto…" aria-label="Buscar pantalla o producto"><button type="button" data-command-close="1" aria-label="Cerrar buscador">Esc</button></div><div id="palette-results" class="command-list" role="listbox" aria-label="Resultados de búsqueda"></div><div class="command-bottom">Ctrl / ⌘ + K · Ir a una sección o editar un producto</div></section></div>
-  <div id="modal-root"></div><div id="toast-area" role="status" aria-live="polite"></div>
+  <div id="modal-root"></div><div id="toast-area" class="toast-area" role="status" aria-live="polite"></div>
   <input id="backup-file" type="file" accept=".json,.almendra,application/json" hidden>
 <script>
 /* Inventarios GU 4.1 · Vista de acceso interactiva, automática y sin red. */
@@ -1993,7 +1998,71 @@ const titleMap={dashboard:'Panel general',weekly:'Registro',final:'Consolidado',
 function newState(){
  return {version:1,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),settings:{palette:'almond',mode:'light',currency:'COP',pageSize:20,density:'comfortable',lastAutoBackup:0},products:[],clients:Array.from({length:100},(_,i)=>({id:'c'+(i+1),code:'A-'+(i+1),name:'',active:true})),periods:Array.from({length:5},(_,i)=>({id:'w'+(i+1),label:'Semana '+(i+1),start:'',end:'',locked:false})),movements:{},prices:{},weekTotals:{},sales:[],weeklyOrigins:{},lots:[],catalogGroups:[],audit:[],gu4:{version:1,locations:[],counts:[],panelOrder:[],panelSizes:{},preferences:{warningThreshold:3,productThresholds:{},forecastPeriods:8,importMode:'only-new'}}};
 }
-function toast(message){const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toast-area').append(el);setTimeout(()=>el.remove(),3900);}
+let fieldNotice=null,highlightedField=null;
+function clearFieldNotice(){
+ fieldNotice?.button.remove();
+ fieldNotice=null;
+}
+function clearFieldHighlight(){
+ highlightedField?.classList.remove('field-error-highlight');
+ highlightedField?.removeAttribute('aria-invalid');
+ highlightedField=null;
+}
+function clearFieldFeedback(){
+ clearFieldNotice();clearFieldHighlight();
+}
+function focusInvalidField(field){
+ if(!field?.isConnected||field.disabled)return;
+ for(let details=field.closest('details:not([open])');details;details=field.closest('details:not([open])'))details.open=true;
+ clearFieldHighlight();
+ highlightedField=field;
+ field.classList.add('field-error-highlight');
+ field.setAttribute('aria-invalid','true');
+ field.scrollIntoView({block:'center',inline:'nearest'});
+ field.focus({preventScroll:true});
+}
+function toast(message,target){
+ const notice=document.createElement(target?'button':'div');
+ notice.className=target?'toast field-error-notice':'toast';
+ notice.textContent=message;
+ if(target){
+  clearFieldFeedback();
+  notice.type='button';
+  const hint=document.createElement('span');
+  hint.textContent='Ir al campo';
+  notice.append(hint);
+  fieldNotice={button:notice,target};
+  notice.addEventListener('click',()=>{
+   clearFieldNotice();
+   focusInvalidField(typeof target==='function'?target():target);
+  });
+ }else setTimeout(()=>notice.remove(),3900);
+ $('#toast-area').append(notice);
+}
+function nativeFieldMessage(field){
+ const {validity}=field;
+ if(validity.valueMissing)return field.tagName==='SELECT'?'Selecciona una opción.':'Completa este campo.';
+ if(validity.badInput)return 'Introduce un valor válido.';
+ if(validity.rangeUnderflow)return `Introduce un valor de ${field.min} o más.`;
+ if(validity.rangeOverflow)return `Introduce un valor de ${field.max} o menos.`;
+ if(validity.stepMismatch)return field.step==='1'?'Introduce un número entero.':'Introduce un valor con la precisión permitida.';
+ if(validity.tooShort)return `Escribe al menos ${field.minLength} caracteres.`;
+ if(validity.tooLong)return `Escribe hasta ${field.maxLength} caracteres.`;
+ return 'Revisa el valor de este campo.';
+}
+document.addEventListener('invalid',event=>{
+ const field=event.target;
+ if(!field.form)return;
+ event.preventDefault();
+ const first=Array.from(field.form.elements).find(control=>control.willValidate&&!control.validity.valid);
+ if(field===first)toast(nativeFieldMessage(field),field);
+},true);
+for(const eventName of ['input','change']){
+ document.addEventListener(eventName,event=>{
+  if(fieldNotice?.target===event.target)clearFieldNotice();
+  if(highlightedField===event.target)clearFieldHighlight();
+ },true);
+}
 function indicator(label,type=''){const el=$('#save-indicator');if(!el)return;el.className='save-indicator '+type;el.innerHTML=`<span class="save-dot"></span> ${esc(label)}`;}
 function storageNotice(){
  const mode=DB.mode?.()||'indexeddb';
@@ -2053,7 +2122,7 @@ function searchBar(placeholder='Buscar producto…'){return `<label class="searc
 function productButton(p){return `<button class="product-link" title="Editar ${esc(p.name)}" data-action="edit-product" data-id="${esc(p.id)}">${esc(p.name)}</button>`;}
 function statusBalance(n){return `<span class="${n<0?'text-danger':n>0?'text-good':''} mono">${format(n)}</span>`;}
 function render(){
- if(!state)return;updateHeader();syncTheme();
+ if(!state)return;clearFieldFeedback();updateHeader();syncTheme();
  const activeViews={dashboard:renderDashboard,weekly:renderWeekly,final:renderFinal,products:renderProducts,clients:renderClients,audit:renderAudit,backup:renderBackup,settings:renderSettings,sales:renderSales};
  $('#main-content').innerHTML=storageNotice()+(storageConflict?'<div class="banner alert"><div><h3>Conflicto entre pestañas</h3><p>Se detectaron cambios desde otra pestaña. Recarga para recuperar la última versión antes de editar.</p></div><button class="btn" data-action="reload">Recargar</button></div>':'')+activeViews[view]();
  Icons?.enhance($('#main-content'));Help?.enhance($('#main-content'));
@@ -2600,12 +2669,13 @@ function renderSales(){
 function submitSales(form){
  const data=Object.fromEntries(new FormData(form));
  if(form.id==='sales-filters'){
-  if(!calendarDate(data.month+'-01')||data.month<'0001-02'||data.month>localSaleDate().slice(0,7))return toast('Selecciona un mes válido.');
-  if(data.firstClient===data.secondClient)return toast('Selecciona dos clientes distintos.');
+  if(!calendarDate(data.month+'-01')||data.month<'0001-02'||data.month>localSaleDate().slice(0,7))return toast('Selecciona un mes válido.',form.elements.month);
+  if(data.firstClient===data.secondClient)return toast('Selecciona dos clientes distintos.',form.elements.secondClient);
   Object.assign(salesFilters,data);page=0;render();return;
  }
  if(form.id==='sales-speed'){
-  if(data.a===data.b||![data.a,data.b].every(id=>(state.lots||[]).some(lot=>lot.id===id)))return toast('Selecciona dos lotes distintos.');
+  const missing=['a','b'].find(field=>!(state.lots||[]).some(lot=>lot.id===data[field]));
+  if(missing||data.a===data.b)return toast('Selecciona dos lotes distintos.',form.elements[missing||'b']);
   speedQuery={a:data.a,b:data.b};render();return;
  }
 }
@@ -2747,13 +2817,16 @@ function openWeeklyClientPicker(){
  <select class="form-control" id="weekly-client-choice" data-period="${esc(period.id)}"><option value="">Elige un cliente</option>
  ${salesOptions(state.clients,null,salesClientLabel)}</select></label></div>`);
 }
-function updateRegisterDate(field,value){
+function updateRegisterDate(field,input){
  const period=activePeriod();
- if(period.locked||period[field]===value)return;
+ const {value}=input;
+ if(period.locked||(period[field]===value&&!input.validity.badInput))return;
  const start=field==='start'?value:period.start,end=field==='end'?value:period.end;
- if((value&&!calendarDate(value))||(start&&end&&start>end)){
-  toast('La fecha final debe ser igual o posterior a la fecha de inicio.');
-  render();return;
+ const message=value&&!calendarDate(value)?'Introduce una fecha válida.':start&&end&&start>end?
+  'La fecha final debe ser igual o posterior a la fecha de inicio.':'';
+ if(input.validity.badInput||message){
+  input.value=period[field]||'';
+  toast(message||'Introduce una fecha válida.',input);return;
  }
  mutation(`Fechas actualizadas: ${period.label}`,()=>{period[field]=value;});
 }
@@ -2762,12 +2835,19 @@ function toggleRegisterLock(){
  mutation(`${period.locked?'Semana desbloqueada':'Semana bloqueada'}: ${period.label}`,()=>{period.locked=!period.locked;});
  $('[data-action="toggle-period-lock"]')?.focus();
 }
-function hasWeeklyOrigin(origin){
- return Boolean(origin?.boxNumber?.trim()&&origin?.vesselNumber?.trim()&&origin?.rack?.trim());
+function missingWeeklyOrigin(origin){
+ if(!origin?.vesselNumber?.trim())return {field:'vesselNumber',message:'Completa el número de embarcación en Productos.'};
+ if(!origin?.boxNumber?.trim())return {field:'boxNumber',message:'Completa el número de caja en Productos.'};
+ if(!origin?.rack?.trim())return {field:'catalogRack',message:'Selecciona el rack en Productos.'};
+ return null;
+}
+function openOriginField(productId,field){
+ productModal(productId);
+ return $('#product-form')?.elements[field];
 }
 function weeklyCellOrigin(weekId,product,clientId){
  const previous=state.weeklyOrigins?.[Trace.weeklyKey(weekId,product.id,clientId)];
- return previous&&!previous.deleted&&hasWeeklyOrigin(previous.origin)?previous.origin:purchaseOrigin(product);
+ return previous&&!previous.deleted&&!missingWeeklyOrigin(previous.origin)?previous.origin:purchaseOrigin(product);
 }
 function weeklyCellModal(weekId,clientId,productId=''){
  const period=state.periods.find(item=>item.id===weekId),client=state.clients.find(item=>item.id===clientId);
@@ -2798,15 +2878,16 @@ function weeklyCellModal(weekId,clientId,productId=''){
  const updateProduct=()=>{
   const product=state.products.find(p=>p.id===picker.value);
   const origin=product?weeklyCellOrigin(weekId,product,clientId):null;
-  const complete=hasWeeklyOrigin(origin);
+  const missing=missingWeeklyOrigin(origin);
   units.disabled=!product;
-  save.disabled=!complete;
+  save.disabled=!product||!!missing;
   if(!product){
    units.value='';originField.innerHTML='';return;
   }
   units.value=state.movements[weekId]?.[product.id]?.[clientId]??'';
   const saved=state.weeklyOrigins?.[Trace.weeklyKey(weekId,product.id,clientId)];
-  originField.innerHTML=provenanceTable(product.name,origin,saved&&!saved.deleted?saved.date:(product.createdAt?stamp(product.createdAt):''))+(complete?'':'<span role="status">Completa la caja, la embarcación y el rack en Productos para registrar o cambiar esta cantidad.</span>');
+  originField.innerHTML=provenanceTable(product.name,origin,saved&&!saved.deleted?saved.date:(product.createdAt?stamp(product.createdAt):''))+
+   (missing?`<button type="button" class="btn btn-small field-error-inline" data-origin-field="${missing.field}">${esc(missing.message)} Ir al campo</button>`:'');
  };
  const results=$('#weekly-product-results'),dropdown=$('#weekly-product-select'),summary=$('#weekly-product-label');
  const showProducts=()=>{
@@ -2822,6 +2903,10 @@ function weeklyCellModal(weekId,clientId,productId=''){
   updateProduct();showProducts();
  };
  choose(productId);
+ originField.addEventListener('click',event=>{
+  const field=event.target.closest('[data-origin-field]')?.dataset.originField;
+  if(field)focusInvalidField(openOriginField(picker.value,field));
+ });
  search.addEventListener('input',showProducts);
  dropdown.addEventListener('toggle',()=>{if(dropdown.open)search.focus();});
  results.addEventListener('click',event=>{
@@ -2840,10 +2925,11 @@ function saveWeeklyCell(form){
  if(!period||period.locked||!client)return toast('Esta casilla no está disponible para editar.');
  const data=new FormData(form),product=state.products.find(item=>item.id===data.get('productId'));
  const raw=String(data.get('units')??'').trim(),units=Number(raw);
- if(!product)return toast('Selecciona un producto del catálogo.');
+ if(!product)return toast('Selecciona un producto del catálogo.',$('#weekly-cell-search',form));
  const origin=weeklyCellOrigin(weekId,product,clientId);
- if(!hasWeeklyOrigin(origin))return toast('Completa la caja, la embarcación y el rack en Productos.');
- if(!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Escribe una cantidad válida.');
+ const missing=missingWeeklyOrigin(origin);
+ if(missing)return toast(missing.message,()=>openOriginField(product.id,missing.field));
+ if(!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Escribe una cantidad válida.',form.elements.units);
  const key=Trace.weeklyKey(weekId,product.id,clientId),previous=state.weeklyOrigins?.[key];
  const existing=state.movements[weekId]?.[product.id]?.[clientId];
  if(units===0&&!existing&&!previous){closeModal();return;}
@@ -3056,9 +3142,10 @@ function catalogGroupEditor(groupId=''){
 function saveCatalogGroup(form){
  const data=new FormData(form),name=String(data.get('name')||'').trim().slice(0,50),color=String(data.get('color')||'');
  const groupId=String(data.get('groupId')||''),groups=catalogGroups(),group=groups.find(item=>item.id===groupId);
- if(groupId&&!group)return toast('El grupo ya no está disponible.');
- if(!name||!/^#[0-9a-f]{6}$/i.test(color))return toast('Escribe un nombre y elige un color.');
- if(groups.some(item=>item.id!==groupId&&groupKey(item.name)===groupKey(name)))return toast('Ya existe un grupo con ese nombre.');
+ if(groupId&&!group)return toast('El grupo ya no está disponible.',form.elements.groupId);
+ if(!name)return toast('Escribe un nombre para el grupo.',form.elements.name);
+ if(!/^#[0-9a-f]{6}$/i.test(color))return toast('Elige un color válido.',form.elements.color);
+ if(groups.some(item=>item.id!==groupId&&groupKey(item.name)===groupKey(name)))return toast('Ya existe un grupo con ese nombre.',form.elements.name);
  const savedId=group?.id||id('group');
  if(mutation(`Grupo ${group?'editado':'creado'}: ${name}`,()=>{
   if(group)Object.assign(group,{name,color});else (state.catalogGroups??=[]).push({id:savedId,name,color});
@@ -3161,8 +3248,14 @@ function renderSettings(){return `${heading('PERSONALIZACIÓN','Configuración',
  <div class="settings-grid" style="margin-top:18px"><article class="card card-pad"><h3>Prueba de funcionamiento</h3><p class="muted">Carga 30 productos de prueba con precios enteros, clientes, semanas y lotes ficticios.</p><button class="btn" data-action="demo">Cargar 30 productos de prueba</button></article><article class="card card-pad danger-zone"><h3>Restablecer espacio</h3><p class="muted">Borra los productos, clientes modificados, períodos y registros actuales. Crea primero una copia descargable.</p><button class="btn btn-danger" data-action="reset">Borrar todos los datos</button></article></div>`;}
 // Formularios de edición.
 let productRemovalReview=null;
-function showModal(title,body,foot=''){productRemovalReview=null;const root=$('#modal-root');root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;setTimeout(()=>root.querySelector('input:not([type="hidden"]),select')?.focus(),10);}
-function closeModal(){productRemovalReview=null;$('#modal-root').innerHTML='';}
+function showModal(title,body,foot=''){
+ clearFieldFeedback();productRemovalReview=null;
+ const root=$('#modal-root');
+ root.innerHTML=`<div class="modal-cover" data-modal-cover="1"><section class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-modal" aria-label="Cerrar">×</button></div>${body}<div class="modal-foot">${foot}</div></section></div>`;
+ const first=root.querySelector('input:not([type="hidden"]),select');
+ if(first)setTimeout(()=>{if(first.isConnected&&!root.contains(document.activeElement))first.focus();},10);
+}
+function closeModal(){clearFieldFeedback();productRemovalReview=null;$('#modal-root').innerHTML='';}
 function catalogUnitPrice(value){
  return new Intl.NumberFormat('es-CO',{style:'currency',currency:state.settings.currency||'COP',maximumFractionDigits:9}).format(C.num(value));
 }
@@ -3205,12 +3298,17 @@ function submitProduct(form){
  const catalogRack=Number(data.get('catalogRack')||0);
  const boxes=nf(quantity),value=nf(price),name=String(data.get('name')||'').trim().slice(0,110);
  const groupIds=[...new Set(data.getAll('groupIds'))],known=new Set(catalogGroups().map(group=>group.id));
- if(!name)return toast('Escribe el nombre del producto.');
- if(![0,1,2,3].includes(catalogRack)||(!editId&&!catalogRack))return toast('Selecciona el rack donde se guardará la caja.');
- if(groupIds.some(id=>!known.has(id)))return toast('Selecciona grupos válidos.');
- if(!vesselNumber||!boxNumber||!productNumber)return toast('Completa los números de embarcación, caja y producto.');
- if(!quantity||!Number.isSafeInteger(boxes)||boxes<1||boxes>1e15)return toast('Escribe una cantidad entera mayor que cero por caja.');
- if(!price||value===null||value<0||value>1e15)return toast('Escribe un precio por unidad válido.');
+ if(!name)return toast('Escribe el nombre del producto.',form.elements.name);
+ if(!vesselNumber)return toast('Completa el número de embarcación.',form.elements.vesselNumber);
+ if(!boxNumber)return toast('Completa el número de caja.',form.elements.boxNumber);
+ if(!quantity||!Number.isSafeInteger(boxes)||boxes<1||boxes>1e15)return toast('Escribe una cantidad entera mayor que cero por caja.',form.elements.boxes);
+ if(!productNumber)return toast('Completa el número de producto.',form.elements.productNumber);
+ if(!price||value===null||value<0||value>1e15)return toast('Escribe un precio por unidad válido.',form.elements.value);
+ if(![0,1,2,3].includes(catalogRack)||(!editId&&!catalogRack))return toast('Selecciona el rack donde se guardará la caja.',form.elements.catalogRack);
+ if(groupIds.some(id=>!known.has(id))){
+  const invalidGroup=$$('[name="groupIds"]',form).find(input=>input.checked&&!known.has(input.value));
+  return toast('Selecciona grupos válidos.',invalidGroup);
+ }
  const existing=editId?state.products.find(item=>item.id===editId):null;
  if(editId&&!existing)return toast('Producto no encontrado.');
  const draft={name,vesselNumber,boxNumber,productNumber,boxes,value,groupIds,catalogRack};
@@ -3238,13 +3336,15 @@ function submitProductGroups(form){
  const data=new FormData(form);
  const choice=String(data.get('category')||''),requested=String(data.get('newCategory')||'').trim().slice(0,70);
  const category=choice==='__new_category__'?(catalogCategories().find(name=>groupKey(name)===groupKey(requested))||requested):choice.slice(9);
- if(choice==='__new_category__'&&!category)return toast('Escribe el nombre de la categoría.');
+ if(choice==='__new_category__'&&!category)return toast('Escribe el nombre de la categoría.',form.elements.newCategory);
  if(mutation(`Categoría actualizada: ${product.name}`,()=>{product.category=category;}))closeModal();
 }
 function submitPeriod(form){
  const data=new FormData(form),label=String(data.get('label')||'').trim(),start=String(data.get('start')||''),end=String(data.get('end')||'');
- if(!label){toast('Escribe un nombre para el período.');return;}
- if(start&&end&&start>end){toast('La fecha final no puede ser anterior a la inicial.');return;}
+ if(!label)return toast('Escribe un nombre para el período.',form.elements.label);
+ if(start&&!calendarDate(start))return toast('Escribe una fecha de inicio válida.',form.elements.start);
+ if(end&&!calendarDate(end))return toast('Escribe una fecha final válida.',form.elements.end);
+ if(start&&end&&start>end)return toast('La fecha final no puede ser anterior a la inicial.',form.elements.end);
  if(mutation(`Período creado: ${label}`,()=>{
   const period={id:id('period'),label,start,end,locked:false};
   state.periods.push(period);periodId=period.id;registerEmptyScope=null;weeklyPreviewProduct='';page=0;
@@ -3292,7 +3392,11 @@ function editValue(el){
  }
  if(type==='product-field'){
   const field=el.dataset.field;if(!p||!['quantityN','quantityV','value','average','boxes'].includes(field))return;
-  const n=nf(el.value.trim()||'0');if(n===null||Math.abs(n)>1e15){toast('Introduce un número válido.');render();return;}
+  const n=nf(el.value.trim()||'0');
+  if(el.validity.badInput||n===null||Math.abs(n)>1e15){
+   el.value=String(p[field]??0);
+   toast('Introduce un número válido.',el);return;
+  }
   if(p[field]===n)return;mutation(`${p.name}: ${field} cambió de ${p[field]||0} a ${n}`,()=>p[field]=n);return;
  }
 }
@@ -3591,7 +3695,7 @@ function mergeStates(local,remote){
 }
 let pendingImport=null;
 async function handleFile(file){
- if(!file)return;if(file.size>50*1024*1024){toast('El archivo supera 50 MB.');return;}
+ if(!file)return;if(file.size>50*1024*1024){toast('El archivo supera 50 MB.',$('[data-action="import-file"]'));return;}
  try{const text=await file.text();let pkg=JSON.parse(text);
   if(pkg.format==='almendra-inventario-encrypted')pkg=await decryptPackage(pkg);
   if(!pkg)return;
@@ -3599,7 +3703,7 @@ async function handleFile(file){
   if(pkg.sha256){const actual=await sha256(JSON.stringify(pkg.data));if(actual&&actual!==pkg.sha256)throw new Error('La verificación SHA-256 falló: el archivo fue modificado o está dañado.');}
   pendingImport=normalizeImported(pkg.data);
   showModal('Confirmar migración',`<div class="modal-body"><p>Respaldo compatible: <b>${pendingImport.products.length} productos</b>, <b>${pendingImport.clients.length} espacios</b>, <b>${pendingImport.periods.length} períodos</b>.</p><div class="section-label">Cómo aplicar la información</div><label class="switch-line" style="margin-bottom:15px"><input type="radio" name="import-mode" value="replace" checked> <span><b>Reemplazar todo</b><br>Restaurar exactamente los datos del archivo.</span></label><label class="switch-line"><input type="radio" name="import-mode" value="merge"> <span><b>Fusionar por identificador</b><br>Conservar ambos catálogos; si una celda comparte ID, prevalece la del archivo. No sumar valores repetidos.</span></label><div class="help-note">Se guardará una copia interna del estado actual antes de migrar.</div></div>`,`<button class="btn" data-action="close-modal">Cancelar</button><button class="btn btn-primary" data-action="confirm-import">Aplicar migración</button>`);
- }catch(e){toast('No se pudo importar: '+e.message);}
+ }catch(e){toast('No se pudo importar: '+e.message,$('[data-action="import-file"]'));}
 }
 async function applyImport(){
  if(storageConflict){toast('Hay cambios en otra pestaña. Recarga antes de migrar.');return;}
@@ -3745,7 +3849,7 @@ document.addEventListener('submit',e=>{
  if(form.id==='period-form')submitPeriod(form);
  if(form.id==='password-form'){
   const secret=String(new FormData(form).get('password')||'');const min=Number(form.dataset.min)||1;
-  if(secret.length<min){toast(`La contraseña requiere al menos ${min} caracteres.`);return;}
+  if(secret.length<min){toast(`La contraseña requiere al menos ${min} caracteres.`,form.elements.password);return;}
   const resolve=passwordResolve;passwordResolve=null;closeModal();resolve?.(secret);
  }
 });
@@ -3766,7 +3870,7 @@ document.addEventListener('change',e=>{
   changeRegisterFilter(el.id,el.value);document.getElementById(el.id)?.focus();return;
  }
  if(el.id==='register-start'||el.id==='register-end'){
-  updateRegisterDate(el.id==='register-start'?'start':'end',el.value);
+  updateRegisterDate(el.id==='register-start'?'start':'end',el);
   document.getElementById(el.id)?.focus();return;
  }
  if(el.id==='weekly-client-choice'){

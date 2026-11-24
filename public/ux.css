@@ -458,6 +458,11 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 
 
 /* Entrada por cliente en el registro semanal. */
+.toast-area { pointer-events: none; }
+.field-error-notice { display: block; cursor: pointer; pointer-events: auto; text-align: left; border: 2px solid var(--danger); }
+.field-error-notice span { display: block; margin-top: 4px; font-weight: 800; text-decoration: underline; }
+.field-error-inline { margin-top: 8px; text-align: left; color: var(--danger); }
+.field-error-highlight { outline: 3px solid var(--danger) !important; outline-offset: 2px; box-shadow: 0 0 0 6px var(--accent-soft) !important; }
 .register-period-filters { display: grid; grid-template-columns: minmax(0,1.25fr) repeat(2,minmax(0,1fr)); gap: 8px; width: min(100%,620px); margin-bottom: 18px; }
 .register-period-filters select.form-control { min-width: 0; }
 .register-week-dates { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-bottom: 16px; }
