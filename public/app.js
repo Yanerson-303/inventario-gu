@@ -750,8 +750,7 @@ function saveWeeklyValues(form){
   }
  }))closeModal();
 }
-function weeklyQuantityCell(period,client,product){
- const units=state.movements[period.id]?.[product.id]?.[client.id];
+function weeklyQuantityCell(period,client,product,units){
  if(units==null||period.locked)return weeklyNumber(units);
  const label=`Revisar cantidad de ${product.name} para ${salesClientLabel(client)}: ${weeklyNumber(units)}`;
  return `<button type="button" class="weekly-quantity-link" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" data-id="${esc(product.id)}" aria-label="${esc(label)}" aria-haspopup="dialog">${weeklyNumber(units)}</button>`;
@@ -860,27 +859,131 @@ function saveWeeklyCell(form){
   }
  }))closeModal();
 }
+function weeklyVisibleSelection(ids){
+ return selection(productsFiltered().filter(product=>ids.has(product.id)||product.id===weeklyPreviewProduct));
+}
+function weeklyRows(period,products){
+ return products.map(({id,name})=>{
+  const cells={...state.movements[period.id]?.[id]},stock=C.qty(state,period.id,id);
+  const price=state.prices[period.id]?.[id],manual=state.weekTotals[period.id]?.[id];
+  return {product:{id,name},cells,stock,price,manual,estimate:money(stock*C.num(price))};
+ });
+}
+function weeklyColumnTotals(period){
+ const clients=new Map();
+ let stock=0;
+ for(const product of state.products){
+  for(const [clientId,quantity] of Object.entries(state.movements[period.id]?.[product.id]||{})){
+   const amount=C.num(quantity);
+   clients.set(clientId,(clients.get(clientId)||0)+amount);
+   stock+=amount;
+  }
+ }
+ return {clients,stock:C.round(stock)};
+}
+function weeklyClientTotal(totals,client){
+ return weeklyNumber(C.round(totals.clients.get(client.id)||0));
+}
+function weeklyTable(period,slots,rows,totals,interactive=false){
+ const cols=slots.map(client=>`<th scope="col" class="slot-col" title="${esc(salesClientLabel(client))}">${esc(interactive?(client.name||client.code):salesClientLabel(client))}</th>`).join('');
+ return `<table class="data-table weekly-data-table"><thead><tr><th scope="col" class="sticky-first">Producto</th>${cols}<th scope="col" class="num last-head">Stock (CX)</th><th scope="col" class="num last-head">Precio (CY)</th><th scope="col" class="num last-head">Total manual (CZ)</th><th scope="col" class="num last-head">Estimado*</th></tr></thead>
+ <tbody>${rows.map(({product,cells,stock,price,manual,estimate})=>`<tr><td class="sticky-first">${esc(product.name)}</td>${slots.map(client=>{
+  const qty=cells[client.id];
+  return `<td class="num">${interactive?weeklyQuantityCell(period,client,product,qty):weeklyNumber(qty)}</td>`;
+ }).join('')}<td class="num t-em">${weeklyNumber(stock)}</td><td class="num">${weeklyNumber(price===''?null:price)}</td><td class="num">${weeklyNumber(manual===''?null:manual)}</td><td class="num">${estimate}</td></tr>`).join('')}</tbody>
+ <tfoot><tr><th scope="row" class="sticky-first">Total semanal por cliente</th>${slots.map(client=>`<td class="num">${weeklyClientTotal(totals,client)}</td>`).join('')}<td class="num">${weeklyNumber(totals.stock)}</td><td colspan="3"></td></tr></tfoot></table>`;
+}
+function openWeeklyDownload(){
+ const ids=weeklyProductIds(activePeriod()),visible=weeklyVisibleSelection(ids);
+ showModal('Descargar imagen',`<div class="modal-body weekly-download-options">
+  <button type="button" class="btn" data-action="weekly-image" data-id="visible"${visible.rows.length?'':' disabled'}>Tabla actual</button>
+  <p class="muted">Página, búsqueda y grupo de clientes que tienes seleccionados.</p>
+  <button type="button" class="btn" data-action="weekly-image" data-id="full"${ids.size?'':' disabled'}>Tabla completa de la semana</button>
+  <p class="muted">Todos los productos y clientes del registro semanal.</p>
+  <div class="muted" data-weekly-export-status role="status"></div>
+ </div>`);
+ $('[data-action="weekly-image"]:not(:disabled)')?.focus();
+}
+async function captureWeeklyImage(period,slots,rows,totals){
+ const image=document.createElement('section');
+ image.className='weekly-export';
+ image.setAttribute('aria-hidden','true');
+ image.innerHTML=`<h2>Registro semanal · ${esc(period.label)}</h2>${weeklyTable(period,slots,rows,totals)}<p>* Estimado = stock semanal × precio.</p>`;
+ document.body.append(image);
+ try{
+  const {width,height}=image.getBoundingClientRect(),maxEdge=15000,maxPixels=12000000;
+  const scale=Math.min(2,window.devicePixelRatio||1,maxEdge/width,maxEdge/height,Math.sqrt(maxPixels/(width*height)));
+  if(scale<1)return null;
+  const canvas=document.createElement('canvas');
+  try{
+   canvas.width=Math.ceil(width*scale);
+   canvas.height=Math.ceil(height*scale);
+   if(!canvas.getContext('2d'))return null;
+   await window.html2canvas(image,{canvas,scale,logging:false,backgroundColor:null});
+   return await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+  }
+  finally{canvas.width=0;canvas.height=0;}
+ }finally{image.remove();}
+}
+let weeklyImageInProgress=false;
+async function exportWeeklyImage(full){
+ if(weeklyImageInProgress)return toast('La imagen del registro se está preparando.');
+ const period={...activePeriod()},ids=weeklyProductIds(period);
+ const products=full?state.products.filter(product=>ids.has(product.id)):weeklyVisibleSelection(ids).rows;
+ if(!products.length)return toast('No hay productos en esta tabla.');
+ const slots=(full?state.clients:currentSlots()).map(client=>({...client}));
+ const rows=weeklyRows(period,products),totals=weeklyColumnTotals(period),images=[];
+ const capture=async (clients,products)=>{
+  const png=clients.length<=120&&products.length<=160?await captureWeeklyImage(period,clients,products,totals):null;
+  if(png){images.push(png);return;}
+  const splitClients=clients.length>120||(clients.length>1&&products.length<=160&&clients.length*2>=products.length);
+  const segments=splitClients?clients:products;
+  if(segments.length<=1)throw new Error('El navegador no pudo generar la imagen.');
+  const middle=Math.ceil(segments.length/2);
+  for(const part of [segments.slice(0,middle),segments.slice(middle)]){
+   await (splitClients?capture(part,products):capture(clients,part));
+  }
+ };
+ const options=$$('[data-action="weekly-image"]:not(:disabled)');
+ const status=$('[data-weekly-export-status]');
+ const prefix='Inventarios_GU_Registro_'+(full?'Completo':'Actual');
+ weeklyImageInProgress=true;
+ options.forEach(option=>{option.disabled=true;});
+ if(status)status.textContent='Preparando imagen…';
+ try{
+  await capture(slots,rows);
+  if(images.length===1)downloadBlob(images[0],filename(prefix,'png'));
+  else{
+   const archive=new window.JSZip();
+   images.forEach((png,i)=>archive.file(filename(prefix+'_Parte_'+String(i+1).padStart(2,'0'),'png'),png));
+   downloadBlob(await archive.generateAsync({type:'blob',mimeType:'application/zip'}),filename(prefix,'zip'));
+   toast('La tabla se descargó en varias imágenes dentro de un ZIP.');
+  }
+  if(options.some(option=>option.isConnected))closeModal();
+ }finally{
+  weeklyImageInProgress=false;
+  options.forEach(option=>{option.disabled=false;});
+  if(status)status.textContent='';
+ }
+}
 function renderWeekly(){
  const period=activePeriod(),slots=currentSlots(),ids=weeklyProductIds(period),locked=period.locked;
- const all=productsFiltered().filter(p=>ids.has(p.id)||p.id===weeklyPreviewProduct),sel=selection(all);
+ const sel=weeklyVisibleSelection(ids),rows=weeklyRows(period,sel.rows),totals=weeklyColumnTotals(period);
  const count=state.products.filter(p=>ids.has(p.id)).length;
- const weekQty=state.products.reduce((s,p)=>s+C.qty(state,period.id,p.id),0);
- const cols=slots.map(cl=>`<th class="slot-col" title="${esc(cl.name||cl.code)}">${esc(cl.name||cl.code)}</th>`).join('');
- const desktop=sel.rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal de solo lectura"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${cols}<th class="num last-head">Stock (CX)</th><th class="num last-head">Precio (CY)</th><th class="num last-head">Total manual (CZ)</th><th class="num last-head">Estimado*</th></tr></thead><tbody>${sel.rows.map(pr=>{
-  const qty=C.qty(state,period.id,pr.id),prc=state.prices[period.id]?.[pr.id]??'',total=state.weekTotals[period.id]?.[pr.id]??'';
-  return `<tr><td class="sticky-first">${esc(pr.name)}</td>${slots.map(cl=>`<td class="num">${weeklyQuantityCell(period,cl,pr)}</td>`).join('')}<td class="num t-em">${format(qty)}</td><td class="num">${weeklyNumber(prc===''?null:prc)}</td><td class="num">${weeklyNumber(total===''?null:total)}</td><td class="num">${money(qty*(prc===''?0:prc))}</td></tr>`;
- }).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
- const mobile=sel.rows.length?`<div class="week-mobile">${sel.rows.map(pr=>{
-  const qty=C.qty(state,period.id,pr.id),price=state.prices[period.id]?.[pr.id],total=state.weekTotals[period.id]?.[pr.id];
-  return `<article class="card week-product"><div class="week-product-head"><h3>${esc(pr.name)}</h3><span class="badge ${qty<0?'danger':qty>0?'good':''}">Total ${format(qty)}</span></div>
-  <div class="week-product-grid">${slots.map(cl=>`<div class="field"><span>${esc(cl.name?cl.code+' · '+cl.name:cl.code)}</span><strong class="mono">${weeklyQuantityCell(period,cl,pr)}</strong></div>`).join('')}</div>
-  <div class="week-product-grid" style="margin-top:13px"><div class="field"><span>Precio unitario (CY)</span><strong>${weeklyNumber(price)}</strong></div><div class="field"><span>Total manual (CZ)</span><strong>${weeklyNumber(total)}</strong></div></div>
-  <div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${money(qty*(price||0))}</strong></div></article>`;
- }).join('')}${pageFoot(sel,'productos')}</div>`:'';
+ const desktop=rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal de solo lectura">${weeklyTable(period,slots,rows,totals,true)}</div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
+ const mobile=rows.length?`<div class="week-mobile">${rows.map(({product,cells,stock,price,manual,estimate})=>`
+  <article class="card week-product"><div class="week-product-head"><h3>${esc(product.name)}</h3><span class="badge ${stock<0?'danger':stock>0?'good':''}">Total ${weeklyNumber(stock)}</span></div>
+  <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyQuantityCell(period,client,product,cells[client.id])}</strong></div>`).join('')}</div>
+  <div class="week-product-grid" style="margin-top:13px"><div class="field"><span>Precio unitario (CY)</span><strong>${weeklyNumber(price===''?null:price)}</strong></div><div class="field"><span>Total manual (CZ)</span><strong>${weeklyNumber(manual===''?null:manual)}</strong></div></div>
+  <div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${estimate}</strong></div></article>
+ `).join('')}<article class="card week-product" data-weekly-client-totals>
+  <div class="week-product-head"><h3>Total semanal por cliente</h3></div>
+  <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyClientTotal(totals,client)}</strong></div>`).join('')}</div>
+ </article>${pageFoot(sel,'productos')}</div>`:'';
  return `${heading('CAPTURA DE DATOS','Registro semanal','Consulta las cantidades de la semana y usa Registrar por cliente para cambiarlas.',`<button class="btn" data-action="edit-period">Editar período</button><button class="btn btn-primary" data-action="new-period">+ Semana</button>`)}
  <div class="week-tabs" role="tablist" aria-label="Períodos">${state.periods.map(p=>`<button class="week-tab ${p.id===period.id?'active':''}" data-period-tab="${esc(p.id)}" role="tab" aria-selected="${p.id===period.id}">${esc(p.label)}${p.locked?' · 🔒':''}</button>`).join('')}</div>
- <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${format(weekQty)}</strong></span><span>Productos de la semana: <strong>${count}</strong></span></div></div>
- <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-values"${locked?' disabled':''}>Editar precio y total</button></div></div>
+ <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${weeklyNumber(totals.stock)}</strong></span><span>Productos de la semana: <strong>${count}</strong></span></div></div>
+ <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-values"${locked?' disabled':''}>Editar precio y total</button><button type="button" class="btn btn-small" data-action="weekly-download" aria-haspopup="dialog"${count||rows.length?'':' disabled'}>Descargar imagen</button></div></div>
  ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
  <div class="weekly-client-entries" role="group" aria-label="Registrar por cliente"><strong>Registrar por cliente</strong>${slots.map(client=>weeklyClientButton(period,client)).join('')}</div>
  <p class="table-hint">Toca una cantidad para revisarla y cambiarla. Para agregar una nueva, usa Registrar por cliente.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» corresponde al campo CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
@@ -1480,6 +1583,8 @@ document.addEventListener('click',async e=>{
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
   case 'weekly-values':editWeeklyValues();break;
+  case 'weekly-download':openWeeklyDownload();break;
+  case 'weekly-image':await exportWeeklyImage(targetId==='full');break;
   case 'weekly-cell':weeklyCellModal(btn.dataset.period,btn.dataset.client,targetId);break;
   case 'weekly-catalog':closeModal();navigate('products');break;
   case 'new-product':productModal();break;
