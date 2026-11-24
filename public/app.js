@@ -19,7 +19,7 @@ const getCookie=k=>document.cookie.split('; ').find(x=>x.startsWith(k+'='))?.spl
 const cookie=(k,v)=>{try{document.cookie=`${k}=${encodeURIComponent(v)}; max-age=31536000; path=/; SameSite=Lax`;}catch{}};
 const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null;};
 const numInput=(field,value,attrs='')=>`<input class="cell-input ${value!==''&&Number(value)!==0?'changed':''}" type="number" inputmode="decimal" step="any" value="${value===''?'':esc(value)}" data-edit="${esc(field)}" ${attrs}>`;
-let state=null,view='dashboard',periodId='w1',slotOffset=0,slotCount=10,page=0,query='',clientQuery='',finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
+let state=null,view='dashboard',periodId='w1',page=0,query='',clientQuery='',finalFilter='all',productSort='original',clientFilter='all',auditQuery='',auditWindow='all';
 let registerEmptyScope=null;
 let undoStack=[],saveTimer=null,saveQueue=Promise.resolve(),saveFailure=false,storageConflict=false,autoBackupDue=false;
 const tabId=id('tab');
@@ -726,13 +726,13 @@ function renderRegisterFilters(scope){
  const option=(value,label,current)=>`<option value="${esc(value)}"${value===current?' selected':''}>${esc(label)}</option>`;
  const withoutDate=(undated||!scope.year)?option('','Sin fecha',scope.year):'';
  const months=unitReportMonths.map((name,i)=>option(String(i+1).padStart(2,'0'),name,scope.month)).join('');
+ const scopedIds=new Set(periods.map(period=>period.id));
+ const other=state.periods.filter(period=>!scopedIds.has(period.id));
+ const weekLabel=(period,showDate)=>period.label+(showDate?' · '+(registerPeriodDate(period)||'Sin fecha'):'')+(period.locked?' · Cerrada':'');
  return `<div class="register-period-filters" role="group" aria-label="Elegir período del registro">
-  <label class="field">Semana<select class="form-control" id="register-week"${periods.length?'':' disabled'}>
-   ${periods.length?salesOptions(periods,periodId,period=>{
-    const date=registerPeriodDate(period);
-    const suffix=date&&labelCounts.get(period.label)>1?' · '+date:'';
-    return period.label+suffix+(period.locked?' · Cerrada':'');
-   }):'<option value="">Sin semanas</option>'}
+  <label class="field">Semana<select class="form-control" id="register-week">
+   ${periods.length?salesOptions(periods,periodId,period=>weekLabel(period,labelCounts.get(period.label)>1)):'<option value="" selected disabled>Sin semanas en este período</option>'}
+   ${other.length?`<optgroup label="Otras semanas guardadas">${salesOptions(other,null,period=>weekLabel(period,true))}</optgroup>`:''}
   </select></label>
   <label class="field">Mes<select class="form-control" id="register-month">${withoutDate}${months}</select></label>
   <label class="field">Año<select class="form-control" id="register-year">${withoutDate}${years.map(year=>option(year,year,scope.year)).join('')}</select></label>
@@ -756,9 +756,6 @@ function changeRegisterFilter(control,value){
  if(weeklyPreviewProduct)query='';
  weeklyPreviewProduct='';registerEmptyScope=next;page=0;render();
 }
-function currentSlots(){const limit=slotCount===0?state.clients.length:slotCount;return state.clients.slice(slotOffset,slotOffset+limit);}
-function slotSelect(){const total=state.clients.length;const block=Math.min(slotCount||total,total);let ranges='';for(let i=0;i<total;i+=Math.max(block,1)){const end=Math.min(i+block,total);ranges+=`<option value="${i}" ${slotOffset===i?'selected':''}>A-${i+1} a A-${end}</option>`;}
- return `<div class="field"><label>Espacios visibles</label><select class="form-control" id="slot-count"><option value="10" ${slotCount===10?'selected':''}>10 espacios</option><option value="20" ${slotCount===20?'selected':''}>20 espacios</option><option value="50" ${slotCount===50?'selected':''}>50 espacios</option><option value="0" ${slotCount===0?'selected':''}>Todos (${total})</option></select></div><div class="field"><label>Ir al bloque</label><select class="form-control" id="slot-offset" ${slotCount===0?'disabled':''}>${ranges}</select></div>`;}
 let weeklyPreviewProduct='';
 function weeklyProductIds(period){
  const ids=new Set(period.productIds||[]);
@@ -770,47 +767,32 @@ function weeklyProductIds(period){
  return ids;
 }
 const weeklyNumber=value=>value==null?'—':format(value,9);
-function editWeeklyValues(){
- const period=activePeriod();
- if(period.locked)return toast('Reabre el período para editar el precio y el total.');
- if(!state.products.length)return toast('Añade un producto al catálogo primero.');
- showModal(`Precio y total · ${period.label}`,`<form id="weekly-values-form" class="modal-body" data-period="${esc(period.id)}"><div class="modal-grid">
- <label class="field full">Producto<select class="form-control" name="productId" required><option value="">Selecciona un producto</option>${salesOptions(state.products,null,saleProductLabel)}</select></label>
- <label class="field">Precio unitario (CY)<input class="form-control" type="number" name="price" step="any" disabled></label>
- <label class="field">Total manual (CZ)<input class="form-control" type="number" name="weekTotal" step="any" disabled></label>
- </div></form>`,'<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-primary" form="weekly-values-form">Guardar</button>');
- const form=$('#weekly-values-form'),{productId,price,weekTotal}=form.elements;
- productId.addEventListener('change',()=>{
-  price.disabled=weekTotal.disabled=!productId.value;
-  price.value=state.prices[period.id]?.[productId.value]??'';
-  weekTotal.value=state.weekTotals[period.id]?.[productId.value]??'';
- });
-}
-function saveWeeklyValues(form){
- const period=state.periods.find(item=>item.id===form.dataset.period);
- if(!period||period.locked)return toast('El período está cerrado o ya no existe.');
- const data=new FormData(form),product=state.products.find(item=>item.id===data.get('productId'));
- if(!product)return toast('Selecciona un producto.');
- const values=[['prices','price'],['weekTotals','weekTotal']].map(([store,field])=>{
-  const raw=String(data.get(field)??'').trim();
-  return {store,value:raw===''?undefined:nf(raw)};
- });
- if(values.some(({value})=>value===null||Math.abs(value)>1e15))return toast('Introduce valores válidos.');
- if(values.every(({store,value})=>state[store][period.id]?.[product.id]===value)){closeModal();return;}
- if(mutation(`${period.label}: precio y total de ${product.name}`,()=>{
-  for(const {store,value} of values){
-   if(value===undefined){if(state[store][period.id])delete state[store][period.id][product.id];}
-   else (state[store][period.id]??={})[product.id]=value;
-  }
- }))closeModal();
-}
 function weeklyQuantityCell(period,client,product,units){
  if(units==null||period.locked)return weeklyNumber(units);
  const label=`Revisar cantidad de ${product.name} para ${salesClientLabel(client)}: ${weeklyNumber(units)}`;
  return `<button type="button" class="weekly-quantity-link" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" data-id="${esc(product.id)}" aria-label="${esc(label)}" aria-haspopup="dialog">${weeklyNumber(units)}</button>`;
 }
-function weeklyClientButton(period,client){
- return `<button type="button" class="btn btn-small" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" ${period.locked?'disabled':''}>${esc(salesClientLabel(client))}</button>`;
+function openWeeklyClientPicker(){
+ const period=activePeriod();
+ if(period.locked)return;
+ showModal('Seleccionar cliente',`<div class="modal-body"><label class="field">Cliente
+ <select class="form-control" id="weekly-client-choice" data-period="${esc(period.id)}"><option value="">Elige un cliente</option>
+ ${salesOptions(state.clients,null,salesClientLabel)}</select></label></div>`);
+}
+function updateRegisterDate(field,value){
+ const period=activePeriod();
+ if(period.locked||period[field]===value)return;
+ const start=field==='start'?value:period.start,end=field==='end'?value:period.end;
+ if((value&&!calendarDate(value))||(start&&end&&start>end)){
+  toast('La fecha final debe ser igual o posterior a la fecha de inicio.');
+  render();return;
+ }
+ mutation(`Fechas actualizadas: ${period.label}`,()=>{period[field]=value;});
+}
+function toggleRegisterLock(){
+ const period=activePeriod();
+ mutation(`${period.locked?'Semana desbloqueada':'Semana bloqueada'}: ${period.label}`,()=>{period.locked=!period.locked;});
+ $('[data-action="toggle-period-lock"]')?.focus();
 }
 function hasWeeklyOrigin(origin){
  return Boolean(origin?.boxNumber?.trim()&&origin?.vesselNumber?.trim()&&origin?.rack?.trim());
@@ -914,8 +896,9 @@ function saveWeeklyCell(form){
  }))closeModal();
 }
 function weeklyVisibleSelection(ids){
- return selection(productsFiltered().filter(product=>ids.has(product.id)||product.id===weeklyPreviewProduct));
+ return selection(state.products.filter(product=>ids.has(product.id)||product.id===weeklyPreviewProduct));
 }
+const weeklyVisibleClients=totals=>state.clients.filter(client=>totals.clients.has(client.id));
 function weeklyRows(period,products){
  return products.map(({id,name})=>{
   const cells={...state.movements[period.id]?.[id]},stock=C.qty(state,period.id,id);
@@ -951,7 +934,7 @@ function openWeeklyDownload(){
  const ids=weeklyProductIds(activePeriod()),visible=weeklyVisibleSelection(ids);
  showModal('Descargar imagen',`<div class="modal-body weekly-download-options">
   <button type="button" class="btn" data-action="weekly-image" data-id="visible"${visible.rows.length?'':' disabled'}>Tabla actual</button>
-  <p class="muted">Página, búsqueda y grupo de clientes que tienes seleccionados.</p>
+  <p class="muted">Productos y clientes que aparecen en la tabla actual.</p>
   <button type="button" class="btn" data-action="weekly-image" data-id="full"${ids.size?'':' disabled'}>Tabla completa de la semana</button>
   <p class="muted">Todos los productos y clientes del Registro.</p>
   <div class="muted" data-weekly-export-status role="status"></div>
@@ -985,8 +968,8 @@ async function exportWeeklyImage(full){
  const period={...activePeriod()},ids=weeklyProductIds(period);
  const products=full?state.products.filter(product=>ids.has(product.id)):weeklyVisibleSelection(ids).rows;
  if(!products.length)return toast('No hay productos en esta tabla.');
- const slots=(full?state.clients:currentSlots()).map(client=>({...client}));
  const rows=weeklyRows(period,products),totals=weeklyColumnTotals(period),images=[];
+ const slots=(full?state.clients:weeklyVisibleClients(totals)).map(client=>({...client}));
  const capture=async (clients,products)=>{
   const png=clients.length<=120&&products.length<=160?await captureWeeklyImage(period,clients,products,totals):null;
   if(png){images.push(png);return;}
@@ -1022,29 +1005,31 @@ async function exportWeeklyImage(full){
 }
 function renderWeekly(){
  const period=activePeriod(),scope=registerEmptyScope||registerPeriodScope(period);
- const title=heading('CAPTURA DE DATOS',titleMap.weekly,'Consulta las cantidades de la semana y usa Registrar por cliente para cambiarlas.',
-  `${registerEmptyScope?'':'<button class="btn" data-action="edit-period">Editar período</button>'}<button class="btn btn-primary" data-action="new-period">+ Semana</button>`);
+ const title=heading('CAPTURA DE DATOS',titleMap.weekly,'','<button class="btn btn-primary" data-action="new-period">+ Semana</button>');
  const filters=renderRegisterFilters(scope);
  if(registerEmptyScope)return `${title}${filters}${empty('Sin semanas en este período','Elige otro mes o año, o usa + Semana para añadir un período.')}`;
- const slots=currentSlots(),ids=weeklyProductIds(period),locked=period.locked;
+ const ids=weeklyProductIds(period),locked=period.locked;
  const sel=weeklyVisibleSelection(ids),rows=weeklyRows(period,sel.rows),totals=weeklyColumnTotals(period);
- const count=state.products.filter(p=>ids.has(p.id)).length;
- const desktop=rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal de solo lectura">${weeklyTable(period,slots,rows,totals,true)}</div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',query?'No hay coincidencias para tu búsqueda.':state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
+ const slots=weeklyVisibleClients(totals);
+ const desktop=rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal">${weeklyTable(period,slots,rows,totals,true)}</div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
  const mobile=rows.length?`<div class="week-mobile">${rows.map(({product,cells,stock,price,manual,estimate})=>`
   <article class="card week-product"><div class="week-product-head"><h3>${esc(product.name)}</h3><span class="badge ${stock<0?'danger':stock>0?'good':''}">Total ${weeklyNumber(stock)}</span></div>
   <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyQuantityCell(period,client,product,cells[client.id])}</strong></div>`).join('')}</div>
   <div class="week-product-grid" style="margin-top:13px"><div class="field"><span>Precio unitario (CY)</span><strong>${weeklyNumber(price===''?null:price)}</strong></div><div class="field"><span>Total manual (CZ)</span><strong>${weeklyNumber(manual===''?null:manual)}</strong></div></div>
   <div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${estimate}</strong></div></article>
- `).join('')}<article class="card week-product" data-weekly-client-totals>
+ `).join('')}${slots.length?`<article class="card week-product" data-weekly-client-totals>
   <div class="week-product-head"><h3>Total semanal por cliente</h3></div>
   <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyClientTotal(totals,client)}</strong></div>`).join('')}</div>
- </article>${pageFoot(sel,'productos')}</div>`:'';
+ </article>`:''}${pageFoot(sel,'productos')}</div>`:'';
  return `${title}${filters}
- <div class="period-head"><div><span class="badge ${locked?'warn':'good'}">${locked?'Período cerrado':'Período editable'}</span> <span class="muted" style="font-size:12px;margin-left:8px">${esc(period.start||'Sin fecha de inicio')} ${period.end?'→ '+esc(period.end):''}</span></div><div class="summary-inline"><span>Volumen de la semana: <strong>${weeklyNumber(totals.stock)}</strong></span><span>Productos de la semana: <strong>${count}</strong></span></div></div>
- <div class="tool-strip"><div class="left">${searchBar()}${slotSelect()}</div><div class="right"><button class="btn btn-small" data-action="clients">Editar nombres A-1…</button><button type="button" class="btn btn-small" data-action="weekly-values"${locked?' disabled':''}>Editar precio y total</button><button type="button" class="btn btn-small" data-action="weekly-download" aria-haspopup="dialog"${count||rows.length?'':' disabled'}>Descargar imagen</button></div></div>
- ${locked?'<div class="banner alert"><div><h3>Este período está bloqueado</h3><p>Para corregir movimientos, reabre el período desde «Editar período». La acción quedará registrada en el historial.</p></div><button class="btn" data-action="edit-period">Administrar</button></div>':''}
- <div class="weekly-client-entries" role="group" aria-label="Registrar por cliente"><strong>Registrar por cliente</strong>${slots.map(client=>weeklyClientButton(period,client)).join('')}</div>
- <p class="table-hint">Toca una cantidad para revisarla y cambiarla. Para agregar una nueva, usa Registrar por cliente.</p>${desktop}${mobile}<p class="table-hint">* «Estimado» es un cálculo nuevo de la web (Stock semanal × Precio). La columna «Total manual» corresponde al campo CZ del Excel y no se confunde con el estimado. Los espacios no visibles siguen contando en Stock.</p>`;
+ <div class="register-week-dates">
+  <label class="field">Inicio<input type="date" class="form-control" id="register-start" value="${esc(period.start)}"${locked?' disabled':''}></label>
+  <label class="field">Fin<input type="date" class="form-control" id="register-end" value="${esc(period.end)}"${locked?' disabled':''}></label>
+  <button type="button" class="btn btn-small" data-action="toggle-period-lock">${locked?'Desbloquear semana':'Bloquear semana'}</button>
+ </div>
+ <div class="tool-strip"><div class="left"><button type="button" class="btn btn-primary" data-action="weekly-client-picker" aria-haspopup="dialog"${locked?' disabled':''}>Seleccionar cliente</button></div>
+ <div class="right"><button type="button" class="btn btn-small" data-action="clients">Editar nombres</button><button type="button" class="btn btn-small" data-action="weekly-download" aria-haspopup="dialog"${ids.size||rows.length?'':' disabled'}>Descargar imagen</button></div></div>
+ ${desktop}${mobile}<p class="table-hint">* Estimado = stock semanal × precio.</p>`;
 }
 function renderFinal(){
  const filteredProducts=productsFiltered(),all=filteredProducts.filter(p=>{const n=C.result(state,p).N;return finalFilter==='all'||(finalFilter==='positive'?n>0:finalFilter==='zero'?n===0:n<0);}),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
@@ -1235,10 +1220,14 @@ function productGroupsModal(productId){
  showModal(`Categoría · ${product.name}`,`<form id="product-groups-form" data-id="${esc(productId)}" class="modal-body"><div class="modal-grid">${categoryField(product)}</div></form>`,
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="product-groups-form" class="btn btn-primary">Guardar categoría</button>`);
 }
-function periodModal(existing){
+function periodModal(){
  const scope=view==='weekly'?(registerEmptyScope||registerPeriodScope(activePeriod())):null;
- const p=existing||{label:'Semana '+(state.periods.length+1),start:scope?.year?scope.year+'-'+scope.month+'-01':'',end:'',locked:false};
- showModal(existing?'Editar período':'Añadir período',`<form id="period-form" data-id="${esc(existing?.id||'')}" class="modal-body"><div class="modal-grid"><div class="field full"><label>Nombre del período</label><input name="label" maxlength="70" required class="form-control" value="${esc(p.label)}"></div><div class="field"><label>Fecha de inicio</label><input type="date" name="start" class="form-control" value="${esc(p.start)}"></div><div class="field"><label>Fecha de finalización</label><input type="date" name="end" class="form-control" value="${esc(p.end)}"></div>${existing?`<div class="field full"><label class="switch-line"><input type="checkbox" name="locked" ${p.locked?'checked':''}> Bloquear edición de cantidades, precios y total semanal</label></div>`:''}</div><p>Al bloquear un período no se eliminan registros; podrás reabrirlo después. Las fechas son independientes del número de semana.</p></form>`,`<button class="btn" data-action="close-modal">Cancelar</button>${existing&&state.periods.length>1?`<button class="btn btn-danger" data-action="remove-period" data-id="${esc(p.id)}">Eliminar</button>`:''}<button type="submit" form="period-form" class="btn btn-primary">Guardar período</button>`);
+ const start=scope?.year?scope.year+'-'+scope.month+'-01':'';
+ showModal('Añadir período',`<form id="period-form" class="modal-body"><div class="modal-grid">
+  <label class="field full">Nombre del período<input name="label" maxlength="70" required class="form-control" value="Semana ${state.periods.length+1}"></label>
+  <label class="field">Fecha de inicio<input type="date" name="start" class="form-control" value="${esc(start)}"></label>
+  <label class="field">Fecha de finalización<input type="date" name="end" class="form-control"></label>
+ </div></form>`,'<button class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="period-form" class="btn btn-primary">Guardar período</button>');
 }
 function submitProduct(form){
  const data=new FormData(form),editId=form.dataset.id;
@@ -1288,12 +1277,10 @@ function submitPeriod(form){
  const data=new FormData(form),label=String(data.get('label')||'').trim(),start=String(data.get('start')||''),end=String(data.get('end')||'');
  if(!label){toast('Escribe un nombre para el período.');return;}
  if(start&&end&&start>end){toast('La fecha final no puede ser anterior a la inicial.');return;}
- const editId=form.dataset.id;
- mutation(editId?`Período actualizado: ${label}`:`Período creado: ${label}`,()=>{
-   const p=editId?state.periods.find(x=>x.id===editId):{id:id('period'),locked:false};
-   if(!p)throw new Error('Período no encontrado.');Object.assign(p,{label,start,end,locked:editId?data.has('locked'):false});
-   if(!editId){state.periods.push(p);periodId=p.id;registerEmptyScope=null;page=0;}
- });closeModal();
+ if(mutation(`Período creado: ${label}`,()=>{
+  const period={id:id('period'),label,start,end,locked:false};
+  state.periods.push(period);periodId=period.id;registerEmptyScope=null;weeklyPreviewProduct='';page=0;
+ }))closeModal();
 }
 async function removalCheckpoint(label){
  const snapshot={id:id('safety'),createdAt:new Date().toISOString(),type:'manual',label:'Copia preventiva · '+label,data:clone(state)};
@@ -1325,12 +1312,6 @@ async function removeProduct(productId){
   if(state.gu4?.locations)state.gu4.locations=state.gu4.locations.filter(location=>location.productId!==productId);
   for(const key of ['movements','prices','weekTotals'])for(const period of Object.values(state[key]))delete period[productId];
  }))closeModal();
-}
-async function removePeriod(pId){
- const p=state.periods.find(x=>x.id===pId);if(!p||state.periods.length<=1)return;
- if(!confirm(`¿Eliminar «${p.label}» y todos sus registros, compras, precios y totales? Se creará una copia interna preventiva.`))return;
- await removalCheckpoint('antes de eliminar período');
- mutation(`Período eliminado: ${p.label}`,()=>{state.periods=state.periods.filter(x=>x.id!==pId);delete state.movements[pId];delete state.prices[pId];delete state.weekTotals[pId];for(const [key,entry] of Object.entries(state.weeklyOrigins||{}))if(entry.periodId===pId)delete state.weeklyOrigins[key];if(periodId===pId)periodId=state.periods[0].id;});closeModal();
 }
 function editValue(el){
  const type=el.dataset.edit;
@@ -1574,7 +1555,7 @@ async function applyImport(){
   const merged=mode==='merge'?mergeStates(state,incoming):incoming;
   undoStack.push(clone(state));state=merged;
   state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),label:`Migración ${mode==='merge'?'fusionada':'restaurada'} desde JSON`,actor:'Este dispositivo',at:state.updatedAt});
-  periodId=state.periods[0].id;registerEmptyScope=null;slotOffset=0;page=0;query='';pendingImport=null;closeModal();scheduleSave();await refreshBackups();navigate('dashboard');toast('Migración realizada. Los datos se han recuperado.');
+  periodId=state.periods[0].id;registerEmptyScope=null;page=0;query='';pendingImport=null;closeModal();scheduleSave();await refreshBackups();navigate('dashboard');toast('Migración realizada. Los datos se han recuperado.');
  }catch(e){toast('No se pudo completar la migración: '+e.message);}
 }
 async function makeSnapshot(){try{const entry={id:id('snapshot'),createdAt:new Date().toISOString(),type:'manual',label:'Copia manual',data:clone(state)};await DB.backup(entry);await refreshBackups();render();toast(DB.mode?.()==='memory'?'Copia temporal creada. Descarga un JSON antes de cerrar la vista previa.':'Copia interna creada. Descárgala si quieres protegerla fuera del navegador.');}catch(e){toast('No se pudo crear la copia: '+e.message);}}
@@ -1584,7 +1565,7 @@ async function restoreSnapshot(snapshotId){
  if(!confirm(`¿Restaurar la copia de ${stamp(entry.createdAt)}? Se reemplazarán los datos actuales. Se guardará una copia previa.`))return;
  try{await DB.backup({id:id('before'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restaurar',data:clone(state)});
   const recovered=normalizeImported(entry.data);undoStack.push(clone(state));state=recovered;state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),at:state.updatedAt,actor:'Este dispositivo',label:'Copia interna restaurada'});
-  periodId=state.periods[0].id;registerEmptyScope=null;slotOffset=0;page=0;query='';scheduleSave();await refreshBackups();navigate('dashboard');toast('Se restauraron productos, movimientos y configuración.');
+  periodId=state.periods[0].id;registerEmptyScope=null;page=0;query='';scheduleSave();await refreshBackups();navigate('dashboard');toast('Se restauraron productos, movimientos y configuración.');
  }catch(e){toast('No fue posible restaurar: '+e.message);}
 }
 function csvEscape(value,textual=false){let string=String(value??'');if(textual&&/^[\s]*[=+@\-\t\r]/.test(string))string="'"+string;return '"'+string.replace(/"/g,'""')+'"';}
@@ -1640,7 +1621,8 @@ document.addEventListener('click',async e=>{
  const action=btn.dataset.action,targetId=btn.dataset.id;
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
-  case 'weekly-values':editWeeklyValues();break;
+  case 'weekly-client-picker':openWeeklyClientPicker();break;
+  case 'toggle-period-lock':toggleRegisterLock();break;
   case 'weekly-download':openWeeklyDownload();break;
   case 'weekly-image':await exportWeeklyImage(targetId==='full');break;
   case 'weekly-cell':weeklyCellModal(btn.dataset.period,btn.dataset.client,targetId);break;
@@ -1665,11 +1647,15 @@ document.addEventListener('click',async e=>{
   case 'remove-product':reviewProductRemoval(targetId);break;
   case 'confirm-remove-product':await removeProduct(targetId);break;
   case 'new-period':periodModal();break;
-  case 'edit-period':periodModal(activePeriod());break;
-  case 'remove-period':await removePeriod(targetId);break;
   case 'clients':navigate('clients');break;
   case 'add-client':{const count=state.clients.length+1;mutation(`Espacio A-${count} creado`,()=>state.clients.push({id:id('client'),code:'A-'+count,name:'',active:true}));toast('Nuevo espacio A-'+count+' disponible en todas las semanas.');break;}
-  case 'jump-week':weeklyPreviewProduct=targetId;periodId=btn.dataset.period||state.periods[0].id;registerEmptyScope=null;query=state.products.find(p=>p.id===targetId)?.name||'';page=0;view='weekly';render();break;
+  case 'jump-week':{
+   weeklyPreviewProduct=targetId;periodId=btn.dataset.period||state.periods[0].id;registerEmptyScope=null;query='';
+   const ids=weeklyProductIds(activePeriod());
+   const position=state.products.filter(product=>ids.has(product.id)||product.id===targetId).findIndex(product=>product.id===targetId);
+   page=Math.floor(Math.max(0,position)/(state.settings.pageSize||20));
+   view='weekly';render();break;
+  }
   case 'demo':sampleData();break;
   case 'export-json':await exportJSON();break;
   case 'export-encrypted':await encryptedExport();break;
@@ -1691,14 +1677,13 @@ document.addEventListener('click',async e=>{
     if(!confirm('¿Borrar TODOS los datos de este espacio? Se guardará primero una copia interna, pero es recomendable descargar un JSON.'))return;
     if(!confirm('Última confirmación: ¿restablecer la aplicación a cero?'))return;
     await DB.backup({id:id('before-reset'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restablecer',data:clone(state)});
-    undoStack.push(clone(state));state=newState();periodId='w1';registerEmptyScope=null;page=0;query='';clientQuery='';slotOffset=0;await refreshBackups();scheduleSave();navigate('dashboard');toast('Espacio restablecido. Tu copia previa permanece en Copias.');break;
+    undoStack.push(clone(state));state=newState();periodId='w1';registerEmptyScope=null;page=0;query='';clientQuery='';await refreshBackups();scheduleSave();navigate('dashboard');toast('Espacio restablecido. Tu copia previa permanece en Copias.');break;
   }
  }}catch(err){toast('No se pudo completar la acción: '+err.message);}
 });
 document.addEventListener('submit',e=>{
  const form=e.target;if(form.id==='product-groups-form'){e.preventDefault();submitProductGroups(form);return;}
  if(form.id==='catalog-group-form'){e.preventDefault();saveCatalogGroup(form);return;}
- if(form.id==='weekly-values-form'){e.preventDefault();saveWeeklyValues(form);return;}
  if(form.id==='weekly-cell-form'){e.preventDefault();saveWeeklyCell(form);return;}
  if(['sales-filters','sales-speed'].includes(form.id)){e.preventDefault();submitSales(form);return;}
  if(!['product-form','period-form','password-form'].includes(form.id))return;e.preventDefault();
@@ -1726,10 +1711,16 @@ document.addEventListener('change',e=>{
  if(['register-week','register-month','register-year'].includes(el.id)){
   changeRegisterFilter(el.id,el.value);document.getElementById(el.id)?.focus();return;
  }
- if(el.id==='slot-count'){slotCount=Number(el.value);slotOffset=0;page=0;render();return;}
+ if(el.id==='register-start'||el.id==='register-end'){
+  updateRegisterDate(el.id==='register-start'?'start':'end',el.value);
+  document.getElementById(el.id)?.focus();return;
+ }
+ if(el.id==='weekly-client-choice'){
+  if(el.value)weeklyCellModal(el.dataset.period,el.value);
+  return;
+ }
    if(el.id==='product-sort'){productSort=el.value;page=0;render();return;}
    if(el.id==='audit-window'){auditWindow=el.value;render();return;}
- if(el.id==='slot-offset'){slotOffset=Number(el.value)||0;page=0;render();return;}
  if(el.id==='setting-currency'){const currency=el.value;if(['COP','USD','EUR','MXN','CNY'].includes(currency))mutation('Moneda cambiada a '+currency,()=>state.settings.currency=currency);return;}
  if(el.id==='setting-pagesize'){const count=Number(el.value);if([10,20,40,80].includes(count))mutation('Tamaño de página cambiado',()=>{state.settings.pageSize=count;page=0;});return;}
 });
