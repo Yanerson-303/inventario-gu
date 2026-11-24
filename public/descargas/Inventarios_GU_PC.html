@@ -770,6 +770,9 @@ body.gu-entry-active{overflow:hidden}
 .register-period-filters { display: grid; grid-template-columns: minmax(0,1.25fr) repeat(2,minmax(0,1fr)); gap: 8px; width: min(100%,620px); margin-bottom: 18px; }
 .register-period-filters select.form-control { min-width: 0; }
 .register-week-dates { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-bottom: 16px; }
+.period-date-form { display: grid; gap: 14px; }
+.period-date-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.period-date-fields[hidden] { display: none; }
 .week-scroll-2d .weekly-data-table tfoot th { top: auto; }
 .weekly-data-table tfoot :is(th,td) { background: var(--surface2); border-top: 1px solid var(--line); color: var(--text); font-weight: 800; }
 .weekly-download-options > p { margin: 6px 0 16px; }
@@ -2749,6 +2752,34 @@ function registerPeriodScope(period){
  const date=registerPeriodDate(period);
  return {year:date.slice(0,4),month:date.slice(5,7)};
 }
+function registerYears(selected){
+ return [...new Set([...unitReportYears,selected,...state.periods.map(period=>registerPeriodScope(period).year)])].filter(Boolean).sort();
+}
+const registerOption=(value,label,current)=>`<option value="${esc(value)}"${value===current?' selected':''}>${esc(label)}</option>`;
+function registerMonthOptions(current){
+ return unitReportMonths.map((name,i)=>registerOption(String(i+1).padStart(2,'0'),name,current)).join('');
+}
+function registerCalendarWeeks(year,month){
+ const monthKey=year+'-'+month,firstDay=monthKey+'-01';
+ if(!calendarDate(firstDay))return [];
+ const date=new Date(firstDay+'T00:00:00Z');
+ const firstWeekDays=7-((date.getUTCDay()+6)%7);
+ date.setUTCMonth(date.getUTCMonth()+1,0);
+ const lastDay=date.getUTCDate(),weeks=[];
+ for(let first=1,last=Math.min(firstWeekDays,lastDay);first<=lastDay;){
+  weeks.push({start:unitReportDay(monthKey,first),end:unitReportDay(monthKey,last)});
+  first=last+1;last=Math.min(last+7,lastDay);
+ }
+ return weeks;
+}
+function registerDateLabel(period){
+ const display=date=>calendarDate(date)?date.split('-').reverse().join('/'):'';
+ const start=display(period.start),end=display(period.end);
+ if(start&&end)return start===end?start:`${start} – ${end}`;
+ if(start)return 'Desde '+start;
+ if(end)return 'Hasta '+end;
+ return 'Sin fecha';
+}
 function registerPeriods({year,month}){
  return state.periods.filter(period=>{
   const date=registerPeriodDate(period);
@@ -2760,10 +2791,7 @@ function renderRegisterFilters(scope){
  const periods=registerPeriods(scope);
  const labelCounts=new Map();
  for(const period of periods)labelCounts.set(period.label,(labelCounts.get(period.label)||0)+1);
- const years=[...new Set([...unitReportYears,scope.year,...state.periods.map(period=>registerPeriodScope(period).year)])].filter(Boolean).sort();
- const option=(value,label,current)=>`<option value="${esc(value)}"${value===current?' selected':''}>${esc(label)}</option>`;
- const withoutDate=(undated||!scope.year)?option('','Sin fecha',scope.year):'';
- const months=unitReportMonths.map((name,i)=>option(String(i+1).padStart(2,'0'),name,scope.month)).join('');
+ const withoutDate=(undated||!scope.year)?registerOption('','Sin fecha',scope.year):'';
  const scopedIds=new Set(periods.map(period=>period.id));
  const other=state.periods.filter(period=>!scopedIds.has(period.id));
  const weekLabel=(period,showDate)=>period.label+(showDate?' · '+(registerPeriodDate(period)||'Sin fecha'):'')+(period.locked?' · Cerrada':'');
@@ -2772,8 +2800,8 @@ function renderRegisterFilters(scope){
    ${periods.length?salesOptions(periods,periodId,period=>weekLabel(period,labelCounts.get(period.label)>1)):'<option value="" selected disabled>Sin semanas en este período</option>'}
    ${other.length?`<optgroup label="Otras semanas guardadas">${salesOptions(other,null,period=>weekLabel(period,true))}</optgroup>`:''}
   </select></label>
-  <label class="field">Mes<select class="form-control" id="register-month">${withoutDate}${months}</select></label>
-  <label class="field">Año<select class="form-control" id="register-year">${withoutDate}${years.map(year=>option(year,year,scope.year)).join('')}</select></label>
+  <label class="field">Mes<select class="form-control" id="register-month">${withoutDate}${registerMonthOptions(scope.month)}</select></label>
+  <label class="field">Año<select class="form-control" id="register-year">${withoutDate}${registerYears(scope.year).map(year=>registerOption(year,year,scope.year)).join('')}</select></label>
  </div>`;
 }
 function changeRegisterFilter(control,value){
@@ -2816,19 +2844,6 @@ function openWeeklyClientPicker(){
  showModal('Seleccionar cliente',`<div class="modal-body"><label class="field">Cliente
  <select class="form-control" id="weekly-client-choice" data-period="${esc(period.id)}"><option value="">Elige un cliente</option>
  ${salesOptions(state.clients,null,salesClientLabel)}</select></label></div>`);
-}
-function updateRegisterDate(field,input){
- const period=activePeriod();
- const {value}=input;
- if(period.locked||(period[field]===value&&!input.validity.badInput))return;
- const start=field==='start'?value:period.start,end=field==='end'?value:period.end;
- const message=value&&!calendarDate(value)?'Introduce una fecha válida.':start&&end&&start>end?
-  'La fecha final debe ser igual o posterior a la fecha de inicio.':'';
- if(input.validity.badInput||message){
-  input.value=period[field]||'';
-  toast(message||'Introduce una fecha válida.',input);return;
- }
- mutation(`Fechas actualizadas: ${period.label}`,()=>{period[field]=value;});
 }
 function toggleRegisterLock(){
  const period=activePeriod();
@@ -3077,8 +3092,7 @@ function renderWeekly(){
  </article>`:''}${pageFoot(sel,'productos')}</div>`:'';
  return `${title}${filters}
  <div class="register-week-dates">
-  <label class="field">Inicio<input type="date" class="form-control" id="register-start" value="${esc(period.start)}"${locked?' disabled':''}></label>
-  <label class="field">Fin<input type="date" class="form-control" id="register-end" value="${esc(period.end)}"${locked?' disabled':''}></label>
+  <button type="button" class="btn btn-small" data-action="edit-period-dates" aria-haspopup="dialog"${locked?' disabled':''}>Fechas · ${esc(registerDateLabel(period))}</button>
   <button type="button" class="btn btn-small" data-action="toggle-period-lock">${locked?'Desbloquear semana':'Bloquear semana'}</button>
  </div>
  <div class="tool-strip"><div class="left"><button type="button" class="btn btn-primary" data-action="weekly-client-picker" aria-haspopup="dialog"${locked?' disabled':''}>Seleccionar cliente</button></div>
@@ -3281,14 +3295,59 @@ function productGroupsModal(productId){
  showModal(`Categoría · ${product.name}`,`<form id="product-groups-form" data-id="${esc(productId)}" class="modal-body"><div class="modal-grid">${categoryField(product)}</div></form>`,
  `<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="product-groups-form" class="btn btn-primary">Guardar categoría</button>`);
 }
-function periodModal(){
- const scope=view==='weekly'?(registerEmptyScope||registerPeriodScope(activePeriod())):null;
- const start=scope?.year?scope.year+'-'+scope.month+'-01':'';
- showModal('Añadir período',`<form id="period-form" class="modal-body"><div class="modal-grid">
-  <label class="field full">Nombre del período<input name="label" maxlength="70" required class="form-control" value="Semana ${state.periods.length+1}"></label>
-  <label class="field">Fecha de inicio<input type="date" name="start" class="form-control" value="${esc(start)}"></label>
-  <label class="field">Fecha de finalización<input type="date" name="end" class="form-control"></label>
- </div></form>`,'<button class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="period-form" class="btn btn-primary">Guardar período</button>');
+function periodWeekOptions(weeks,selected){
+ return weeks.map(({start,end},i)=>{
+  const first=Number(start.slice(8)),last=Number(end.slice(8));
+  const days=first===last?'día '+first:first+'–'+last;
+  return registerOption(String(i+1),`Semana ${i+1} · ${days}`,String(selected));
+ }).join('');
+}
+function periodModal(period){
+ if(period?.locked)return;
+ const reference=registerPeriodDate(period||activePeriod())||localSaleDate();
+ const scope=period?registerPeriodScope(period):registerEmptyScope||registerPeriodScope(activePeriod());
+ const year=scope.year||reference.slice(0,4),month=scope.month||reference.slice(5,7);
+ const weeks=registerCalendarWeeks(year,month);
+ const weekNumber=Math.max(0,weeks.findIndex(week=>reference>=week.start&&reference<=week.end))+1;
+ const selected=weeks[weekNumber-1];
+ const start=period?period.start:selected.start,end=period?period.end:selected.end;
+ const byWeek=!period||(start===selected.start&&end===selected.end);
+ let suggestedName='Semana '+weekNumber;
+ showModal(period?'Fechas · '+period.label:'Añadir período',`<form id="period-form" class="modal-body period-date-form" data-id="${esc(period?.id||'')}">
+  ${period?'':`<label class="field">Nombre del período<input name="label" maxlength="70" required class="form-control" value="${suggestedName}"></label>`}
+  <label class="field">Elegir fechas<select class="form-control" name="dateMode">
+   ${registerOption('week','Por semana del mes',byWeek?'week':'exact')}
+   ${registerOption('exact','Fechas exactas',byWeek?'week':'exact')}
+  </select></label>
+  <fieldset class="modal-grid period-date-fields" data-period-calendar${byWeek?'':' hidden disabled'}>
+   <label class="field">Mes<select class="form-control" name="periodMonth">${registerMonthOptions(month)}</select></label>
+   <label class="field">Año<select class="form-control" name="periodYear">${registerYears(year).map(value=>registerOption(value,value,year)).join('')}</select></label>
+   <label class="field full">Semana<select class="form-control" name="periodWeek" required>${periodWeekOptions(weeks,weekNumber)}</select></label>
+  </fieldset>
+  <fieldset class="modal-grid period-date-fields" data-period-exact${byWeek?' hidden disabled':''}>
+   <label class="field">Inicio<input type="date" name="start" class="form-control" value="${esc(start)}"></label>
+   <label class="field">Fin<input type="date" name="end" class="form-control" value="${esc(end)}"></label>
+  </fieldset>
+ </form>`,`<button class="btn" data-action="close-modal">Cancelar</button><button type="submit" form="period-form" class="btn btn-primary">${period?'Guardar fechas':'Guardar período'}</button>`);
+ const form=$('#period-form');
+ const {dateMode,periodMonth,periodYear,periodWeek,label}=form.elements;
+ const calendar=$('[data-period-calendar]',form),exact=$('[data-period-exact]',form);
+ form.addEventListener('change',event=>{
+  if(event.target===dateMode){
+   clearFieldFeedback();
+   calendar.hidden=calendar.disabled=dateMode.value!=='week';
+   exact.hidden=exact.disabled=dateMode.value!=='exact';
+  }else if(event.target===periodMonth||event.target===periodYear){
+   clearFieldFeedback();
+   const options=registerCalendarWeeks(periodYear.value,periodMonth.value);
+   periodWeek.innerHTML=periodWeekOptions(options,Math.min(Number(periodWeek.value)||1,options.length));
+  }
+  if(label&&dateMode.value==='week'){
+   const next='Semana '+periodWeek.value;
+   if(label.value===suggestedName)label.value=next;
+   suggestedName=next;
+  }
+ });
 }
 function submitProduct(form){
  const data=new FormData(form),editId=form.dataset.id;
@@ -3340,11 +3399,26 @@ function submitProductGroups(form){
  if(mutation(`Categoría actualizada: ${product.name}`,()=>{product.category=category;}))closeModal();
 }
 function submitPeriod(form){
- const data=new FormData(form),label=String(data.get('label')||'').trim(),start=String(data.get('start')||''),end=String(data.get('end')||'');
+ const data=new FormData(form),editId=form.dataset.id;
+ const existing=editId?state.periods.find(period=>period.id===editId):null;
+ if(editId&&(!existing||existing.locked))return toast('La semana está cerrada o ya no existe.');
+ const label=existing?.label||String(data.get('label')||'').trim();
  if(!label)return toast('Escribe un nombre para el período.',form.elements.label);
+ let start=String(data.get('start')||''),end=String(data.get('end')||'');
+ if(data.get('dateMode')==='week'){
+  const weeks=registerCalendarWeeks(data.get('periodYear'),data.get('periodMonth'));
+  const selected=weeks[Number(data.get('periodWeek'))-1];
+  if(!selected)return toast('Selecciona una semana válida.',form.elements.periodWeek);
+  ({start,end}=selected);
+ }
  if(start&&!calendarDate(start))return toast('Escribe una fecha de inicio válida.',form.elements.start);
  if(end&&!calendarDate(end))return toast('Escribe una fecha final válida.',form.elements.end);
  if(start&&end&&start>end)return toast('La fecha final no puede ser anterior a la inicial.',form.elements.end);
+ if(existing){
+  if(existing.start===start&&existing.end===end){closeModal();return;}
+  if(mutation(`Fechas actualizadas: ${existing.label}`,()=>{Object.assign(existing,{start,end});}))closeModal();
+  return;
+ }
  if(mutation(`Período creado: ${label}`,()=>{
   const period={id:id('period'),label,start,end,locked:false};
   state.periods.push(period);periodId=period.id;registerEmptyScope=null;weeklyPreviewProduct='';page=0;
@@ -3780,6 +3854,7 @@ document.addEventListener('click',async e=>{
  try{switch(action){
   case 'close-modal':closeModal();if(passwordResolve){passwordResolve(null);passwordResolve=null;}break;
   case 'weekly-client-picker':openWeeklyClientPicker();break;
+  case 'edit-period-dates':periodModal(activePeriod());break;
   case 'toggle-period-lock':toggleRegisterLock();break;
   case 'weekly-download':openWeeklyDownload();break;
   case 'weekly-image':await exportWeeklyImage(targetId==='full');break;
@@ -3868,10 +3943,6 @@ document.addEventListener('change',e=>{
  if(el.matches('[data-edit]')){editValue(el);return;}
  if(['register-week','register-month','register-year'].includes(el.id)){
   changeRegisterFilter(el.id,el.value);document.getElementById(el.id)?.focus();return;
- }
- if(el.id==='register-start'||el.id==='register-end'){
-  updateRegisterDate(el.id==='register-start'?'start':'end',el);
-  document.getElementById(el.id)?.focus();return;
  }
  if(el.id==='weekly-client-choice'){
   if(el.value)weeklyCellModal(el.dataset.period,el.value);
