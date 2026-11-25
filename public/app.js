@@ -249,16 +249,21 @@ function renderCapacityAlert(exceeded){
 }
 function renderDashboard(){
  const all=C.totals(state,state.products);
- const capacity=catalogCapacity(all.rows,purchases());
+ const sales=purchases();
+ const capacity=catalogCapacity(all.rows,sales);
  const {registered,weekly,sold}=capacity.totals;
  const registeredBars=capacity.products.filter(row=>row.registered>0).sort((a,b)=>b.registered-a.registered).slice(0,5).map(row=>({label:row.product.name,value:row.registered}));
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.')}
  ${renderCapacityAlert(capacity.exceeded)}
  ${!state.products.length?`<div class="banner"><div><h3>Inventario vacío</h3><p>Abre Inventario para añadir productos o cargar la demostración.</p></div></div>`:''}
- <section class="stats-grid" aria-label="Indicadores generales">
+ <section aria-labelledby="dashboard-charts-title">
+ <h2 id="dashboard-charts-title">Panel de gráficos</h2>
+ <div class="stats-grid" aria-label="Indicadores generales">
  ${metricBox('volumen',statCard(metricLabels.volumen,format(registered,9),'Total de unidades guardadas en Productos.','▦',unitReportCard('sales',M.barRows(registeredBars,'Unidades guardadas por producto',{empty:'Aún no hay unidades guardadas en Productos'}), `Usadas en semanas: ${format(weekly,9)} · Vendidas: ${format(sold,9)}`)))}
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows))))}
  ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',unitReportCard('value',M.valueMix(all.rows))))}
+ </div>
+ ${renderTopSalesChart(sales)}
  </section>
  <div class="dashboard-visual-row dashboard-warehouse">${window.AlmendraWarehouse?.render(state)||''}</div>
  ${dashboardActions()}`;
@@ -616,6 +621,39 @@ function previousSalesMonth(month){
  return date.toISOString().slice(0,7);
 }
 function sumSales(records){return C.round(records.reduce((total,sale)=>total+sale.units,0));}
+function salesRanking(records,productNames){
+ const leaders=new Map();
+ for(const sale of records){
+  const entry=leaders.get(sale.productId)||{name:productNames.get(sale.productId)||sale.productName||sale.productId,units:0};
+  entry.units=C.round(entry.units+C.num(sale.units));
+  leaders.set(sale.productId,entry);
+ }
+ return [...leaders.entries()].sort(([,a],[,b])=>b.units-a.units||a.name.localeCompare(b.name,'es'));
+}
+let topSalesMonth='';
+function renderTopSalesChart(sales){
+ const records=sales.filter(sale=>!sale.voided);
+ const months=[...new Set(records.filter(sale=>calendarDate(sale.date)).map(sale=>sale.date.slice(0,7)))].sort().reverse();
+ const month=months.includes(topSalesMonth)?topSalesMonth:'';
+ const productNames=new Map(state.products.map(product=>[product.id,product.name]));
+ const rows=salesRanking(records.filter(sale=>!month||sale.date.startsWith(month)),productNames)
+  .filter(([,row])=>row.units>0).slice(0,10).map(([,row])=>({label:row.name,value:row.units}));
+ const monthLabel=key=>`${unitReportMonths[Number(key.slice(5))-1]} de ${key.slice(0,4)}`;
+ const period=month?monthLabel(month):'Todos los meses';
+ return `<article class="card card-pad sales-section" aria-labelledby="top-sales-title">
+ <div id="top-sales-chart">
+ <h3 id="top-sales-title">10 productos más vendidos</h3>
+ <p class="muted">Unidades vendidas · ${esc(period)}</p>
+ ${M.barRows(rows,'Unidades vendidas',{limit:10,format:traceQuantity,empty:'Sin ventas registradas para este período.'})}
+ </div>
+ <div class="unit-report-actions sales-fields" data-html2canvas-ignore>
+ <label class="field">Filtrar por mes <select id="top-sales-month" class="form-control">
+ ${registerOption('','Todos los meses',month)}
+ ${months.map(key=>registerOption(key,monthLabel(key),month)).join('')}
+ </select></label>
+ <button type="button" class="btn btn-small" data-action="top-sales-image"${rows.length?'':' disabled'}>Descargar imagen</button>
+ </div></article>`;
+}
 function compareSales(current,previous){
  const change=C.round(current-previous);
  return `${change>0?'+':''}${traceQuantity(change)} unidades${previous?` (${change>0?'+':''}${format(change/previous*100)} %)`:' · sin base porcentual'}`;
@@ -638,8 +676,6 @@ function renderSales(){
  const current=records.filter(sale=>sale.date.startsWith(month));
  const old=records.filter(sale=>sale.date.startsWith(previous));
  const monthly=new Map([[month,0],[previous,0]]);
- const leaders=new Map();
- for(const sale of current){const entry=leaders.get(sale.productId)||{name:productNames.get(sale.productId)||sale.productName,units:0};entry.units=C.round(entry.units+sale.units);leaders.set(sale.productId,entry);}
  for(const sale of records){
   if(sale.productId===product?.id){const key=sale.date.slice(0,7);monthly.set(key,C.round((monthly.get(key)||0)+sale.units));}
  }
@@ -650,7 +686,7 @@ function renderSales(){
  });
  const priorByProduct=new Map();
  for(const sale of old)priorByProduct.set(sale.productId,C.round((priorByProduct.get(sale.productId)||0)+sale.units));
- const ranking=[...leaders.entries()].sort(([,a],[,b])=>b.units-a.units||a.name.localeCompare(b.name,'es'));
+ const ranking=salesRanking(current,productNames);
  const table=(labels,rows)=>`<div class="table-scroll sales-table"><table class="data-table"><thead><tr>${labels.map(label=>`<th scope="col">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
  const lots=state.lots||[],remaining=Trace.balance(state);
  const received=lots.reduce((total,lot)=>total+lot.units,0);
@@ -2060,6 +2096,7 @@ document.addEventListener('click',async e=>{
   case 'client-trace':clientTrace(targetId);break;
   case 'unit-report':openUnitReport(targetId||'sales');break;
   case 'inventory-download':openInventoryDownload(targetId);break;
+  case 'top-sales-image':await exportDashboardImage(btn,$('#top-sales-chart'),filename('Inventarios_GU_10_mas_vendidos','png'));break;
   case 'inventory-excel':btn.disabled=true;try{await exportInventoryExcel();if(btn.isConnected)closeModal();}finally{btn.disabled=false;}break;
   case 'inventory-image':{
    const chart=$(`#unit-report-preview-${targetId}`);
@@ -2132,6 +2169,9 @@ document.addEventListener('submit',e=>{
 });
 document.addEventListener('change',e=>{
  const el=e.target;
+ if(el.id==='top-sales-month'){
+  topSalesMonth=el.value;render();$('#top-sales-month')?.focus();return;
+ }
  if(el.id==='catalog-category'||el.id==='catalog-group'){
   if(el.id==='catalog-category')catalogCategory=el.value;else catalogGroup=el.value;
   page=0;render();document.getElementById(el.id)?.focus();return;

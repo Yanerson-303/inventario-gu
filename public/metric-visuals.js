@@ -22,15 +22,16 @@ function spark(items, label='Evolución de los movimientos', opts={}) {
  return `<div class="metric-mini-chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="metric-spark" role="img" aria-label="${esc(label)}. ${esc(values)}"><line x1="8" y1="${zeroY.toFixed(2)}" x2="232" y2="${zeroY.toFixed(2)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 4"/><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>${dots}</svg><div class="metric-mini-foot"><span>${esc(opts.left||'Primer período')}</span><span>${esc(opts.right||`Último: ${last}`)}</span></div></div>`;
 }
 function barRows(items,label='Comparación de valores',opts={}){
- const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value)));
+ const rows=(Array.isArray(items)?items:[]).filter(i=>i&&Number.isFinite(Number(i.value))).slice(0,opts.limit??5);
  if(!rows.length)return empty(opts.empty||'Sin datos para comparar');
+ const formatValue=opts.format||fmt;
  const max=rows.reduce((largest,row)=>Math.max(largest,Math.abs(num(row.value))),0)||1;
- const bars=rows.slice(0,5).map(item=>{
+ const bars=rows.map(item=>{
   const amount=num(item.value),width=clamp(Math.abs(amount)/max*100,0,100);
-  const name=esc(item.label),value=esc(fmt(amount));
+  const name=esc(item.label),value=esc(formatValue(amount));
   return `<div class="metric-bar-row" tabindex="0" aria-label="${name}: ${value}"><div class="metric-bar-top"><span title="${name}">${name}</span><b class="mono">${value}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(item.color||'var(--accent)')}"></i></div></div>`;
  }).join('');
- const summary=rows.map(item=>`${item.label} ${fmt(item.value)}`).join(', ');
+ const summary=rows.map(item=>`${item.label} ${formatValue(item.value)}`).join(', ');
  return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(summary)}">${bars}</div>`;
 }
 function donut(items,label='Distribución',opts={}){
