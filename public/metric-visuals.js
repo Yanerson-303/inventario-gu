@@ -28,33 +28,35 @@ function barRows(items,label='Comparación de valores',opts={}){
  const max=rows.reduce((largest,row)=>Math.max(largest,Math.abs(num(row.value))),0)||1;
  const bars=rows.map(item=>{
   const amount=num(item.value),width=clamp(Math.abs(amount)/max*100,0,100);
-  const name=esc(item.label),value=esc(formatValue(amount));
+  const name=esc(item.label),value=esc(formatValue(amount,item));
   return `<div class="metric-bar-row" tabindex="0" aria-label="${name}: ${value}"><div class="metric-bar-top"><span title="${name}">${name}</span><b class="mono">${value}</b></div><div class="metric-bar-track"><i style="width:${width.toFixed(2)}%;background:${esc(item.color||'var(--accent)')}"></i></div></div>`;
  }).join('');
- const summary=rows.map(item=>`${item.label} ${formatValue(item.value)}`).join(', ');
+ const summary=rows.map(item=>`${item.label} ${formatValue(item.value,item)}`).join(', ');
  return `<div class="metric-mini-bars" role="img" aria-label="${esc(label)}: ${esc(summary)}">${bars}</div>`;
 }
 function donut(items,label='Distribución',opts={}){
- const rows=(Array.isArray(items)?items:[]).map(x=>({label:String(x.label),value:Math.max(0,num(x.value)),color:x.color||'var(--accent)'}));
+ const rows=(Array.isArray(items)?items:[]).map(x=>({...x,label:String(x.label),value:Math.max(0,num(x.value)),color:x.color||'var(--accent)'}));
  const total=rows.reduce((a,b)=>a+b.value,0);
  if(!total)return empty(opts.empty||'Sin valores para distribuir');
+ const amountText=row=>(opts.format||fmt)(row.value,row);
  const circumference=2*Math.PI*34;let offset=0;
  const paths=rows.filter(r=>r.value>0).map(r=>{
   const len=r.value/total*circumference,visible=len-Math.min(0.4,len/2);
-  const slice=`<circle class="metric-slice" cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${visible} ${circumference}" stroke-dashoffset="${-offset}" transform="rotate(-90 46 46)" tabindex="0"><title>${esc(r.label)}: ${esc(fmt(r.value))}</title></circle>`;
+  const slice=`<circle class="metric-slice" cx="46" cy="46" r="34" fill="none" stroke="${esc(r.color)}" stroke-width="12" stroke-dasharray="${visible} ${circumference}" stroke-dashoffset="${-offset}" transform="rotate(-90 46 46)" tabindex="0"><title>${esc(r.label)}: ${esc(amountText(r))}</title></circle>`;
   offset+=len;
   return slice;
  }).join('');
- const aria=rows.map(r=>`${r.label}: ${fmt(r.value)} (${Math.round(r.value/total*100)}%)`).join('; ');
- return `<div class="metric-donut-wrap"><svg class="metric-donut" viewBox="0 0 92 92" role="img" aria-label="${esc(label)}. ${esc(aria)}"><circle cx="46" cy="46" r="34" stroke="var(--line)" fill="none" stroke-width="12"/>${paths}<text x="46" y="45" fill="var(--text)" font-size="15" font-weight="800" text-anchor="middle">${esc(opts.center||fmt(total))}</text><text x="46" y="58" fill="var(--muted)" font-size="7" text-anchor="middle">${esc(opts.sub||'total')}</text></svg><div class="metric-legend">${rows.map(r=>`<div class="metric-legend-row"><i style="background:${esc(r.color)}"></i><span>${esc(r.label)}</span><b class="mono">${fmt(r.value)}</b></div>`).join('')}</div></div>`;
+ const aria=rows.map(r=>`${r.label}: ${amountText(r)} (${Math.round(r.value/total*100)}%)`).join('; ');
+ return `<div class="metric-donut-wrap"><svg class="metric-donut" viewBox="0 0 92 92" role="img" aria-label="${esc(label)}. ${esc(aria)}"><circle cx="46" cy="46" r="34" stroke="var(--line)" fill="none" stroke-width="12"/>${paths}<text x="46" y="45" fill="var(--text)" font-size="15" font-weight="800" text-anchor="middle">${esc(opts.center||fmt(total))}</text><text x="46" y="58" fill="var(--muted)" font-size="7" text-anchor="middle">${esc(opts.sub||'total')}</text></svg><div class="metric-legend">${rows.map(r=>`<div class="metric-legend-row"><i style="background:${esc(r.color)}"></i><span title="${esc(r.label)}">${esc(r.label)}</span><b class="mono">${esc(amountText(r))}</b></div>`).join('')}</div></div>`;
 }
-function valueMix(rows){
+function valueMix(rows,format){
  const positives=(rows||[]).filter(r=>num(r.P)>0).sort((a,b)=>b.P-a.P);
- const first=positives.slice(0,3),others=positives.slice(3).reduce((s,r)=>s+num(r.P),0);
- const parts=[...first.map(r=>({label:r.product.name,value:r.P})),...(others>0?[{label:'Otros',value:others,color:'var(--gold)'}]:[])];
+ const rest=positives.slice(3),others=rest.reduce((s,r)=>s+num(r.P),0);
+ const parts=positives.slice(0,3).map(r=>({label:r.product.name,value:r.P,units:num(r.N)}));
+ if(others>0)parts.push({label:'Otros',value:others,units:rest.reduce((s,r)=>s+num(r.N),0),color:'var(--gold)'});
  const colors=['var(--accent)','var(--good)','var(--warn)'];parts.forEach((r,i)=>r.color=r.color||colors[i%colors.length]);
  const negatives=(rows||[]).filter(r=>num(r.P)<0);
- return `<div class="metric-visual-stack">${donut(parts,'Composición del valor positivo',{sub:'valor +',empty:'Sin valorizaciones positivas'})}${negatives.length?`<span class="metric-chart-note">${negatives.length} valorización(es) negativa(s), no incluidas en la torta.</span>`:''}</div>`;
+ return `<div class="metric-visual-stack">${donut(parts,'Composición del valor positivo',{sub:'valor +',empty:'Sin valorizaciones positivas',format})}${negatives.length?`<span class="metric-chart-note">${negatives.length} valorización(es) negativa(s), no incluidas en la torta.</span>`:''}</div>`;
 }
 function stockTop(rows){
  const items=(rows||[]).filter(r=>num(r.N)>0).sort((a,b)=>b.N-a.N).slice(0,3).map(r=>({label:r.product.name,value:r.N}));
@@ -67,10 +69,15 @@ function catalogue(rows){
 function references(rows){
  return donut([{label:'Con stock',value:(rows||[]).filter(r=>num(r.N)>0).length,color:'var(--good)'},{label:'En cero',value:(rows||[]).filter(r=>num(r.N)===0).length,color:'var(--warn)'},{label:'Negativas',value:(rows||[]).filter(r=>num(r.N)<0).length,color:'var(--danger)'}],'Estado de las referencias',{sub:'refs.',empty:'Sin referencias'});
 }
-function balances(rows){
- const plus=(rows||[]).reduce((s,r)=>s+Math.max(0,num(r.N)),0);
- const minus=(rows||[]).reduce((s,r)=>s+Math.max(0,-num(r.N)),0);
- return `<div class="metric-visual-stack">${barRows([{label:'Saldo positivo',value:plus,color:'var(--good)'},{label:'Faltante calculado',value:minus,color:'var(--danger)'}],'Saldo positivo y faltantes')}<span class="metric-chart-note">Saldo neto = positivo − faltante.</span></div>`;
+function balances(rows,format){
+ const plus={label:'Saldo positivo',value:0,amount:0,color:'var(--good)'};
+ const minus={label:'Faltante calculado',value:0,amount:0,color:'var(--danger)'};
+ for(const r of rows||[]){
+  const units=num(r.N),part=units<0?minus:plus;
+  part.value+=Math.abs(units);
+  part.amount+=units<0?-num(r.P):num(r.P);
+ }
+ return `<div class="metric-visual-stack">${barRows([plus,minus],'Saldo positivo y faltantes',{format})}<span class="metric-chart-note">Saldo neto = positivo − faltante.</span></div>`;
 }
 function issueBars(info){return barRows((info?.categories||[]).map(c=>({label:c.name,value:info.counts?.[c.id]||0,color:c.level==='danger'?'var(--danger)':c.level==='warn'?'var(--warn)':'var(--accent)'})),'Observaciones por tipo');}
 window.GUMetricVisuals={spark,barRows,donut,valueMix,stockTop,catalogue,references,balances,issueBars};
