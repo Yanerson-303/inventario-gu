@@ -254,6 +254,7 @@ function renderDashboard(){
  const sales=purchases();
  const capacity=catalogCapacity(all.rows,sales);
  const {registered,weekly,sold}=capacity.totals;
+ const registeredValue=capacity.products.reduce((sum,{product,registered})=>sum+registered*C.num(product.value),0);
  const registeredBars=capacity.products.filter(row=>row.registered>0).sort((a,b)=>b.registered-a.registered).slice(0,5).map(row=>({label:row.product.name,value:row.registered,amount:row.registered*C.num(row.product.value)}));
  return `${heading('VISTA GENERAL','Panel de control','Resumen del inventario, actualizado con los movimientos.')}
  ${renderCapacityAlert(capacity.exceeded)}
@@ -261,9 +262,9 @@ function renderDashboard(){
  <section aria-labelledby="dashboard-charts-title">
  <h2 id="dashboard-charts-title">Panel de gráficos</h2>
  <div class="stats-grid" aria-label="Indicadores generales">
- ${metricBox('volumen',statCard(metricLabels.volumen,format(registered,9),'Total de unidades guardadas en Productos.','▦',unitReportCard('sales',M.barRows(registeredBars,'Unidades guardadas por producto',{empty:'Aún no hay unidades guardadas en Productos',format:(units,row)=>reportCatalogMetrics(units,row.amount)}), `Usadas en semanas: ${format(weekly,9)} · Vendidas: ${format(sold,9)}`)))}
- ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows,(units,row)=>reportCatalogMetrics(units,row.amount)))))}
- ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',unitReportCard('value',M.valueMix(all.rows,(amount,row)=>reportCatalogMetrics(row.units,amount)))))}
+ ${metricBox('volumen',statCard(metricLabels.volumen,format(registered,9),'Total de unidades guardadas en Productos.','▦',unitReportCard('sales',M.barRows(registeredBars,'Unidades guardadas por producto',{empty:'Aún no hay unidades guardadas en Productos',format:(units,row)=>reportCatalogMetrics(units,row.amount)}), `Usadas en semanas: ${format(weekly,9)} · Vendidas: ${format(sold,9)}`),reportMoney(registeredValue)))}
+ ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows,(units,row)=>reportCatalogMetrics(units,row.amount))),reportMoney(all.value)))}
+ ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',unitReportCard('value',M.valueMix(all.rows,(amount,row)=>reportCatalogMetrics(row.units,amount))),`${format(all.balance,9)} unidades en saldo`))}
  </div>
  <div class="dashboard-sales-warehouse">
  ${renderTopSalesChart(sales)}
@@ -291,6 +292,9 @@ function reportForecastOptions(selected){
  return ['0','1','2','3'].map((value,i)=>registerOption(value,['Sin proyección','1 mes','2 meses','3 meses'][i],String(selected))).join('');
 }
 const reportCurrency=()=>state.settings.currency||'COP';
+const reportMoney=(amount,currency=reportCurrency())=>new Intl.NumberFormat('es-CO',{
+ style:'currency',currency,currencyDisplay:'code',minimumFractionDigits:0,maximumFractionDigits:2
+}).format(amount);
 const reportBalance=()=>({units:0,amounts:new Map(),unpriced:0});
 function addReportBalance(balance,{units,price,currency}){
  balance.units+=units;
@@ -302,9 +306,7 @@ function addReportBalance(balance,{units,price,currency}){
  return balance;
 }
 function reportAmounts(balance){
- const amounts=[...(balance?.amounts||[])].map(([currency,amount])=>
-  new Intl.NumberFormat('es-CO',{style:'currency',currency,currencyDisplay:'code',minimumFractionDigits:0,maximumFractionDigits:2}).format(amount)
- );
+ const amounts=[...(balance?.amounts||[])].map(([currency,amount])=>reportMoney(amount,currency));
  if(!amounts.length)return balance?.unpriced?'Sin precio':'';
  if(balance.unpriced)amounts.push('parcial');
  return amounts.join(' + ');
@@ -986,7 +988,9 @@ async function exportDashboardImage(button,panel=$('#main-content'),name='Invent
  }catch(error){toast('No se pudo descargar la imagen: '+error.message);}
  finally{button.disabled=false;}
 }
-function statCard(label,value,foot,icon,visual=''){return `<article class="card stat-card ${visual?'visual-stat':''}"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}</div>${visual?`<div class="stat-visual">${visual}</div>`:''}<div class="stat-foot">${esc(foot)}</div></article>`;}
+function statCard(label,value,foot,icon,visual='',secondary=''){
+ return `<article class="card stat-card ${visual?'visual-stat':''}"><div class="stat-icon">${Icons?.svg(icon)||icon}</div><div class="stat-label">${esc(label)}</div><div class="stat-value mono">${esc(value)}${secondary?`<small class="stat-secondary">${esc(secondary)}</small>`:''}</div>${visual?`<div class="stat-visual">${visual}</div>`:''}<div class="stat-foot">${esc(foot)}</div></article>`;
+}
 function activePeriod(){let p=state.periods.find(p=>p.id===periodId);if(!p){p=state.periods[0];periodId=p.id;}return p;}
 function registerPeriodDate(period){
  if(calendarDate(period.start))return period.start;

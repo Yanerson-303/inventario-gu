@@ -40,9 +40,10 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  await new Promise(r=>setTimeout(r,40));
  assert.match(element('#main-content').innerHTML,/Panel de control/);
  await click('action',{action:'demo'});
- assert.match(element('#main-content').innerHTML,/Unidades registradas<\/div><div class="stat-value mono">[\d.]+<\/div>/);
+ assert.match(element('#main-content').innerHTML,/Unidades registradas<\/div><div class="stat-value mono">[\d.]+<small class="stat-secondary">COP\s+[\d.]+<\/small>/);
  assert.match(element('#main-content').innerHTML,/Sobre cupo detectado/);
- assert.match(element('#main-content').innerHTML,/Stock<\/div><div class="stat-value mono">[\d.]+<\/div>/);
+ assert.match(element('#main-content').innerHTML,/Stock<\/div><div class="stat-value mono">[\d.]+<small class="stat-secondary">COP\s+[\d.]+<\/small>/);
+ assert.match(element('#main-content').innerHTML,/Valor total del inventario<\/div><div class="stat-value mono">[^<]+<small class="stat-secondary">[\d.]+ unidades en saldo<\/small>/);
  await click('nav',{nav:'weekly'});
  assert.match(element('#main-content').innerHTML,/data-action="weekly-cell"/);
  await click('nav',{nav:'sales'});
