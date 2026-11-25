@@ -363,10 +363,42 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
 .unit-report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .unit-report-chart { width: 100%; min-width: 0; }
 .unit-report-chart svg { display: block; width: 100%; max-height: 260px; }
+.unit-report-plot {
+  max-height: min(55vh, 550px);
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.unit-report-plot > svg {
+  display: block;
+  width: var(--report-zoom, 100%);
+  height: auto;
+  max-width: none;
+  max-height: none;
+}
+.unit-report-plot [data-report-point] { cursor: pointer; touch-action: manipulation; }
+.unit-report-plot circle[data-report-point] { stroke: transparent; stroke-width: 12px; }
+.unit-report-plot [data-report-point]:focus-visible,
+.unit-report-plot [data-report-point][aria-pressed="true"] {
+  outline: 1px solid var(--text);
+  outline-offset: 1px;
+}
+.unit-report-chart-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-block: 4px; }
+.unit-report-chart-controls .btn { min-width: 30px; }
+.unit-report-readout { min-height: 1.4em; margin-block: 5px; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.unit-report-forecast-note { margin-block: 4px; color: var(--muted); font-size: 12px; }
+.unit-report-forecast-swatch {
+  display: inline-block;
+  width: 18px;
+  margin-inline-end: 5px;
+  border-top: 2px dashed var(--accent);
+  opacity: .55;
+  vertical-align: middle;
+}
 .unit-report-chart text { font: 11px system-ui, sans-serif; }
 .unit-report-compact text { font-size: 13px; }
 .unit-report-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; list-style: none; padding: 0; margin: 6px 0 10px; }
 .unit-report-legend li { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.unit-report-legend :is(b,strong) { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .unit-report-legend i, .unit-report-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .modal:has(.unit-report-body) { width: min(100%, 1050px); }
 .unit-report-body .unit-report-filters { margin-top: 0; }

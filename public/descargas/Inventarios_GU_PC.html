@@ -649,10 +649,42 @@ body.gu-entry-active{overflow:hidden}
 .unit-report-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .unit-report-chart { width: 100%; min-width: 0; }
 .unit-report-chart svg { display: block; width: 100%; max-height: 260px; }
+.unit-report-plot {
+  max-height: min(55vh, 550px);
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.unit-report-plot > svg {
+  display: block;
+  width: var(--report-zoom, 100%);
+  height: auto;
+  max-width: none;
+  max-height: none;
+}
+.unit-report-plot [data-report-point] { cursor: pointer; touch-action: manipulation; }
+.unit-report-plot circle[data-report-point] { stroke: transparent; stroke-width: 12px; }
+.unit-report-plot [data-report-point]:focus-visible,
+.unit-report-plot [data-report-point][aria-pressed="true"] {
+  outline: 1px solid var(--text);
+  outline-offset: 1px;
+}
+.unit-report-chart-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-block: 4px; }
+.unit-report-chart-controls .btn { min-width: 30px; }
+.unit-report-readout { min-height: 1.4em; margin-block: 5px; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.unit-report-forecast-note { margin-block: 4px; color: var(--muted); font-size: 12px; }
+.unit-report-forecast-swatch {
+  display: inline-block;
+  width: 18px;
+  margin-inline-end: 5px;
+  border-top: 2px dashed var(--accent);
+  opacity: .55;
+  vertical-align: middle;
+}
 .unit-report-chart text { font: 11px system-ui, sans-serif; }
 .unit-report-compact text { font-size: 13px; }
 .unit-report-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; list-style: none; padding: 0; margin: 6px 0 10px; }
 .unit-report-legend li { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.unit-report-legend :is(b,strong) { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .unit-report-legend i, .unit-report-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .modal:has(.unit-report-body) { width: min(100%, 1050px); }
 .unit-report-body .unit-report-filters { margin-top: 0; }
@@ -2280,7 +2312,7 @@ const unitReportSources={
  stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro. El período se determina con la fecha de inicio de cada registro.'}
 };
 const newUnitReport=source=>({
- source,group:'product',period:'week',year:'',month:'',week:'',cross:'',query:'',page:0,
+ source,group:'product',period:'month',year:'',month:'',week:'',cross:'',query:'',page:0,forecast:'3',
  selected:{product:null,client:null}
 });
 const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock'),value:newUnitReport('value')};
@@ -2289,6 +2321,30 @@ const unitReportYears=Array.from({length:1001},(_,i)=>String(2000+i));
 const unitReportWeeks=['1','2','3','4','5'];
 const reportColors=['#2369d0','#b43e1e','#07815e','#8b46bc','#a46c00','#007e93','#c72c67','#627420'];
 const unitReportDay=(month,day)=>month+'-'+String(day).padStart(2,'0');
+function reportForecastOptions(selected){
+ return ['0','1','2','3'].map((value,i)=>registerOption(value,['Sin proyección','1 mes','2 meses','3 meses'][i],String(selected))).join('');
+}
+function monthlyReportForecast(records,cutoff,months){
+ const periods=[],averages=new Map(),observedMonths=new Set();
+ const end=calendarDate(cutoff)?[cutoff,localSaleDate()].sort()[0]:'';
+ if(!end||![1,2,3].includes(Number(months)))return {periods,averages,sampleSize:0};
+ for(const {date,id,amount} of records){
+  if(!calendarDate(date)||date>end||!Number.isFinite(amount))continue;
+  observedMonths.add(date.slice(0,7));
+  averages.set(id,(averages.get(id)||0)+amount);
+ }
+ const sampleSize=observedMonths.size;
+ if(!sampleSize)return {periods,averages,sampleSize};
+ for(const [id,total] of averages)averages.set(id,C.round(total/sampleSize));
+ const next=new Date(end.slice(0,7)+'-01T00:00:00Z');
+ for(let i=0;i<Number(months);i++){
+  next.setUTCMonth(next.getUTCMonth()+1);
+  const key=next.toISOString().slice(0,10);
+  const name=unitReportMonths[next.getUTCMonth()].slice(0,3).toLowerCase();
+  periods.push({key,label:name+' '+next.getUTCFullYear()});
+ }
+ return {periods,averages,sampleSize};
+}
 function unitReportRange({year,month,week,period}){
  if(period==='year')return {from:year+'-01-01',to:year+'-12-31',label:year};
  const monthKey=year+'-'+month.padStart(2,'0');
@@ -2339,6 +2395,7 @@ function unitReportModel(report){
  const {source,group,period,cross}=report,weekly=source!=='sales';
  const undated=weekly&&period==='undated';
  const {from,to,label,periods:datedPeriods}=undated?{}:unitReportTimeline(report);
+ const today=localSaleDate(),cutoff=to&&to<today?to:today;
  const entities=reportEntities(group,source),byId=new Map();
  const withinDate=date=>date>=from&&date<=to;
  const registeredWeeks=weekly?state.periods.filter(week=>{
@@ -2346,26 +2403,29 @@ function unitReportModel(report){
   return undated?!dated:dated&&withinDate(week.start);
  }):[];
  const periods=undated?registeredWeeks.map(week=>({key:week.id,label:week.label})):datedPeriods;
- const product=group==='product';
- const add=(productId,clientId,key,units)=>{
+ const product=group==='product',history=[];
+ const add=(productId,clientId,date,key,units)=>{
   if(cross&&(product?clientId:productId)!==cross)return;
   const id=product?productId:clientId;
+  if(!undated&&from<=cutoff&&Number(report.forecast)>0)history.push({date,id,amount:units});
+  if(key==null)return;
   let row=byId.get(id);if(!row){row={total:0,values:new Map()};byId.set(id,row);}
   row.total=C.round(row.total+units);
   row.values.set(key,C.round((row.values.get(key)||0)+units));
  };
  if(weekly){
   const unitValues=source==='value'?new Map(state.products.map(product=>[product.id,C.num(product.value)])):null;
-  for(const week of registeredWeeks){
-   const key=undated?week.id:unitReportBucket(week.start,period);
+  for(const week of undated?registeredWeeks:state.periods){
+   if(!undated&&!calendarDate(week.start))continue;
+   const key=undated?week.id:withinDate(week.start)?unitReportBucket(week.start,period):null;
    for(const [productId,clients] of Object.entries(state.movements?.[week.id]||{})){
     const multiplier=unitValues?(unitValues.get(productId)||0):1;
-    for(const [clientId,quantity] of Object.entries(clients))add(productId,clientId,key,C.num(quantity)*multiplier);
+    for(const [clientId,quantity] of Object.entries(clients))add(productId,clientId,week.start,key,C.num(quantity)*multiplier);
    }
   }
  }else{
   for(const sale of purchases()){
-   if(!sale.voided&&withinDate(sale.date))add(sale.productId,sale.clientId,unitReportBucket(sale.date,period),sale.units);
+   if(!sale.voided&&calendarDate(sale.date))add(sale.productId,sale.clientId,sale.date,withinDate(sale.date)?unitReportBucket(sale.date,period):null,C.num(sale.units));
   }
  }
  const manual=report.selected[group];
@@ -2373,8 +2433,12 @@ function unitReportModel(report){
   const row=byId.get(item.id);
   return row&&[...row.values.values()].some(value=>value!==0);
  }).sort((a,b)=>Math.abs(byId.get(b.id).total)-Math.abs(byId.get(a.id).total));
- const selected=manual||new Map(ranked.slice(0,3).map((item,i)=>[item.id,reportColors[i]]));
- return {entities,periods,byId,selected,label};
+ const forecast=monthlyReportForecast(history,cutoff,report.forecast);
+ const fallback=()=>entities.filter(item=>forecast.averages.get(item.id)).sort((a,b)=>
+  Math.abs(forecast.averages.get(b.id))-Math.abs(forecast.averages.get(a.id))
+ );
+ const selected=manual||new Map((ranked.length?ranked:fallback()).slice(0,3).map((item,i)=>[item.id,reportColors[i]]));
+ return {entities,periods,byId,selected,label,forecast,cutoff:!undated&&from<=cutoff?cutoff:''};
 }
 function reportSeries(model){
  const entities=new Map(model.entities.map(item=>[item.id,item]));
@@ -2383,29 +2447,71 @@ function reportSeries(model){
  }));
 }
 function reportAmount(report,amount){
- if(report.source!=='value')return traceQuantity(amount);
- return new Intl.NumberFormat('es-CO',{style:'currency',currency:state.settings.currency||'COP'}).format(amount);
+ if(report.source!=='value')return format(amount,9);
+ return new Intl.NumberFormat('es-CO',{style:'currency',currency:state.settings.currency||'COP',maximumFractionDigits:9}).format(amount);
+}
+function reportChartControls(){
+ return `<div class="unit-report-chart-controls" role="group" aria-label="Zoom del gráfico" data-html2canvas-ignore>
+  <button type="button" class="btn btn-small" data-report-zoom="-1" aria-label="Alejar gráfico" disabled>−</button>
+  <button type="button" class="btn btn-small" data-report-zoom="1" aria-label="Acercar gráfico">+</button>
+  <button type="button" class="btn btn-small" data-report-zoom="0" aria-label="Restablecer zoom" data-report-zoom-level>100%</button>
+ </div>`;
+}
+function reportPointReadout(){
+ return '<p class="unit-report-readout muted" aria-live="polite" data-html2canvas-ignore>Toca un punto del gráfico para ver su cifra.</p>';
+}
+function reportPointAttributes(text){
+ const label=esc(text);
+ return `tabindex="0" role="button" aria-label="${label}" aria-pressed="false" data-report-point="${label}"`;
+}
+function reportForecastNote(forecast){
+ if(!forecast.periods.length)return '';
+ return `<p class="unit-report-forecast-note muted"><i class="unit-report-forecast-swatch" aria-hidden="true"></i> Proyección mensual · promedio de ${forecast.sampleSize} ${forecast.sampleSize===1?'mes con registros':'meses con registros'}</p>`;
 }
 function reportChart(model,report,compact=false){
- const series=reportSeries(model);
- if(!model.periods.length||!series.length){
+ const historical=model.periods.filter(({key})=>!model.cutoff||key<=model.cutoff);
+ const {forecast}=model,periods=[...historical,...forecast.periods];
+ const series=reportSeries({...model,periods:historical}).map(entry=>({
+  ...entry,projection:forecast.periods.map(()=>forecast.averages.get(entry.id)||0)
+ }));
+ if(!periods.length||!series.length){
   if(compact)return '';
   const message=report.selected[report.group]?'Marca las filas que quieras graficar.':'Sin datos para el período seleccionado.';
   return `<div class="metric-vis-empty">${message}</div>`;
  }
  const width=compact?320:620,height=compact?112:228,left=compact?37:55,right=width-18,top=12,bottom=height-32;
- const min=series.reduce((low,entry)=>entry.values.reduce((smallest,value)=>Math.min(smallest,value),low),0);
- const max=series.reduce((high,entry)=>entry.values.reduce((largest,value)=>Math.max(largest,value),high),0);
- const range=max-min||1;
- const last=model.periods.length-1;
+ let min=0,max=0;
+ for(const entry of series)for(const value of [...entry.values,...entry.projection]){
+  min=Math.min(min,value);max=Math.max(max,value);
+ }
+ const range=max-min||1,last=periods.length-1,firstForecast=historical.length;
  const x=i=>left+(right-left)*(last?i/last:.5);
  const y=value=>bottom-(bottom-top)*((value-min)/range);
  const tickGap=Math.max(1,Math.ceil(last/(compact?2:5)));
- const chart=`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(unitReportSources[report.source].caption)} por período"><title>Datos de las filas seleccionadas. Las cifras exactas aparecen en la tabla.</title>
+ const split=firstForecast&&forecast.periods.length?(x(firstForecast-1)+x(firstForecast))/2:left;
+ const chart=`<svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(unitReportSources[report.source].caption)} por período">
+ ${forecast.periods.length?`<rect x="${split}" y="${top}" width="${right-split}" height="${bottom-top}" fill="var(--accent)" opacity=".08"/>`:''}
  ${[0,.5,1].map(r=>`<line x1="${left}" x2="${right}" y1="${y(min+range*r)}" y2="${y(min+range*r)}" stroke="var(--line)"/><text x="${left-5}" y="${y(min+range*r)+4}" text-anchor="end" fill="var(--muted)">${esc(new Intl.NumberFormat('es-CO',{notation:'compact',maximumFractionDigits:2}).format(min+range*r))}</text>`).join('')}
- ${model.periods.map(({label},i)=>i%tickGap===0||i===last?`<text x="${x(i)}" y="${bottom+21}" text-anchor="${last&&i===0?'start':last&&i===last?'end':'middle'}" fill="var(--muted)">${esc(label)}</text>`:'').join('')}
- ${series.map((entry,index)=>`<polyline points="${entry.values.map((value,i)=>x(i).toFixed(2)+','+y(value).toFixed(2)).join(' ')}" stroke="${entry.color}" fill="none" stroke-width="2.5" stroke-linejoin="round"${index?` stroke-dasharray="${4+index%6} ${3+index%3}"`:''}/>${entry.values.length<=20?entry.values.map((value,i)=>`<circle cx="${x(i)}" cy="${y(value)}" r="3" fill="${entry.color}"><title>${esc(entry.label)} · ${esc(model.periods[i].label)} · ${reportAmount(report,value)}</title></circle>`).join(''):''}`).join('')}</svg>`;
- return `<div class="unit-report-chart${compact?' unit-report-compact':''}">${model.label?`<div class="unit-report-period muted">${esc(model.label)}</div>`:''}${chart}<ul class="unit-report-legend">${series.map(item=>`<li><i style="background-color:${item.color}"></i>${esc(item.label)}</li>`).join('')}</ul></div>`;
+ ${periods.map(({label},i)=>i%tickGap===0||i===last?`<text x="${x(i)}" y="${bottom+21}" text-anchor="${last&&i===0?'start':last&&i===last?'end':'middle'}" fill="var(--muted)">${esc(label)}</text>`:'').join('')}
+ ${series.map((entry,index)=>{
+  const draw=(values,start,projected)=>{
+   const points=values.map((value,i)=>x(start+i).toFixed(2)+','+y(value).toFixed(2)).join(' ');
+   const dash=projected?' stroke-dasharray="5 4"':index?` stroke-dasharray="${4+index%6} ${3+index%3}"`:'';
+   return `<g${projected?' opacity=".48"':''}>
+    <polyline points="${points}" stroke="${entry.color}" fill="none" stroke-width="2.5" stroke-linejoin="round"${dash}/>
+    ${values.map((value,i)=>{
+     const period=periods[start+i];
+     const text=`${entry.label} · ${period.label} · ${projected?'Proyección':'Real'} · ${reportAmount(report,value)}`;
+     return `<circle cx="${x(start+i)}" cy="${y(value)}" r="4" fill="${entry.color}" ${reportPointAttributes(text)}><title>${esc(text)}</title></circle>`;
+    }).join('')}</g>`;
+  };
+  return draw(entry.values,0,false)+draw(entry.projection,firstForecast,true);
+ }).join('')}</svg>`;
+ const note=reportForecastNote(forecast)||(Number(report.forecast)>0?'<p class="unit-report-forecast-note muted">Sin historial con fechas para proyectar este período.</p>':'');
+ return `<div class="unit-report-chart${compact?' unit-report-compact':''}">
+ ${model.label?`<div class="unit-report-period muted">${esc(model.label)}</div>`:''}
+ ${reportChartControls()}<div class="unit-report-plot" tabindex="0" aria-label="Desplazar gráfico">${chart}</div>${reportPointReadout()}${note}
+ <ul class="unit-report-legend" aria-label="Totales reales por serie">${series.map(item=>`<li><i style="background-color:${item.color}"></i>${esc(item.label)} <strong class="mono">${esc(reportAmount(report,model.byId.get(item.id)?.total||0))}</strong></li>`).join('')}</ul></div>`;
 }
 function unitReportRows(model,report){
  const {selected}=model,showTotal=model.periods.length!==1;
@@ -2422,6 +2528,7 @@ function unitReportRows(model,report){
 }
 function unitReportCard(source,originalChart,summary=''){
  const report=unitReports[source];
+ configureUnitReport(report);
  const preview=report.year?reportChart(unitReportModel(report),report,true):'';
  return `<div class="unit-report-card"><div id="unit-report-preview-${source}"><div data-unit-original ${preview?'hidden':''}>${originalChart}</div><div data-unit-custom ${preview?'':'hidden'}>${preview}</div></div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<div class="unit-report-actions"><button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button><button type="button" class="btn btn-small" data-action="inventory-download" data-id="${source}">Descargar inventario</button></div></div>`;
 }
@@ -2432,23 +2539,26 @@ function openInventoryDownload(source){
  </div></div>`);
  $('[data-action="inventory-excel"]').focus();
 }
+function configureUnitReport(report,allowEmpty=false){
+ if(report.year)return;
+ const sales=report.source==='sales';
+ const weeksWithMovements=sales?[]:state.periods.filter(week=>
+   Object.values(state.movements?.[week.id]||{}).some(clients=>Object.keys(clients).length)
+ );
+ const lastRecordedDate=sales
+  ?purchases().reduce((date,sale)=>!sale.voided&&calendarDate(sale.date)&&sale.date>date?sale.date:date,'')
+  :weeksWithMovements.reduce((date,week)=>calendarDate(week.start)&&week.start>date?week.start:date,'');
+ if(!lastRecordedDate&&!allowEmpty)return;
+ if(weeksWithMovements.length&&!lastRecordedDate)report.period='undated';
+ const [year,month,day]=(lastRecordedDate||localSaleDate()).split('-').map(Number);
+ report.year=String(Math.min(3000,Math.max(2000,year)));
+ report.month=String(month);
+ report.week=String(Math.min(5,Math.ceil(day/7)));
+}
 function openUnitReport(source){
  const report=unitReports[source],info=unitReportSources[source];
  const sales=source==='sales';
- if(!report.year){
-  const weeksWithMovements=sales?[]:state.periods.filter(week=>
-   Object.values(state.movements?.[week.id]||{}).some(clients=>Object.keys(clients).length)
-  );
-  const lastRecordedDate=sales
-   ?purchases().reduce((date,sale)=>!sale.voided&&sale.date>date?sale.date:date,'')
-   :weeksWithMovements.reduce((date,week)=>calendarDate(week.start)&&week.start>date?week.start:date,'');
-  if(weeksWithMovements.length&&!lastRecordedDate)report.period='undated';
-  const latest=lastRecordedDate||localSaleDate();
-  const [year,month,day]=latest.split('-').map(Number);
-  report.year=String(Math.min(3000,Math.max(2000,year)));
-  report.month=String(month);
-  report.week=String(Math.min(5,Math.ceil(day/7)));
- }
+ configureUnitReport(report,true);
  const selectedOption=(value,current)=>value===current?' selected':'';
  const periodOptions=(values,current,label=value=>value)=>values.map(value=>`<option value="${value}"${selectedOption(value,current)}>${label(value)}</option>`).join('');
  const crossOptions=()=>'<option value="">Todos</option>'+salesOptions(reportEntities(report.group==='product'?'client':'product',source),report.cross,item=>item.label);
@@ -2458,6 +2568,7 @@ function openUnitReport(source){
    <div data-unit-year ${report.period==='undated'?'hidden':''}><label class="field">Año <select class="form-control" data-unit-filter="year">${periodOptions(unitReportYears,report.year)}</select></label></div>
    <div data-unit-month ${['week','month'].includes(report.period)?'':'hidden'}><label class="field">Mes <select class="form-control" data-unit-filter="month">${periodOptions(unitReportMonths.map((_,i)=>String(i+1)),report.month,value=>unitReportMonths[value-1])}</select></label></div>
    <div data-unit-week ${report.period!=='week'?'hidden':''}><label class="field">Semana del mes <select class="form-control" data-unit-filter="week">${periodOptions(unitReportWeeks,report.week,value=>`Semana ${value} (${7*(value-1)+1}–${value==='5'?'fin de mes':7*value})`)}</select></label></div>
+   <label class="field">Proyección <select class="form-control" data-unit-filter="forecast"${report.period==='undated'?' disabled':''}>${reportForecastOptions(report.forecast)}</select></label>
   </div>
   <div data-unit-chart></div>
   <details class="unit-report-advanced" data-unit-advanced${report.group!=='product'||report.cross||report.query?' open':''}>
@@ -2527,6 +2638,7 @@ function openUnitReport(source){
    $('[data-unit-year]',root).hidden=report.period==='undated';
    $('[data-unit-month]',root).hidden=!['week','month'].includes(report.period);
    $('[data-unit-week]',root).hidden=report.period!=='week';
+   $('[data-unit-filter="forecast"]',root).disabled=report.period==='undated';
   }
   refresh();
  });
@@ -2636,27 +2748,59 @@ function salesRanking(records,productNames){
  }
  return [...leaders.entries()].sort(([,a],[,b])=>b.units-a.units||a.name.localeCompare(b.name,'es'));
 }
-let topSalesMonth='';
+let topSalesMonth='',topSalesForecast='3';
+function topSalesBars(rows,forecast,period){
+ if(!rows.length)return '<p class="metric-vis-empty">Sin ventas registradas para este período.</p>';
+ const width=400,left=6,right=width-6,rowHeight=31,height=rows.length*rowHeight+4;
+ const total=row=>row.value+forecast.periods.length*(forecast.averages.get(row.id)||0);
+ const max=Math.max(...rows.map(total));
+ const rect=(x,y,amount,color,message,projected=false)=>{
+  const length=amount/max*(right-left);
+  return `<rect x="${x}" y="${y}" width="${length}" height="12" rx="2" fill="${color}"${projected?' fill-opacity=".38"':''} ${reportPointAttributes(message)}><title>${esc(message)}</title></rect>`;
+ };
+ const bars=rows.map((row,index)=>{
+  const y=index*rowHeight+14,color=reportColors[index%reportColors.length];
+  const label=Array.from(row.label);
+  const name=label.length>36?label.slice(0,35).join('')+'…':row.label;
+  const real=`${row.label} · ${period} · ${traceQuantity(row.value)} unidades vendidas`;
+  const average=forecast.averages.get(row.id)||0;
+  const future=average>0?forecast.periods.map(({label},i)=>{
+   const x=left+(row.value+i*average)/max*(right-left);
+   return rect(x,y+3,average,color,`${row.label} · ${label} · ${traceQuantity(average)} unidades proyectadas`,true);
+  }).join(''):'';
+  return `<g><circle cx="${left+4}" cy="${y-4}" r="4" fill="${color}"/><text x="${left+12}" y="${y}" fill="var(--text)"><title>${esc(row.label)}</title>${esc(name)}</text><text x="${right}" y="${y}" text-anchor="end" fill="var(--text)">${esc(traceQuantity(row.value))}</text>
+  <rect x="${left}" y="${y+3}" width="${right-left}" height="12" rx="2" fill="var(--surface2)"/>
+  ${rect(left,y+3,row.value,color,real)}${future}</g>`;
+ }).join('');
+ return `<div class="unit-report-chart">
+ ${reportChartControls()}
+ <div class="unit-report-plot top-sales-plot" tabindex="0" aria-label="Desplazar gráfico de ventas"><svg viewBox="0 0 ${width} ${height}" role="group" aria-label="Unidades vendidas y proyección por producto">${bars}</svg></div>
+ ${reportPointReadout()}${reportForecastNote(forecast)}
+ </div>`;
+}
 function renderTopSalesChart(sales){
  const records=sales.filter(sale=>!sale.voided);
  const months=[...new Set(records.filter(sale=>calendarDate(sale.date)).map(sale=>sale.date.slice(0,7)))].sort().reverse();
  const month=months.includes(topSalesMonth)?topSalesMonth:'';
  const productNames=new Map(state.products.map(product=>[product.id,product.name]));
  const rows=salesRanking(records.filter(sale=>!month||sale.date?.startsWith(month)),productNames)
-  .filter(([,row])=>row.units>0).slice(0,10).map(([,row])=>({label:row.name,value:row.units}));
+  .filter(([,row])=>row.units>0).slice(0,10).map(([id,row])=>({id,label:row.name,value:row.units}));
+ const cutoff=month?unitReportRange({year:month.slice(0,4),month:month.slice(5),period:'month'}).to:localSaleDate();
+ const forecast=monthlyReportForecast(records.map(sale=>({date:sale.date,id:sale.productId,amount:sale.units})),cutoff,topSalesForecast);
  const monthLabel=key=>`${unitReportMonths[Number(key.slice(5))-1]} de ${key.slice(0,4)}`;
  const period=month?monthLabel(month):'Todos los meses';
  return `<article class="card card-pad sales-section" aria-labelledby="top-sales-title">
  <div id="top-sales-chart">
  <h3 id="top-sales-title">10 productos más vendidos</h3>
  <p class="muted">Unidades vendidas · ${esc(period)}</p>
- ${M.barRows(rows,'Unidades vendidas',{limit:10,format:traceQuantity,empty:'Sin ventas registradas para este período.'})}
+ ${topSalesBars(rows,forecast,period)}
  </div>
  <div class="unit-report-actions sales-fields" data-html2canvas-ignore>
  <label class="field">Filtrar por mes <select id="top-sales-month" class="form-control">
  ${registerOption('','Todos los meses',month)}
  ${months.map(key=>registerOption(key,monthLabel(key),month)).join('')}
  </select></label>
+ <label class="field">Proyección <select id="top-sales-forecast" class="form-control">${reportForecastOptions(topSalesForecast)}</select></label>
  <button type="button" class="btn btn-small" data-action="top-sales-image"${rows.length?'':' disabled'}>Descargar imagen</button>
  </div></article>`;
 }
@@ -2784,6 +2928,11 @@ async function exportDashboardImage(button,panel=$('#main-content'),name='Invent
    scale:Math.min(2,window.devicePixelRatio||1),
    onclone(doc,copy){
     copy.querySelectorAll('.metric-collapsed').forEach(card=>card.classList.remove('metric-collapsed'));
+    copy.querySelectorAll('.unit-report-plot').forEach(plot=>{
+     plot.style.setProperty('--report-zoom','100%');
+     plot.style.maxHeight='none';
+     plot.scrollLeft=0;plot.scrollTop=0;
+    });
     // Los SVG se rasterizan fuera del árbol y necesitan colores explícitos.
     copy.querySelectorAll('svg [fill^="var("],svg [stroke^="var("]').forEach(node=>{
      for(const attribute of ['fill','stroke']){
@@ -4069,6 +4218,40 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{if(e.target.id==='palette-input')paletteOptions();});
 // Eventos globales. La delegación mantiene editables las tablas tras cada actualización.
+function selectReportPoint(point){
+ const chart=point.closest('.unit-report-chart');
+ chart.querySelector('[data-report-point][aria-pressed="true"]')?.setAttribute('aria-pressed','false');
+ point.setAttribute('aria-pressed','true');
+ $('.unit-report-readout',chart).textContent=point.dataset.reportPoint;
+}
+document.addEventListener('focusin',e=>{
+ const point=e.target.closest('[data-report-point]');
+ if(point)selectReportPoint(point);
+});
+document.addEventListener('keydown',e=>{
+ const point=e.target.closest('[data-report-point]');
+ if(point&&['Enter',' '].includes(e.key)){e.preventDefault();selectReportPoint(point);}
+});
+document.addEventListener('click',e=>{
+ const point=e.target.closest('[data-report-point]');
+ if(point){selectReportPoint(point);return;}
+ const button=e.target.closest('[data-report-zoom]');
+ if(!button)return;
+ const chart=button.closest('.unit-report-chart'),plot=$('.unit-report-plot',chart);
+ const current=parseInt(plot.style.getPropertyValue('--report-zoom'),10)||100;
+ const direction=Number(button.dataset.reportZoom);
+ const next=direction?Math.min(300,Math.max(100,current+direction*25)):100;
+ const centerX=(plot.scrollLeft+plot.clientWidth/2)/Math.max(1,plot.scrollWidth);
+ const centerY=(plot.scrollTop+plot.clientHeight/2)/Math.max(1,plot.scrollHeight);
+ plot.style.setProperty('--report-zoom',next+'%');
+ plot.scrollLeft=next===100?0:centerX*plot.scrollWidth-plot.clientWidth/2;
+ plot.scrollTop=next===100?0:centerY*plot.scrollHeight-plot.clientHeight/2;
+ const reset=$('[data-report-zoom-level]',chart);
+ reset.textContent=next+'%';
+ $('[data-report-zoom="-1"]',chart).disabled=next===100;
+ $('[data-report-zoom="1"]',chart).disabled=next===300;
+ if(button.disabled)reset.focus({preventScroll:true});
+});
 document.addEventListener('click',e=>{
  const trigger=e.target.closest('[data-dashboard-menu]');
  if(trigger){openDashboardMenu(trigger);return;}
@@ -4175,10 +4358,11 @@ document.addEventListener('submit',e=>{
 });
 document.addEventListener('change',e=>{
  const el=e.target;
- if(el.id==='top-sales-month'){
-  topSalesMonth=el.value;
+ if(el.id==='top-sales-month'||el.id==='top-sales-forecast'){
+  if(el.id==='top-sales-month')topSalesMonth=el.value;
+  else topSalesForecast=el.value;
   $('#top-sales-chart').closest('article').outerHTML=renderTopSalesChart(purchases());
-  $('#top-sales-month')?.focus();
+  document.getElementById(el.id)?.focus();
   return;
  }
  if(el.id==='catalog-category'||el.id==='catalog-group'){
