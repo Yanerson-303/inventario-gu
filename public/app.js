@@ -285,7 +285,8 @@ const newUnitReport=source=>({
 const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock'),value:newUnitReport('value')};
 const unitReportMonths=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const unitReportYears=Array.from({length:1001},(_,i)=>String(2000+i));
-const unitReportWeeks=['1','2','3','4','5'];
+const monthWeekCount=4;
+const monthWeekIndex=day=>Math.min(monthWeekCount-1,Math.floor((day-1)/7));
 const reportColors=['#2369d0','#b43e1e','#07815e','#8b46bc','#a46c00','#007e93','#c72c67','#627420'];
 const unitReportDay=(month,day)=>month+'-'+String(day).padStart(2,'0');
 function reportForecastOptions(selected){
@@ -380,11 +381,10 @@ function monthlyReportForecast(records,cutoff,months){
 function unitReportRange({year,month,week,period}){
  if(period==='year')return {from:year+'-01-01',to:year+'-12-31',label:year};
  const monthKey=year+'-'+month.padStart(2,'0');
- const lastDay=new Date(Date.UTC(Number(year),Number(month),0)).getUTCDate();
- const day=value=>unitReportDay(monthKey,value);
- if(period==='month')return {from:day(1),to:day(lastDay),label:monthKey};
- const first=7*(Number(week)-1)+1,end=week==='5'?lastDay:first+6;
- return {from:day(first),to:day(end),label:`Semana ${week} · ${monthKey}`};
+ const weeks=registerCalendarWeeks(year,monthKey.slice(5));
+ if(period==='month')return {from:weeks[0].start,to:weeks.at(-1).end,label:monthKey};
+ const selected=weeks[Number(week)-1];
+ return {from:selected.start,to:selected.end,label:`Semana ${week} · ${monthKey}`};
 }
 function unitReportTimeline(report){
  const range=unitReportRange(report);
@@ -395,14 +395,16 @@ function unitReportTimeline(report){
   }));
   return {...range,periods};
  }
- const monthly=report.period==='month';
  const monthKey=range.from.slice(0,7);
+ if(report.period==='month')return {
+  ...range,periods:registerCalendarWeeks(report.year,monthKey.slice(5)).map(({start},i)=>({key:start,label:'Semana '+(i+1)}))
+ };
  const monthName=unitReportMonths[Number(report.month)-1].slice(0,3).toLowerCase();
  const periods=[];
- for(let day=Number(range.from.slice(8));day<=Number(range.to.slice(8));day+=monthly?7:1){
+ for(let day=Number(range.from.slice(8));day<=Number(range.to.slice(8));day++){
   periods.push({
    key:unitReportDay(monthKey,day),
-   label:monthly?'Semana '+Math.ceil(day/7):day+' '+monthName
+   label:day+' '+monthName
   });
  }
  return {...range,periods};
@@ -410,7 +412,7 @@ function unitReportTimeline(report){
 function unitReportBucket(date,period){
  const monthKey=date.slice(0,7);
  if(period==='year')return unitReportDay(monthKey,1);
- if(period==='month')return unitReportDay(monthKey,1+7*Math.floor((Number(date.slice(8))-1)/7));
+ if(period==='month')return unitReportDay(monthKey,1+7*monthWeekIndex(Number(date.slice(8))));
  return date;
 }
 function reportEntities(group,source){
@@ -601,7 +603,7 @@ function configureUnitReport(report,allowEmpty=false){
  const [year,month,day]=(lastRecordedDate||localSaleDate()).split('-').map(Number);
  report.year=String(Math.min(3000,Math.max(2000,year)));
  report.month=String(month);
- report.week=String(Math.min(5,Math.ceil(day/7)));
+ report.week=String(monthWeekIndex(day)+1);
 }
 function resetWorkspaceViewFilters(){
  for(const [source,report] of Object.entries(unitReports))Object.assign(report,newUnitReport(source),{forecast:report.forecast});
@@ -621,7 +623,7 @@ function openUnitReport(source){
    <label class="field">Período <select class="form-control" data-unit-filter="period"><option value="week"${selectedOption('week',report.period)}>Semana</option><option value="month"${selectedOption('month',report.period)}>Mes</option><option value="year"${selectedOption('year',report.period)}>Año</option>${sales?'':`<option value="undated"${selectedOption('undated',report.period)}>Semanas sin fecha</option>`}</select></label>
    <div data-unit-year ${report.period==='undated'?'hidden':''}><label class="field">Año <select class="form-control" data-unit-filter="year">${periodOptions(unitReportYears,report.year)}</select></label></div>
    <div data-unit-month ${['week','month'].includes(report.period)?'':'hidden'}><label class="field">Mes <select class="form-control" data-unit-filter="month">${periodOptions(unitReportMonths.map((_,i)=>String(i+1)),report.month,value=>unitReportMonths[value-1])}</select></label></div>
-   <div data-unit-week ${report.period!=='week'?'hidden':''}><label class="field">Semana del mes <select class="form-control" data-unit-filter="week">${periodOptions(unitReportWeeks,report.week,value=>`Semana ${value} (${7*(value-1)+1}–${value==='5'?'fin de mes':7*value})`)}</select></label></div>
+   <div data-unit-week ${report.period!=='week'?'hidden':''}><label class="field">Semana del mes <select class="form-control" data-unit-filter="week">${periodWeekOptions(registerCalendarWeeks(report.year,report.month.padStart(2,'0')),Number(report.week))}</select></label></div>
    <label class="field">Proyección <select class="form-control" data-unit-filter="forecast"${report.period==='undated'?' disabled':''}>${reportForecastOptions(report.forecast)}</select></label>
   </div>
   <div data-unit-chart></div>
@@ -687,6 +689,9 @@ function openUnitReport(source){
    $('[data-unit-month]',root).hidden=!['week','month'].includes(report.period);
    $('[data-unit-week]',root).hidden=report.period!=='week';
    $('[data-unit-filter="forecast"]',root).disabled=report.period==='undated';
+  }
+  if(filter==='year'||filter==='month'){
+   $('[data-unit-filter="week"]',root).innerHTML=periodWeekOptions(registerCalendarWeeks(report.year,report.month.padStart(2,'0')),Number(report.week));
   }
   refresh();
  });
@@ -1026,16 +1031,12 @@ function registerCalendarWeeks(year,month){
  const monthKey=year+'-'+month,firstDay=monthKey+'-01';
  if(!calendarDate(firstDay))return [];
  const date=new Date(firstDay+'T00:00:00Z');
- const firstWeekDays=7-((date.getUTCDay()+6)%7);
  date.setUTCMonth(date.getUTCMonth()+1,0);
- const lastDay=date.getUTCDate(),weeks=[];
- for(let first=1;first<=lastDay;){
-  const days=weeks.length===0?firstWeekDays:7;
-  const last=weeks.length===4?lastDay:Math.min(first+days-1,lastDay);
-  weeks.push({start:unitReportDay(monthKey,first),end:unitReportDay(monthKey,last)});
-  first=last+1;
- }
- return weeks;
+ const lastDay=date.getUTCDate();
+ return Array.from({length:monthWeekCount},(_,i)=>({
+  start:unitReportDay(monthKey,1+7*i),
+  end:unitReportDay(monthKey,i===monthWeekCount-1?lastDay:7*(i+1))
+ }));
 }
 function registerDateLabel(period){
  const display=date=>calendarDate(date)?date.split('-').reverse().join('/'):'';
@@ -1098,10 +1099,15 @@ function weeklyProductIds(period){
  return ids;
 }
 const weeklyNumber=value=>value==null?'—':format(value,9);
-function weeklyQuantityCell(period,client,product,units){
- if(units==null||period.locked)return weeklyNumber(units);
+let weeklyMoneyView=false,finalMoneyView=false;
+function tableValueToggle(asMoney){
+ return `<button type="button" class="btn btn-small" data-action="toggle-table-values">${asMoney?'Ver cantidades':'Ver precios'}</button>`;
+}
+const tableMoney=value=>value==null||value===''?'—':esc(reportMoney(C.round(value)));
+function weeklyQuantityCell(period,client,product,units,display=weeklyNumber(units)){
+ if(units==null||period.locked)return display;
  const label=`Revisar cantidad de ${product.name} para ${salesClientLabel(client)}: ${weeklyNumber(units)}`;
- return `<button type="button" class="weekly-quantity-link" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" data-id="${esc(product.id)}" aria-label="${esc(label)}" aria-haspopup="dialog">${weeklyNumber(units)}</button>`;
+ return `<button type="button" class="weekly-quantity-link" data-action="weekly-cell" data-period="${esc(period.id)}" data-client="${esc(client.id)}" data-id="${esc(product.id)}" aria-label="${esc(label)}" aria-haspopup="dialog">${display}</button>`;
 }
 function openWeeklyClientPicker(){
  const period=activePeriod();
@@ -1239,37 +1245,46 @@ function weeklyVisibleSelection(ids){
  return selection(state.products.filter(product=>ids.has(product.id)||product.id===weeklyPreviewProduct));
 }
 const weeklyVisibleClients=totals=>state.clients.filter(client=>totals.clients.has(client.id));
+function weeklyUnitPrice(period,product){
+ const price=state.prices[period.id]?.[product.id];
+ return C.num(price==null||price===''?product.value:price);
+}
 function weeklyRows(period,products){
- return products.map(({id,name})=>{
+ return products.map(product=>{
+  const {id,name}=product;
   const cells={...state.movements[period.id]?.[id]},stock=C.qty(state,period.id,id);
   const price=state.prices[period.id]?.[id],manual=state.weekTotals[period.id]?.[id];
-  return {product:{id,name},cells,stock,price,manual,estimate:money(stock*C.num(price))};
+  return {product:{id,name},cells,stock,price,unitPrice:weeklyUnitPrice(period,product),manual,estimate:money(stock*C.num(price))};
  });
 }
-function weeklyColumnTotals(period){
+function weeklyColumnTotals(period,asMoney=false){
  const clients=new Map();
  let stock=0;
  for(const product of state.products){
+  const multiplier=asMoney?weeklyUnitPrice(period,product):1;
   for(const [clientId,quantity] of Object.entries(state.movements[period.id]?.[product.id]||{})){
-   const amount=C.num(quantity);
+   const amount=C.num(quantity)*multiplier;
    clients.set(clientId,(clients.get(clientId)||0)+amount);
    stock+=amount;
   }
  }
  return {clients,stock:C.round(stock)};
 }
-function weeklyClientTotal(totals,client){
- return weeklyNumber(C.round(totals.clients.get(client.id)||0));
+function weeklyCellDisplay(quantity,unitPrice,asMoney){
+ return asMoney?tableMoney(quantity==null?null:C.num(quantity)*unitPrice):weeklyNumber(quantity);
 }
-function weeklyTable(period,slots,rows,totals,interactive=false){
+function weeklyTable(period,slots,rows,totals,interactive=false,asMoney=false){
+ const number=asMoney?tableMoney:weeklyNumber;
  const cols=slots.map(client=>`<th scope="col" class="slot-col" title="${esc(salesClientLabel(client))}">${esc(interactive?(client.name||client.code):salesClientLabel(client))}</th>`).join('');
- return `<table class="data-table weekly-data-table"><thead><tr><th scope="col" class="sticky-first">Producto</th>${cols}<th scope="col" class="num last-head">Stock (CX)</th><th scope="col" class="num last-head">Precio (CY)</th><th scope="col" class="num last-head">Total manual (CZ)</th><th scope="col" class="num last-head">Estimado*</th></tr></thead>
- <tbody>${rows.map(({product,cells,stock,price,manual,estimate})=>`<tr><td class="sticky-first">${esc(product.name)}</td>${slots.map(client=>{
+ return `<table class="data-table weekly-data-table"><thead><tr><th scope="col" class="sticky-first">Producto</th>${cols}<th scope="col" class="num last-head">${asMoney?'Importe total':'Stock (CX)'}</th><th scope="col" class="num last-head">Precio (CY)</th><th scope="col" class="num last-head">Total manual (CZ)</th>${asMoney?'':'<th scope="col" class="num last-head">Estimado*</th>'}</tr></thead>
+ <tbody>${rows.map(({product,cells,stock,price,unitPrice,manual,estimate})=>`<tr><td class="sticky-first">${esc(product.name)}</td>${slots.map(client=>{
   const qty=cells[client.id];
-  return `<td class="num">${interactive?weeklyQuantityCell(period,client,product,qty):weeklyNumber(qty)}</td>`;
- }).join('')}<td class="num t-em">${weeklyNumber(stock)}</td><td class="num">${weeklyNumber(price===''?null:price)}</td><td class="num">${weeklyNumber(manual===''?null:manual)}</td><td class="num">${estimate}</td></tr>`).join('')}</tbody>
- <tfoot><tr><th scope="row" class="sticky-first">Total semanal por cliente</th>${slots.map(client=>`<td class="num">${weeklyClientTotal(totals,client)}</td>`).join('')}<td class="num">${weeklyNumber(totals.stock)}</td><td colspan="3"></td></tr></tfoot></table>`;
+  const display=weeklyCellDisplay(qty,unitPrice,asMoney);
+  return `<td class="num">${interactive?weeklyQuantityCell(period,client,product,qty,display):display}</td>`;
+ }).join('')}<td class="num t-em">${weeklyCellDisplay(stock,unitPrice,asMoney)}</td><td class="num">${number(asMoney?unitPrice:price===''?null:price)}</td><td class="num">${number(manual===''?null:manual)}</td>${asMoney?'':`<td class="num">${estimate}</td>`}</tr>`).join('')}</tbody>
+ <tfoot><tr><th scope="row" class="sticky-first">Total semanal por cliente</th>${slots.map(client=>`<td class="num">${number(C.round(totals.clients.get(client.id)||0))}</td>`).join('')}<td class="num">${number(totals.stock)}</td><td colspan="${asMoney?2:3}"></td></tr></tfoot></table>`;
 }
+const weeklyValueHint=asMoney=>asMoney?'Importe = cantidad × precio de la semana. Si no hay precio semanal, se usa el del catálogo.':'* Estimado = stock semanal × precio.';
 function openWeeklyDownload(){
  const ids=weeklyProductIds(activePeriod()),visible=weeklyVisibleSelection(ids);
  showModal('Descargar imagen',`<div class="modal-body weekly-download-options">
@@ -1281,11 +1296,11 @@ function openWeeklyDownload(){
  </div>`);
  $('[data-action="weekly-image"]:not(:disabled)')?.focus();
 }
-async function captureWeeklyImage(period,slots,rows,totals){
+async function captureWeeklyImage(period,slots,rows,totals,asMoney){
  const image=document.createElement('section');
  image.className='weekly-export';
  image.setAttribute('aria-hidden','true');
- image.innerHTML=`<h2>Registro · ${esc(period.label)}</h2>${weeklyTable(period,slots,rows,totals)}<p>* Estimado = stock semanal × precio.</p>`;
+ image.innerHTML=`<h2>Registro · ${esc(period.label)}</h2>${weeklyTable(period,slots,rows,totals,false,asMoney)}<p>${weeklyValueHint(asMoney)}</p>`;
  document.body.append(image);
  try{
   const {width,height}=image.getBoundingClientRect(),maxEdge=15000,maxPixels=12000000;
@@ -1308,10 +1323,11 @@ async function exportWeeklyImage(full){
  const period={...activePeriod()},ids=weeklyProductIds(period);
  const products=full?state.products.filter(product=>ids.has(product.id)):weeklyVisibleSelection(ids).rows;
  if(!products.length)return toast('No hay productos en esta tabla.');
- const rows=weeklyRows(period,products),totals=weeklyColumnTotals(period),images=[];
+ const asMoney=weeklyMoneyView;
+ const rows=weeklyRows(period,products),totals=weeklyColumnTotals(period,asMoney),images=[];
  const slots=(full?state.clients:weeklyVisibleClients(totals)).map(client=>({...client}));
  const capture=async (clients,products)=>{
-  const png=clients.length<=120&&products.length<=160?await captureWeeklyImage(period,clients,products,totals):null;
+  const png=clients.length<=120&&products.length<=160?await captureWeeklyImage(period,clients,products,totals,asMoney):null;
   if(png){images.push(png);return;}
   const splitClients=clients.length>120||(clients.length>1&&products.length<=160&&clients.length*2>=products.length);
   const segments=splitClients?clients:products;
@@ -1345,21 +1361,22 @@ async function exportWeeklyImage(full){
 }
 function renderWeekly(){
  const period=activePeriod(),scope=registerEmptyScope||registerPeriodScope(period);
- const title=heading('CAPTURA DE DATOS',titleMap.weekly,'','<button class="btn btn-primary" data-action="new-period">+ Semana</button>');
+ const asMoney=weeklyMoneyView,number=asMoney?tableMoney:weeklyNumber;
+ const title=heading('CAPTURA DE DATOS',titleMap.weekly,'',`${tableValueToggle(asMoney)}<button class="btn btn-primary" data-action="new-period">+ Semana</button>`);
  const filters=renderRegisterFilters(scope);
  if(registerEmptyScope)return `${title}${filters}${empty('Sin semanas en este período','Elige otro mes o año, o usa + Semana para añadir un período.')}`;
  const ids=weeklyProductIds(period),locked=period.locked;
- const sel=weeklyVisibleSelection(ids),rows=weeklyRows(period,sel.rows),totals=weeklyColumnTotals(period);
+ const sel=weeklyVisibleSelection(ids),rows=weeklyRows(period,sel.rows),totals=weeklyColumnTotals(period,asMoney);
  const slots=weeklyVisibleClients(totals);
- const desktop=rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal">${weeklyTable(period,slots,rows,totals,true)}</div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
- const mobile=rows.length?`<div class="week-mobile">${rows.map(({product,cells,stock,price,manual,estimate})=>`
-  <article class="card week-product"><div class="week-product-head"><h3>${esc(product.name)}</h3><span class="badge ${stock<0?'danger':stock>0?'good':''}">Total ${weeklyNumber(stock)}</span></div>
-  <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyQuantityCell(period,client,product,cells[client.id])}</strong></div>`).join('')}</div>
-  <div class="week-product-grid" style="margin-top:13px"><div class="field"><span>Precio unitario (CY)</span><strong>${weeklyNumber(price===''?null:price)}</strong></div><div class="field"><span>Total manual (CZ)</span><strong>${weeklyNumber(manual===''?null:manual)}</strong></div></div>
-  <div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${estimate}</strong></div></article>
+ const desktop=rows.length?`<div class="week-desktop week-table-wrap"><div class="table-scroll week-scroll-2d" tabindex="0" aria-label="Tabla semanal">${weeklyTable(period,slots,rows,totals,true,asMoney)}</div>${pageFoot(sel,'productos')}</div>`:empty('No hay productos que mostrar',state.products.length?'Selecciona un cliente y registra una cantidad para añadir la fila.':'El catálogo está vacío.',state.products.length?'':'weekly-catalog','Ir a Productos');
+ const mobile=rows.length?`<div class="week-mobile">${rows.map(({product,cells,stock,price,unitPrice,manual,estimate})=>`
+  <article class="card week-product"><div class="week-product-head"><h3>${esc(product.name)}</h3><span class="badge ${stock<0?'danger':stock>0?'good':''}">Total ${weeklyCellDisplay(stock,unitPrice,asMoney)}</span></div>
+  <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyQuantityCell(period,client,product,cells[client.id],weeklyCellDisplay(cells[client.id],unitPrice,asMoney))}</strong></div>`).join('')}</div>
+  <div class="week-product-grid" style="margin-top:13px"><div class="field"><span>Precio unitario (CY)</span><strong>${number(asMoney?unitPrice:price===''?null:price)}</strong></div><div class="field"><span>Total manual (CZ)</span><strong>${number(manual===''?null:manual)}</strong></div></div>
+  ${asMoney?'':`<div class="week-product-foot"><span>Estimado: cantidad × precio</span><strong>${estimate}</strong></div>`}</article>
  `).join('')}${slots.length?`<article class="card week-product" data-weekly-client-totals>
   <div class="week-product-head"><h3>Total semanal por cliente</h3></div>
-  <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${weeklyClientTotal(totals,client)}</strong></div>`).join('')}</div>
+  <div class="week-product-grid">${slots.map(client=>`<div class="field"><span>${esc(salesClientLabel(client))}</span><strong class="mono">${number(C.round(totals.clients.get(client.id)||0))}</strong></div>`).join('')}</div>
  </article>`:''}${pageFoot(sel,'productos')}</div>`:'';
  return `${title}${filters}
  <div class="register-week-dates">
@@ -1368,7 +1385,23 @@ function renderWeekly(){
  </div>
  <div class="tool-strip"><div class="left"><button type="button" class="btn btn-primary" data-action="weekly-client-picker" aria-haspopup="dialog"${locked?' disabled':''}>Seleccionar cliente</button></div>
  <div class="right"><button type="button" class="btn btn-small" data-action="clients">Editar nombres</button><button type="button" class="btn btn-small" data-action="weekly-download" aria-haspopup="dialog"${ids.size||rows.length?'':' disabled'}>Descargar imagen</button></div></div>
- ${desktop}${mobile}<p class="table-hint">* Estimado = stock semanal × precio.</p>`;
+ ${desktop}${mobile}<p class="table-hint">${weeklyValueHint(asMoney)}</p>`;
+}
+function finalMoneyTables(sel){
+ const columns=['Importe registrado (H)','Importe cantidad N','Importe cantidad V','Importe de ajustes (J)','Valor del saldo (P)','Precio unitario (O)','Valor Q','Valor R','Importe promedio (S)','Importe por caja (U)'];
+ const periods=state.periods;
+ const rows=sel.rows.map(product=>{
+  const r=C.result(state,product),price=C.num(product.value);
+  return {product,weekly:r.weekly.map(units=>units*price),amounts:[
+   r.H*price,C.num(product.quantityN)*price,C.num(product.quantityV)*price,r.J*price,r.P,price,
+   r.Q*price,r.R*price,r.avg*price,r.box*price
+  ]};
+ });
+ const jump=(product,period,amount)=>`<button type="button" class="product-link mono" data-action="jump-week" data-id="${esc(product.id)}" data-period="${esc(period.id)}">${tableMoney(amount)}</button>`;
+ const table=`<div class="card final-table"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${[...periods.map(period=>period.label),...columns].map(label=>`<th class="num">${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map(({product,weekly,amounts})=>`<tr><td class="sticky-first">${productButton(product)}</td>${weekly.map((amount,i)=>`<td class="num">${jump(product,periods[i],amount)}</td>`).join('')}${amounts.map(amount=>`<td class="num">${tableMoney(amount)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`;
+ const cards=`<div class="final-mobile">${rows.map(({product,weekly,amounts})=>`<article class="card card-pad"><div class="week-product-head">${productButton(product)}</div>
+ <div class="mini-summary-grid">${weekly.map((amount,i)=>`<div><small>${esc(periods[i].label)}</small>${jump(product,periods[i],amount)}</div>`).join('')}${amounts.map((amount,i)=>`<div><small>${columns[i]}</small><b>${tableMoney(amount)}</b></div>`).join('')}</div></article>`).join('')}${pageFoot(sel,'productos')}</div>`;
+ return `<div class="final-desktop">${table}</div>${cards}`;
 }
 function renderFinal(){
  const filteredProducts=productsFiltered(),all=filteredProducts.filter(p=>{const n=C.result(state,p).N;return finalFilter==='all'||(finalFilter==='positive'?n>0:finalFilter==='zero'?n===0:n<0);}),sel=selection(all),allTotals=C.totals(state,state.products),visibleTotals=C.totals(state,all);
@@ -1376,11 +1409,11 @@ function renderFinal(){
  const editable=(p,field)=>numInput('product-field',p[field]??0,`data-product="${esc(p.id)}" data-field="${field}" aria-label="${esc(field)} de ${esc(p.name)}"`);
  const table=sel.rows.length?`<div class="card final-table"><div class="table-scroll"><table class="data-table"><thead><tr><th class="sticky-first">Producto</th>${state.periods.map(p=>`<th class="num">${esc(p.label)}</th>`).join('')}<th class="num">Registrado H</th><th class="num">Cantidad.N</th><th class="num">Cantidad.V</th><th class="num">L+M (J)</th><th class="num">Saldo N</th><th class="num">Valor O</th><th class="num">Total P</th><th class="num">Q</th><th class="num">R = -Q</th><th class="num">Promedio S</th><th class="num">Meses T</th><th class="num">Cajas U</th><th>CYU (V)</th></tr></thead><tbody>${sel.rows.map(pr=>{const r=C.result(state,pr);return `<tr><td class="sticky-first">${productButton(pr)}</td>${r.weekly.map((n,i)=>`<td class="num"><button class="product-link mono" data-action="jump-week" data-id="${esc(pr.id)}" data-period="${esc(state.periods[i].id)}">${format(n)}</button></td>`).join('')}<td class="num t-em">${format(r.H)}</td><td>${editable(pr,'quantityN')}</td><td>${editable(pr,'quantityV')}</td><td class="num">${format(r.J)}</td><td class="num t-em">${statusBalance(r.N)}</td><td>${editable(pr,'value')}</td><td class="num t-em">${money(r.P)}</td><td class="num">${format(r.Q)}</td><td class="num">${format(r.R)}</td><td>${editable(pr,'average')}</td><td class="num">${r.T===null?'<span class="badge warn">Sin promedio</span>':format(r.T)}</td><td>${editable(pr,'boxes')}</td><td>${r.V===null?'<span class="badge warn">Sin cajas</span>':esc(r.V)}</td></tr>`;}).join('')}</tbody></table></div>${pageFoot(sel,'productos')}</div>`:empty('No hay resultados',state.products.length?'No hay coincidencias con ese nombre.':'Agrega un producto o importa una copia de tus datos.','new-product','Añadir producto');
  const cards=sel.rows.length?`<div class="final-mobile">${sel.rows.map(p=>{const r=C.result(state,p);return `<article class="card card-pad"><div class="week-product-head">${productButton(p)}<span class="badge ${r.N<0?'danger':'good'}">Saldo: ${format(r.N)}</span></div><div class="mini-summary-grid"><div><small>Registrado (H)</small><b>${format(r.H)}</b></div><div><small>Valorización (P)</small><b>${money(r.P)}</b></div><div><small>Meses (T)</small><b>${r.T===null?'—':format(r.T)}</b></div><div><small>Cajas / unidades</small><b>${esc(r.V??'—')}</b></div></div><div class="week-product-grid">${columns.map(([key,label])=>`<div class="field"><label>${esc(label)}</label><input class="form-control" type="number" inputmode="decimal" step="any" value="${esc(p[key]??0)}" data-edit="product-field" data-field="${key}" data-product="${esc(p.id)}"></div>`).join('')}</div><div class="week-product-foot"><span>Ver Registro</span><button class="btn btn-small" data-action="jump-week" data-id="${esc(p.id)}" data-period="${esc(state.periods[0].id)}">Abrir →</button></div></article>`;}).join('')}${pageFoot(sel,'productos')}</div>`:`<div class="final-mobile">${empty('Sin resultados','Crea productos o importa una copia de tus datos.','new-product','Añadir producto')}</div>`;
- return `${heading('CONSOLIDADO / FINAL','Consolidado','Saldos y valorización calculados según las fórmulas originales.',`<button class="btn" data-action="csv-final">Exportar CSV</button><button class="btn btn-primary" data-nav="weekly">Ir a semanas</button>`)}
+ return `${heading('CONSOLIDADO / FINAL','Consolidado','Saldos y valorización calculados según las fórmulas originales.',`${tableValueToggle(finalMoneyView)}<button class="btn" data-action="csv-final">Exportar CSV</button><button class="btn btn-primary" data-nav="weekly">Ir a semanas</button>`)}
  <div class="final-summary"><div class="mini-kpi">H · Registro total<strong>${format(allTotals.quantity)}</strong></div><div class="mini-kpi">N · Saldo total<strong class="${allTotals.balance<0?'text-danger':''}">${format(allTotals.balance)}</strong></div><div class="mini-kpi">P · Valor global<strong>${money(allTotals.value)}</strong></div><div class="mini-kpi">Productos filtrados<strong>${all.length} de ${state.products.length}</strong></div></div>
  <div class="tool-strip"><div class="left">${searchBar()}</div><div class="right"><span class="muted" style="font-size:11px">Subtotal: ${money(visibleTotals.value)}</span></div></div>
  <div class="gu-filterbar" role="group" aria-label="Filtrar saldos"><span class="gu-filter-label">Saldo</span>${[['all','Todos'],['positive','Positivo'],['zero','En cero'],['negative','Negativo']].map(([k,label])=>`<button type="button" data-final-filter="${k}" aria-pressed="${finalFilter===k}">${label}</button>`).join('')}<span class="muted">${all.length} referencias</span></div>
- <div class="final-desktop">${table}</div>${cards}<div class="help-note"><b>Reglas originales:</b> H = Σ semanas; J = L + M; N = H − J; P = N × O; Q = N; R = −Q; T = R / S (vacío si S = 0); V = COCIENTE(R,U) / RESIDUO(R,U), con aviso si U ≤ 0. El saldo puede ser negativo y no se convierte en valor absoluto.</div>`;
+ ${finalMoneyView&&sel.rows.length?finalMoneyTables(sel):`<div class="final-desktop">${table}</div>${cards}`}${finalMoneyView?'<p class="table-hint">Los importes se calculan con el precio unitario actual del catálogo.</p>':'<div class="help-note"><b>Reglas originales:</b> H = Σ semanas; J = L + M; N = H − J; P = N × O; Q = N; R = −Q; T = R / S (vacío si S = 0); V = COCIENTE(R,U) / RESIDUO(R,U), con aviso si U ≤ 0. El saldo puede ser negativo y no se convierte en valor absoluto.</div>'}`;
 }
 let catalogCategory='';
 const groupKey=name=>name.trim().toLocaleLowerCase('es');
@@ -2342,6 +2375,11 @@ document.addEventListener('click',async e=>{
   case 'edit-period-dates':periodModal(activePeriod());break;
   case 'toggle-period-lock':toggleRegisterLock();break;
   case 'weekly-download':openWeeklyDownload();break;
+  case 'toggle-table-values':
+   if(view==='weekly')weeklyMoneyView=!weeklyMoneyView;
+   if(view==='final')finalMoneyView=!finalMoneyView;
+   render();$('[data-action="toggle-table-values"]')?.focus({preventScroll:true});
+   break;
   case 'weekly-image':await exportWeeklyImage(targetId==='full');break;
   case 'weekly-cell':weeklyCellModal(btn.dataset.period,btn.dataset.client,targetId);break;
   case 'weekly-catalog':closeModal();navigate('products');break;

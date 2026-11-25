@@ -48,9 +48,18 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  assert.match(element('#main-content').innerHTML,/id="top-sales-forecast"/);
  await click('nav',{nav:'weekly'});
  assert.match(element('#main-content').innerHTML,/data-action="weekly-cell"/);
+ await click('action',{action:'toggle-table-values'});
+ assert.match(element('#main-content').innerHTML,/Ver cantidades/);
+ assert.match(element('#main-content').innerHTML,/Importe total/);
+ await click('action',{action:'toggle-table-values'});
+ assert.match(element('#main-content').innerHTML,/Stock \(CX\)/);
  await click('nav',{nav:'sales'});
  assert.match(element('#main-content').innerHTML,/se agotó más rápido/);
  await click('nav',{nav:'final'});
+ assert.match(element('#main-content').innerHTML,/Cantidad.N/);
+ await click('action',{action:'toggle-table-values'});
+ assert.match(element('#main-content').innerHTML,/Valor del saldo \(P\)/);
+ await click('action',{action:'toggle-table-values'});
  assert.match(element('#main-content').innerHTML,/Cantidad.N/);
  await click('nav',{nav:'backup'});
  assert.match(element('#main-content').innerHTML,/Cifrar y descargar/);
