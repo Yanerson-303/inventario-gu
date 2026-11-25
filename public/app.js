@@ -117,13 +117,15 @@ function scheduleSave(){
   saveQueue=saveQueue.catch(()=>{}).then(async()=>{
     if(storageConflict)throw new Error('Se detectaron cambios de otra pestaña. No se sobrescribió el almacenamiento.');
     await DB.save(snapshot);
-    if(createAutoBackup){
-      await DB.backup({id:id('auto'),createdAt:snapshot.updatedAt,type:'auto',label:'Respaldo automático',data:snapshot});
-      const all=await DB.backups();const autos=all.filter(x=>x.type==='auto');
-      await Promise.all(autos.slice(12).map(x=>DB.deleteBackup(x.id)));
-      await refreshBackups();
-    }
     markRevision();saveFailure=false;savedStatus();queueDrivePublish();
+    if(createAutoBackup){
+      try{
+        await DB.backup({id:id('auto'),createdAt:snapshot.updatedAt,type:'auto',label:'Respaldo automático',data:snapshot});
+        const all=await DB.backups();const autos=all.filter(x=>x.type==='auto');
+        await Promise.all(autos.slice(12).map(x=>DB.deleteBackup(x.id)));
+        await refreshBackups();
+      }catch(error){toast('El inventario se guardó, pero falló el respaldo automático: '+error.message);}
+    }
   }).catch(err=>{saveFailure=true;indicator('Error al guardar','error');toast('No se pudo guardar: '+err.message);});
  },180);
 }
@@ -638,7 +640,7 @@ function renderTopSalesChart(sales){
  const months=[...new Set(records.filter(sale=>calendarDate(sale.date)).map(sale=>sale.date.slice(0,7)))].sort().reverse();
  const month=months.includes(topSalesMonth)?topSalesMonth:'';
  const productNames=new Map(state.products.map(product=>[product.id,product.name]));
- const rows=salesRanking(records.filter(sale=>!month||sale.date.startsWith(month)),productNames)
+ const rows=salesRanking(records.filter(sale=>!month||sale.date?.startsWith(month)),productNames)
   .filter(([,row])=>row.units>0).slice(0,10).map(([,row])=>({label:row.name,value:row.units}));
  const monthLabel=key=>`${unitReportMonths[Number(key.slice(5))-1]} de ${key.slice(0,4)}`;
  const period=month?monthLabel(month):'Todos los meses';
@@ -2172,7 +2174,10 @@ document.addEventListener('submit',e=>{
 document.addEventListener('change',e=>{
  const el=e.target;
  if(el.id==='top-sales-month'){
-  topSalesMonth=el.value;render();$('#top-sales-month')?.focus();return;
+  topSalesMonth=el.value;
+  $('#top-sales-chart').closest('article').outerHTML=renderTopSalesChart(purchases());
+  $('#top-sales-month')?.focus();
+  return;
  }
  if(el.id==='catalog-category'||el.id==='catalog-group'){
   if(el.id==='catalog-category')catalogCategory=el.value;else catalogGroup=el.value;

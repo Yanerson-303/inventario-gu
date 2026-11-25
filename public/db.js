@@ -118,8 +118,7 @@ async function run(action,...args){
     }
     return;
   }
-  const main=backend.kind==='memory'?memory.main:localRead(store,MAIN_KEY,null);
-  if(action==='load')return copy(main);
+  if(action==='load')return copy(backend.kind==='memory'?memory.main:localRead(store,MAIN_KEY,null));
   if(action==='save'){
     if(backend.kind==='memory')memory.main=copy(args[0]);
     else localWrite(store,MAIN_KEY,args[0]);
