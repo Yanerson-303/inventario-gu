@@ -263,9 +263,11 @@ function renderDashboard(){
  ${metricBox('saldo',statCard(metricLabels.saldo,format(all.balance),'Unidades registradas menos las cantidades N y V','◎',unitReportCard('stock',M.balances(all.rows))))}
  ${metricBox('valor',statCard(metricLabels.valor,money(all.value),'Saldo de cada producto multiplicado por su valor unitario','◈',unitReportCard('value',M.valueMix(all.rows))))}
  </div>
+ <div class="dashboard-sales-warehouse">
  ${renderTopSalesChart(sales)}
+ ${window.AlmendraWarehouse?.render(state)||''}
+ </div>
  </section>
- <div class="dashboard-visual-row dashboard-warehouse">${window.AlmendraWarehouse?.render(state)||''}</div>
  ${dashboardActions()}`;
 }
 const unitReportSources={

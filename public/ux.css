@@ -259,8 +259,20 @@ body[data-density="compact"] .main-content{padding-top:18px}body[data-density="c
  }
 }
 
+.dashboard-sales-warehouse {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 13px;
+  margin-block: 16px;
+}
+.dashboard-sales-warehouse > .card { margin: 0; min-width: 0; max-width: none; }
+@media (min-width: 960px) {
+  .dashboard-sales-warehouse:has(> .warehouse-card) {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+}
+
 /* Acciones flotantes del Panel general. */
-.dashboard-warehouse.dashboard-visual-row { grid-template-columns: minmax(0,1fr); }
 .stats-grid:has(~ .dashboard-actions) .metric-toggle { display: none; }
 .dashboard-actions {
   position: fixed;
