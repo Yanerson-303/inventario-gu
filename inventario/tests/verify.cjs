@@ -44,6 +44,8 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  assert.match(element('#main-content').innerHTML,/Sobre cupo detectado/);
  assert.match(element('#main-content').innerHTML,/Stock<\/div><div class="stat-value mono">[\d.]+<small class="stat-secondary">COP\s+[\d.]+<\/small>/);
  assert.match(element('#main-content').innerHTML,/Valor total del inventario<\/div><div class="stat-value mono">[^<]+<small class="stat-secondary">[\d.]+ unidades en saldo<\/small>/);
+ for(const source of ['sales','stock','value'])assert.match(element('#main-content').innerHTML,new RegExp(`data-unit-card-forecast="${source}"`));
+ assert.match(element('#main-content').innerHTML,/id="top-sales-forecast"/);
  await click('nav',{nav:'weekly'});
  assert.match(element('#main-content').innerHTML,/data-action="weekly-cell"/);
  await click('nav',{nav:'sales'});
@@ -66,6 +68,15 @@ function click(kind,data){const e={target:{closest(query){if(query==='[data-acti
  const trace=ctx.window.GUTrace,purchases=trace.weeklyPurchases(lastSaved);
  assert.equal(new Set(purchases.map(sale=>sale.date)).size,8);
  assert(purchases.every(sale=>sale.origin.boxNumber&&sale.origin.vesselNumber&&sale.origin.rack&&sale.clientId.startsWith('demo-client-')));
+ const datedPeriod={id:'legacy-week',label:'Histórico',start:'2025-01-02'};
+ const legacy={periods:[datedPeriod],products:[product],clients:[{id:'c1',code:'A-1'}],movements:{'legacy-week':{p1:{c1:3}}},prices:{'legacy-week':{p1:25}},settings:{currency:'USD'}};
+ const [legacyPurchase]=trace.weeklyPurchases(legacy);
+ assert.equal(legacyPurchase.units,3);
+ assert.equal(legacyPurchase.price,25);
+ assert.equal(legacyPurchase.currency,'USD');
+ assert.equal(legacyPurchase.date,datedPeriod.start);
+ legacy.weeklyOrigins={'legacy-week|p1|c1':{deleted:true}};
+ assert.equal(trace.weeklyPurchases(legacy).length,0);
  assert.doesNotThrow(()=>trace.validate(lastSaved));
  console.log('✓ Renderizado inicial, demostración, 6 vistas, ampliación de clientes, auto-guardado.');
  const firstProduct=lastSaved.products[0].id;

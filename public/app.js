@@ -14,7 +14,7 @@ const money=n=>new Intl.NumberFormat('es-CO',{style:'currency',currency:state?.s
 const stamp=v=>{try{return new Date(v).toLocaleString('es-CO',{dateStyle:'medium',timeStyle:'short'});}catch{return String(v)}};
 const id=prefix=>prefix+'-'+(crypto?.randomUUID?.()||Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
 const clone=x=>JSON.parse(JSON.stringify(x));
-const safeid=s=>/^[A-Za-z0-9_-]{1,110}$/.test(String(s));
+const safeid=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,110}$/.test(s)&&!Object.hasOwn(Object.prototype,s);
 const getCookie=k=>document.cookie.split('; ').find(x=>x.startsWith(k+'='))?.split('=').slice(1).join('=')||'';
 const cookie=(k,v)=>{try{document.cookie=`${k}=${encodeURIComponent(v)}; max-age=31536000; path=/; SameSite=Lax`;}catch{}};
 const nf=v=>{const n=Number(String(v).replace(',','.'));return Number.isFinite(n)?n:null;};
@@ -279,7 +279,7 @@ const unitReportSources={
  stock:{title:'Filtrar unidades registradas · Stock',button:'Filtrar unidades',caption:'Unidades registradas',description:'Las cantidades provienen del Registro. El período se determina con la fecha de inicio de cada registro.'}
 };
 const newUnitReport=source=>({
- source,group:'product',period:'month',year:'',month:'',week:'',cross:'',query:'',page:0,forecast:'3',
+ source,group:'product',period:'month',year:'',month:'',week:'',cross:'',query:'',page:0,forecast:'3',datePinned:false,
  selected:{product:null,client:null}
 });
 const unitReports={sales:newUnitReport('sales'),stock:newUnitReport('stock'),value:newUnitReport('value')};
@@ -507,7 +507,7 @@ function reportChart(model,report,compact=false){
   ...entry,projection:forecast.series.get(entry.id)||[]
  }));
  if(!periods.length||!series.length){
-  if(compact)return '';
+  if(compact&&!report.datePinned&&!report.cross&&!report.selected[report.group])return '';
   const message=report.selected[report.group]?'Marca las filas que quieras graficar.':'Sin datos para el período seleccionado.';
   return `<div class="metric-vis-empty">${message}</div>`;
  }
@@ -563,7 +563,22 @@ function unitReportCard(source,originalChart,summary=''){
  const report=unitReports[source];
  configureUnitReport(report);
  const preview=report.year?reportChart(unitReportModel(report),report,true):'';
- return `<div class="unit-report-card"><div id="unit-report-preview-${source}"><div data-unit-original ${preview?'hidden':''}>${originalChart}</div><div data-unit-custom ${preview?'':'hidden'}>${preview}</div></div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<div class="unit-report-actions"><button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button><button type="button" class="btn btn-small" data-action="inventory-download" data-id="${source}">Descargar inventario</button></div></div>`;
+ return `<div class="unit-report-card">
+ <label class="unit-card-forecast" data-html2canvas-ignore>Proyección
+ <select class="form-control" data-unit-card-forecast="${source}" aria-label="Proyección · ${esc(unitReportSources[source].caption)}" aria-controls="unit-report-preview-${source}"${report.period==='undated'?' disabled':''}>${reportForecastOptions(report.forecast)}</select></label>
+ <div id="unit-report-preview-${source}"><div data-unit-original ${preview?'hidden':''}>${originalChart}</div><div data-unit-custom ${preview?'':'hidden'}>${preview}</div></div>${summary?`<p class="muted capacity-summary">${esc(summary)}</p>`:''}<div class="unit-report-actions"><button type="button" class="btn btn-small" data-action="unit-report" data-id="${source}">${unitReportSources[source].button}</button><button type="button" class="btn btn-small" data-action="inventory-download" data-id="${source}">Descargar inventario</button></div></div>`;
+}
+function updateUnitReportPreview(report,model){
+ const target=$(`#unit-report-preview-${report.source}`);
+ if(!target)return;
+ const custom=$('[data-unit-custom]',target),original=$('[data-unit-original]',target);
+ const preview=model?reportChart(model,report,true):'';
+ custom.innerHTML=preview;
+ custom.hidden=!preview;
+ original.hidden=!!preview;
+ const control=$(`[data-unit-card-forecast="${report.source}"]`);
+ control.value=report.forecast;
+ control.disabled=report.period==='undated';
 }
 function openInventoryDownload(source){
  showModal('Descargar inventario',`<div class="modal-body"><div class="unit-report-actions">
@@ -573,7 +588,7 @@ function openInventoryDownload(source){
  $('[data-action="inventory-excel"]').focus();
 }
 function configureUnitReport(report,allowEmpty=false){
- if(report.year)return;
+ if(report.datePinned)return;
  const sales=report.source==='sales';
  const weeksWithMovements=sales?[]:state.periods.filter(week=>
    Object.values(state.movements?.[week.id]||{}).some(clients=>Object.keys(clients).length)
@@ -581,12 +596,18 @@ function configureUnitReport(report,allowEmpty=false){
  const lastRecordedDate=sales
   ?purchases().reduce((date,sale)=>!sale.voided&&calendarDate(sale.date)&&sale.date>date?sale.date:date,'')
   :weeksWithMovements.reduce((date,week)=>calendarDate(week.start)&&week.start>date?week.start:date,'');
- if(!lastRecordedDate&&!allowEmpty)return;
- if(weeksWithMovements.length&&!lastRecordedDate)report.period='undated';
+ report.period=weeksWithMovements.length&&!lastRecordedDate?'undated':'month';
+ if(!lastRecordedDate&&!allowEmpty){report.year='';return;}
  const [year,month,day]=(lastRecordedDate||localSaleDate()).split('-').map(Number);
  report.year=String(Math.min(3000,Math.max(2000,year)));
  report.month=String(month);
  report.week=String(Math.min(5,Math.ceil(day/7)));
+}
+function resetWorkspaceViewFilters(){
+ for(const [source,report] of Object.entries(unitReports))Object.assign(report,newUnitReport(source),{forecast:report.forecast});
+ topSalesMonth='';
+ weeklyPreviewProduct='';registerEmptyScope=null;query='';clientQuery='';page=0;
+ periodId=state.periods[0].id;
 }
 function openUnitReport(source){
  const report=unitReports[source],info=unitReportSources[source];
@@ -630,14 +651,7 @@ function openUnitReport(source){
   const manual=!!report.selected[report.group];
   mode.textContent=manual?'Selección manual':'Selección automática · hasta 3 filas';
   auto.hidden=!manual;
-  const target=$(`#unit-report-preview-${source}`);
-  if(target){
-   const custom=$('[data-unit-custom]',target),original=$('[data-unit-original]',target);
-   const preview=reportChart(model,report,true);
-   custom.innerHTML=preview;
-   custom.hidden=!preview;
-   original.hidden=!!preview;
-  }
+  updateUnitReportPreview(report,model);
   if(focus)$$('[data-unit-series]',table).find(box=>box.value===focus)?.focus({preventScroll:true});
  };
  labels();refresh();
@@ -662,6 +676,7 @@ function openUnitReport(source){
    return;
   }
   if(!filter)return;
+  if(['period','year','month','week'].includes(filter))report.datePinned=true;
   report[filter]=el.value;report.page=0;
   if(filter==='group'){
    report.query='';$('[data-unit-query]',root).value='';
@@ -828,6 +843,7 @@ function renderTopSalesChart(sales){
  <div id="top-sales-chart">
  <h3 id="top-sales-title">10 productos más vendidos</h3>
  <p class="muted">Unidades vendidas · ${esc(period)}</p>
+ <label class="unit-card-forecast" data-html2canvas-ignore>Proyección <select id="top-sales-forecast" class="form-control" aria-label="Proyección · 10 productos más vendidos">${reportForecastOptions(topSalesForecast)}</select></label>
  ${topSalesBars(rows,forecast,period)}
  </div>
  <div class="unit-report-actions sales-fields" data-html2canvas-ignore>
@@ -835,7 +851,6 @@ function renderTopSalesChart(sales){
  ${registerOption('','Todos los meses',month)}
  ${months.map(key=>registerOption(key,monthLabel(key),month)).join('')}
  </select></label>
- <label class="field">Proyección <select id="top-sales-forecast" class="form-control">${reportForecastOptions(topSalesForecast)}</select></label>
  <button type="button" class="btn btn-small" data-action="top-sales-image"${rows.length?'':' disabled'}>Descargar imagen</button>
  </div></article>`;
 }
@@ -1140,16 +1155,21 @@ function weeklyCellModal(weekId,clientId,productId=''){
  '<button type="button" class="btn" data-action="close-modal">Cancelar</button><button type="submit" class="btn btn-primary" form="weekly-cell-form" id="weekly-cell-save" disabled>Guardar cantidad</button>');
  const form=$('#weekly-cell-form'),search=$('#weekly-cell-search'),picker=form.elements.productId,units=form.elements.units;
  const originField=form.querySelector('[data-weekly-origin]'),save=$('#weekly-cell-save');
+ let missingOrigin=null;
+ const updateSave=()=>{
+  save.disabled=!picker.value||!!(missingOrigin&&(units.value===''||Number(units.value)!==0));
+ };
  const updateProduct=()=>{
   const product=state.products.find(p=>p.id===picker.value);
   const origin=product?weeklyCellOrigin(weekId,product,clientId):null;
   const missing=missingWeeklyOrigin(origin);
+  missingOrigin=missing;
   units.disabled=!product;
-  save.disabled=!product||!!missing;
   if(!product){
-   units.value='';originField.innerHTML='';return;
+   units.value='';originField.innerHTML='';updateSave();return;
   }
   units.value=state.movements[weekId]?.[product.id]?.[clientId]??'';
+  updateSave();
   const saved=state.weeklyOrigins?.[Trace.weeklyKey(weekId,product.id,clientId)];
   originField.innerHTML=provenanceTable(product.name,origin,saved&&!saved.deleted?saved.date:(product.createdAt?stamp(product.createdAt):''))+
    (missing?`<button type="button" class="btn btn-small field-error-inline" data-origin-field="${missing.field}">${esc(missing.message)} Ir al campo</button>`:'');
@@ -1173,6 +1193,7 @@ function weeklyCellModal(weekId,clientId,productId=''){
   if(field)focusInvalidField(openOriginField(picker.value,field));
  });
  search.addEventListener('input',showProducts);
+ units.addEventListener('input',updateSave);
  dropdown.addEventListener('toggle',()=>{if(dropdown.open)search.focus();});
  results.addEventListener('click',event=>{
   const option=event.target.closest('[data-weekly-option]');if(!option)return;
@@ -1191,10 +1212,10 @@ function saveWeeklyCell(form){
  const data=new FormData(form),product=state.products.find(item=>item.id===data.get('productId'));
  const raw=String(data.get('units')??'').trim(),units=Number(raw);
  if(!product)return toast('Selecciona un producto del catálogo.',$('#weekly-cell-search',form));
+ if(!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Escribe una cantidad válida.',form.elements.units);
  const origin=weeklyCellOrigin(weekId,product,clientId);
  const missing=missingWeeklyOrigin(origin);
- if(missing)return toast(missing.message,()=>openOriginField(product.id,missing.field));
- if(!raw||!Number.isFinite(units)||units<0||units>1e12||Math.abs(units-Math.round(units*1e6)/1e6)>1e-9)return toast('Escribe una cantidad válida.',form.elements.units);
+ if(units>0&&missing)return toast(missing.message,()=>openOriginField(product.id,missing.field));
  const key=Trace.weeklyKey(weekId,product.id,clientId),previous=state.weeklyOrigins?.[key];
  const existing=state.movements[weekId]?.[product.id]?.[clientId];
  if(units===0&&!existing&&!previous){closeModal();return;}
@@ -1573,7 +1594,7 @@ async function receiveDriveInventory(backup,stillOpen,link,replicaDigest){
   await DB.applyDrive(incoming,link);
   driveLink=link;
   state=incoming;replaced=true;autoBackupDue=false;undoStack=[];
-  periodId=state.periods[0].id;registerEmptyScope=null;weeklyPreviewProduct='';page=0;query='';clientQuery='';
+  resetWorkspaceViewFilters();
   markRevision();saveFailure=false;savedStatus();await refreshBackups();
   return {digest:link.digest,replaced};
  }finally{
@@ -2058,7 +2079,7 @@ function normalizeImported(raw){
  });
  const products=makeUnique(raw.products,'Producto',p=>({id:p.id,name:string(p.name,110),category:string(p.category,70),groupIds:Array.isArray(p.groupIds)?p.groupIds.filter(id=>typeof id==='string'&&safeid(id)):undefined,groupId:p.groupId===undefined?undefined:(typeof p.groupId==='string'&&safeid(p.groupId)?p.groupId:''),catalogRack:p.catalogRack===undefined?undefined:([1,2,3].includes(Number(p.catalogRack))?Number(p.catalogRack):0),vesselNumber:string(p.vesselNumber,80).trim(),boxNumber:string(p.boxNumber,80).trim(),productNumber:string(p.productNumber,80).trim(),tagIds:Array.isArray(p.tagIds)?p.tagIds.filter(safeid):[],unit:string(p.unit,30)||'unidad',quantityN:decimal(p.quantityN),quantityV:decimal(p.quantityV),value:decimal(p.value),average:decimal(p.average),boxes:decimal(p.boxes),createdAt:string(p.createdAt,40)}));
  const clients=makeUnique(raw.clients,'Cliente',c=>({id:c.id,code:string(c.code,35)||c.id,name:string(c.name,90),active:c.active!==false}));
- const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:/^\d{4}-\d{2}-\d{2}$/.test(p.start)?p.start:'',end:/^\d{4}-\d{2}-\d{2}$/.test(p.end)?p.end:'',locked:!!p.locked,productIds:Array.isArray(p.productIds)?[...new Set(p.productIds.filter(id=>typeof id==='string'&&safeid(id)))]:undefined}));
+ const periods=makeUnique(raw.periods,'Período',p=>({id:p.id,label:string(p.label,70)||'Período',start:calendarDate(p.start)?p.start:'',end:calendarDate(p.end)?p.end:'',locked:!!p.locked,productIds:Array.isArray(p.productIds)?[...new Set(p.productIds.filter(safeid))]:undefined}));
  const periodIDs=new Set(periods.map(p=>p.id)),productIDs=new Set(products.map(p=>p.id)),clientIDs=new Set(clients.map(c=>c.id));
  for(const period of periods)if(period.productIds)period.productIds=period.productIds.filter(id=>productIDs.has(id));
  let counter=0;
@@ -2189,6 +2210,12 @@ function mergeStates(local,remote){
  return out;
 }
 let pendingImport=null;
+async function backupBeforeWorkspaceChange(label){
+ const previous=state,revision=state.updatedAt;
+ await DB.backup({id:id('before'),type:'manual',createdAt:new Date().toISOString(),label,data:clone(state)});
+ if(storageConflict||state!==previous||state.updatedAt!==revision)throw new Error('El inventario cambió mientras se guardaba la copia previa. Vuelve a iniciar la operación.');
+ return driveAllowsChanges();
+}
 async function handleFile(file){
  if(!file)return;if(file.size>50*1024*1024){toast('El archivo supera 50 MB.',$('[data-action="import-file"]'));return;}
  try{const text=await file.text();let pkg=JSON.parse(text);
@@ -2200,16 +2227,16 @@ async function handleFile(file){
   showModal('Confirmar migración',`<div class="modal-body"><p>Respaldo compatible: <b>${pendingImport.products.length} productos</b>, <b>${pendingImport.clients.length} espacios</b>, <b>${pendingImport.periods.length} períodos</b>.</p><div class="section-label">Cómo aplicar la información</div><label class="switch-line" style="margin-bottom:15px"><input type="radio" name="import-mode" value="replace" checked> <span><b>Reemplazar todo</b><br>Restaurar exactamente los datos del archivo.</span></label><label class="switch-line"><input type="radio" name="import-mode" value="merge"> <span><b>Fusionar por identificador</b><br>Conservar ambos catálogos; si una celda comparte ID, prevalece la del archivo. No sumar valores repetidos.</span></label><div class="help-note">Se guardará una copia interna del estado actual antes de migrar.</div></div>`,`<button class="btn" data-action="close-modal">Cancelar</button><button class="btn btn-primary" data-action="confirm-import">Aplicar migración</button>`);
  }catch(e){toast('No se pudo importar: '+e.message,$('[data-action="import-file"]'));}
 }
-async function applyImport(){
+async function applyImport(button){
  if(storageConflict){toast('Hay cambios en otra pestaña. Recarga antes de migrar.');return;}
  if(!pendingImport||!driveAllowsChanges())return;
  const mode=$('input[name="import-mode"]:checked')?.value||'replace',incoming=pendingImport;
- try{await DB.backup({id:id('before'),type:'manual',createdAt:new Date().toISOString(),label:'Antes de importar',data:clone(state)});
-  if(!driveAllowsChanges())return;
+ try{
+  if(!(await backupBeforeWorkspaceChange('Antes de importar'))||pendingImport!==incoming||!button.isConnected)return;
   const merged=mode==='merge'?mergeStates(state,incoming):incoming;
   undoStack.push(clone(state));state=merged;
   state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),label:`Migración ${mode==='merge'?'fusionada':'restaurada'} desde JSON`,actor:'Este dispositivo',at:state.updatedAt});
-  periodId=state.periods[0].id;registerEmptyScope=null;page=0;query='';pendingImport=null;closeModal();scheduleSave();await refreshBackups();navigate('dashboard');toast('Migración realizada. Los datos se han recuperado.');
+  resetWorkspaceViewFilters();pendingImport=null;closeModal();scheduleSave();await refreshBackups();navigate('dashboard');toast('Migración realizada. Los datos se han recuperado.');
  }catch(e){toast('No se pudo completar la migración: '+e.message);}
 }
 async function makeSnapshot(){try{const entry={id:id('snapshot'),createdAt:new Date().toISOString(),type:'manual',label:'Copia manual',data:clone(state)};await DB.backup(entry);await refreshBackups();render();toast(DB.mode?.()==='memory'?'Copia temporal creada. Descarga un JSON antes de cerrar la vista previa.':'Copia interna creada. Descárgala si quieres protegerla fuera del navegador.');}catch(e){toast('No se pudo crear la copia: '+e.message);}}
@@ -2218,10 +2245,10 @@ async function restoreSnapshot(snapshotId){
  if(!driveAllowsChanges())return;
  const entry=backupsCache.find(b=>b.id===snapshotId);if(!entry)return;
  if(!confirm(`¿Restaurar la copia de ${stamp(entry.createdAt)}? Se reemplazarán los datos actuales. Se guardará una copia previa.`))return;
- try{await DB.backup({id:id('before'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restaurar',data:clone(state)});
-  if(!driveAllowsChanges())return;
+ try{
+  if(!(await backupBeforeWorkspaceChange('Antes de restaurar')))return;
   const recovered=normalizeImported(entry.data);undoStack.push(clone(state));state=recovered;state.updatedAt=new Date().toISOString();state.audit.unshift({id:id('evt'),at:state.updatedAt,actor:'Este dispositivo',label:'Copia interna restaurada'});
-  periodId=state.periods[0].id;registerEmptyScope=null;page=0;query='';scheduleSave();await refreshBackups();navigate('dashboard');toast('Se restauraron productos, movimientos y configuración.');
+  resetWorkspaceViewFilters();scheduleSave();await refreshBackups();navigate('dashboard');toast('Se restauraron productos, movimientos y configuración.');
  }catch(e){toast('No fue posible restaurar: '+e.message);}
 }
 function csvEscape(value,textual=false){let string=String(value??'');if(textual&&/^[\s]*[=+@\-\t\r]/.test(string))string="'"+string;return '"'+string.replace(/"/g,'""')+'"';}
@@ -2360,7 +2387,7 @@ document.addEventListener('click',async e=>{
   case 'restore-snapshot':await restoreSnapshot(targetId);break;
   case 'delete-snapshot':if(confirm('¿Eliminar esta copia de seguridad interna?')){await DB.deleteBackup(targetId);await refreshBackups();render();toast('Copia interna eliminada.');}break;
   case 'download-snapshot':{const backup=backupsCache.find(b=>b.id===targetId);if(backup)await exportJSON(backup.data);break;}
-  case 'confirm-import':await applyImport();break;
+  case 'confirm-import':btn.disabled=true;try{await applyImport(btn);}finally{btn.disabled=false;}break;
   case 'csv-review':exportReviewCSV();break;
   case 'csv-audit':csvDownload([['Fecha','Acción','Origen'],...state.audit.filter(e=>(auditWindow==='all'||new Date(e.at).getTime()>=Date.now()-7*86400000)&&`${e.label} ${e.actor||''}`.toLocaleLowerCase('es').includes(auditQuery.toLocaleLowerCase('es').trim())).map(e=>[e.at,e.label,e.actor||'Este dispositivo'])],'Historial_3_1');break;
   case 'install-app':window.GUInstall?.open();break;
@@ -2373,9 +2400,8 @@ document.addEventListener('click',async e=>{
     if(!driveAllowsChanges())return;
     if(!confirm('¿Borrar TODOS los datos de este espacio? Se guardará primero una copia interna, pero es recomendable descargar un JSON.'))return;
     if(!confirm('Última confirmación: ¿restablecer la aplicación a cero?'))return;
-    await DB.backup({id:id('before-reset'),createdAt:new Date().toISOString(),type:'manual',label:'Antes de restablecer',data:clone(state)});
-    if(!driveAllowsChanges())return;
-    undoStack.push(clone(state));state=newState();periodId='w1';registerEmptyScope=null;page=0;query='';clientQuery='';await refreshBackups();scheduleSave();navigate('dashboard');toast('Espacio restablecido. Tu copia previa permanece en Copias.');break;
+    if(!(await backupBeforeWorkspaceChange('Antes de restablecer')))return;
+    undoStack.push(clone(state));state=newState();resetWorkspaceViewFilters();scheduleSave();await refreshBackups();navigate('dashboard');toast('Espacio restablecido. Tu copia previa permanece en Copias.');break;
   }
  }}catch(err){toast('No se pudo completar la acción: '+err.message);}
 });
@@ -2395,6 +2421,12 @@ document.addEventListener('submit',e=>{
 });
 document.addEventListener('change',e=>{
  const el=e.target;
+ if(el.dataset.unitCardForecast){
+  const report=unitReports[el.dataset.unitCardForecast];
+  report.forecast=el.value;
+  updateUnitReportPreview(report,report.year?unitReportModel(report):null);
+  return;
+ }
  if(el.id==='top-sales-month'||el.id==='top-sales-forecast'){
   if(el.id==='top-sales-month')topSalesMonth=el.value;
   else topSalesForecast=el.value;

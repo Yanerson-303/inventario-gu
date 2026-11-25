@@ -1,5 +1,5 @@
 /* Cache-first para archivos versionados; navegación con respaldo offline. */
-const VERSION='inventarios-gu-v8.6-2026-11-25-importes-tarjetas';
+const VERSION='inventarios-gu-v8.6-2026-11-25-filtros-integracion';
 const CORE=['./','./index.html','./styles.css','./ux.css','./gu4.css','./gu4-boot.css','./gu4-boot.js','./ui.js','./motion.js','./db.js','./calc.js','./charts.js','./chart-hover.js','./metric-visuals.js','./trace.js','./warehouse.js','./gu4-core.js','./gu4-views.js','./vendor/html2canvas.min.js','./jszip.min.js','./gu4-excel.js','./drive.js','./app.js','./insights.js','./icons.js','./install.js','./icon.svg','./icon-192.png','./icon-512.png','./manifest.webmanifest','./descargas/Inventarios_GU_PC.html'];
 async function prepare(){const cache=await caches.open(VERSION);await cache.addAll(CORE);const missing=await Promise.all(CORE.map(url=>cache.match(url).then(x=>!x)));if(missing.some(Boolean))throw new Error('Faltan archivos sin conexión.');return true;}
 self.addEventListener('install',event=>event.waitUntil(prepare().then(()=>self.skipWaiting())));

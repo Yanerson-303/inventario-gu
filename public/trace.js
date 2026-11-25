@@ -19,22 +19,31 @@ function calendarDate(value){
 }
 function weeklyKey(periodId,productId,clientId){return [periodId,productId,clientId].join('|');}
 function weeklyPurchases(state){
- const periods=new Map((state.periods||[]).map(period=>[period.id,period]));
+ const products=new Map((state.products||[]).map(product=>[product.id,product]));
+ const clients=new Map((state.clients||[]).map(client=>[client.id,client]));
  const purchases=[];
- for(const entry of Object.values(state.weeklyOrigins||{})){
-  if(!entry||entry.deleted)continue;
-  const {periodId,productId,clientId,productName,clientName,origin,price,currency}=entry;
-  const period=periods.get(periodId);
-  if(!period)continue;
-  const units=state.movements?.[periodId]?.[productId]?.[clientId];
-  if(!Number.isFinite(units)||units<=0)continue;
-  const date=calendarDate(period.start)?period.start:entry.date;
-  if(!calendarDate(date))continue;
-  purchases.push({
-   id:'weekly-'+weeklyKey(periodId,productId,clientId),weeklyPeriodId:periodId,weeklyPeriodLabel:period.label,
-   productId,clientId,productName,clientName,date,origin,units,price:price??null,currency,lotId:'',voided:false,
-   location:typeof origin?.rack==='string'?origin.rack:''
-  });
+ for(const period of state.periods||[]){
+  const periodId=period.id,dated=calendarDate(period.start);
+  for(const [productId,cells] of Object.entries(state.movements?.[periodId]||{})){
+   const product=products.get(productId);
+   for(const [clientId,units] of Object.entries(cells)){
+    const key=weeklyKey(periodId,productId,clientId),entry=state.weeklyOrigins?.[key],client=clients.get(clientId);
+    if(entry?.deleted||!Number.isFinite(units)||units<=0)continue;
+    const date=dated?period.start:entry?.date;
+    if(!calendarDate(date)||(!entry&&(!product||!client)))continue;
+    const productName=entry?.productName||product?.name||productId;
+    const clientName=entry?.clientName||(client?.name?`${client.name} · ${client.code}`:client?.code||clientId);
+    const origin=entry?.origin;
+    // Los registros anteriores a la procedencia guardan el precio en la matriz semanal.
+    const price=entry?entry.price:state.prices?.[periodId]?.[productId];
+    const currency=entry?.currency||state.settings?.currency||'COP';
+    purchases.push({
+     id:'weekly-'+key,weeklyPeriodId:periodId,weeklyPeriodLabel:period.label,
+     productId,clientId,productName,clientName,date,origin,units,price:price??null,currency,lotId:'',voided:false,
+     location:typeof origin?.rack==='string'?origin.rack:''
+    });
+   }
+  }
  }
  return purchases;
 }
